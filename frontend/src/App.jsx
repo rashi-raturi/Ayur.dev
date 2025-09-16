@@ -13,10 +13,12 @@ import Footer from './components/Footer'
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import Verify from './pages/Verify'
+import PrakrutiSense from './pages/PrakrutiSense'
+import AyuChart from './pages/AyuChart'
 
 const App = () => {
   return (
-    <div className='mx-4 sm:mx-[10%]'>
+    <div className='sm:px-[10%] bg-yellow-100 min-h-screen'>
       <ToastContainer />
       <Navbar />
       <Routes>
@@ -30,6 +32,8 @@ const App = () => {
         <Route path='/my-appointments' element={<MyAppointments />} />
         <Route path='/my-profile' element={<MyProfile />} />
         <Route path='/verify' element={<Verify />} />
+        <Route path='/PrakrutiSense' element={<PrakrutiSense />} />
+        <Route path='/AyuChart' element={<AyuChart />} />
       </Routes>
       <Footer />
     </div>

@@ -21,19 +21,19 @@ const Navbar = () => {
       <img onClick={() => navigate('/')} className='w-44 cursor-pointer' src={assets.logo} alt="" />
       <ul className='md:flex items-start gap-5 font-medium hidden'>
         <NavLink to='/' >
-          <li className='py-1'>HOME</li>
+          <li className='py-1'>Home</li>
           <hr className='border-none outline-none h-0.5 bg-primary w-3/5 m-auto hidden' />
         </NavLink>
-        <NavLink to='/doctors' >
-          <li className='py-1'>ALL DOCTORS</li>
+        <NavLink to='/PrakrutiSense' >
+          <li className='py-1'>PrakrutiSense</li>
           <hr className='border-none outline-none h-0.5 bg-primary w-3/5 m-auto hidden' />
         </NavLink>
-        <NavLink to='/about' >
-          <li className='py-1'>ABOUT</li>
+        <NavLink to='/AyuChart' >
+          <li className='py-1'>AyuChart</li>
           <hr className='border-none outline-none h-0.5 bg-primary w-3/5 m-auto hidden' />
         </NavLink>
         <NavLink to='/contact' >
-          <li className='py-1'>CONTACT</li>
+          <li className='py-1'>Book A Call</li>
           <hr className='border-none outline-none h-0.5 bg-primary w-3/5 m-auto hidden' />
         </NavLink>
       </ul>
