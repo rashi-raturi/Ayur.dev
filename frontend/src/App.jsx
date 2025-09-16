@@ -18,7 +18,7 @@ import AyuChart from './pages/AyuChart'
 
 const App = () => {
   return (
-    <div className='sm:px-[10%] bg-yellow-100 min-h-screen'>
+    <div className='sm:px-[10%] bg-yellow-100 min-h-screen px-5'>
       <ToastContainer />
       <Navbar />
       <Routes>
