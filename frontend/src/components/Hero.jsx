@@ -7,7 +7,7 @@ const Hero = () => {
   return (
     <section
       className="relative bg-cover bg-center bg-no-repeat rounded-xl px-6 md:px-10 lg:px-20 py-12 md:py-24 text-white overflow-hidden"
-      style={{ backgroundImage: `url(${assets.ayurveda_hero_bg})` }}
+      style={{ backgroundImage: `url(${assets.ayurveda_hero_bg1})` }}
     >
       {/* Optional dark overlay for text contrast */}
       <div className="absolute inset-0 bg-black/50 z-0" />

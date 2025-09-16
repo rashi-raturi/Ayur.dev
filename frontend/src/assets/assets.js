@@ -15,6 +15,7 @@ import info_icon from './info_icon.svg'
 import upload_icon from './upload_icon.png'
 import stripe_logo from './stripe_logo.png'
 import ayurveda_hero_bg from './ayurveda_hero_bg.jpg'
+import ayurveda_hero_bg1 from './ayurveda_hero_bg1.jpg'
 import doc1 from './doc1.png'
 import doc2 from './doc2.png'
 import doc3 from './doc3.png'
@@ -55,7 +56,8 @@ export const assets = {
     dropdown_icon,
     upload_icon,
     stripe_logo,
-    ayurveda_hero_bg
+    ayurveda_hero_bg,
+    ayurveda_hero_bg1,
 }
 
 export const specialityData = [
