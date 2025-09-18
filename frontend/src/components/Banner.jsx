@@ -15,7 +15,12 @@ const Banner = () => {
                     <p>Book Appointment</p>
                     <p className='mt-4'>With Trusted Doctors</p>
                 </div>
-                <button className='bg-white text-sm sm:text-base text-[#595959] px-8 py-3 rounded-full mt-6 hover:scale-105 transition-all '>Create account</button>
+                <a href="#speciality">
+                    <button className="bg-white text-sm sm:text-base text-[#595959] px-12 py-3 rounded-full mt-6 hover:scale-105 transition-all flex items-center gap-2">
+                        Book appointment 
+                        <img className="w-3" src={assets.arrow_icon} alt="" />
+                    </button>
+                </a>
             </div>
 
             {/* ------- Right Side ------- */}

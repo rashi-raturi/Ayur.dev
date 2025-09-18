@@ -15,12 +15,14 @@ import 'react-toastify/dist/ReactToastify.css';
 import Verify from './pages/Verify'
 import PrakrutiSense from './pages/PrakrutiSense'
 import AyuChart from './pages/AyuChart'
+import ChatbotWidget from './components/ChatbotWidget'
 
 const App = () => {
   return (
     <div className='sm:px-[10%] bg-yellow-100 min-h-screen px-5'>
       <ToastContainer />
       <Navbar />
+      <ChatbotWidget/>
       <Routes>
         <Route path='/' element={<Home />} />
         <Route path='/doctors' element={<Doctors />} />
