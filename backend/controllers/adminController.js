@@ -151,11 +151,61 @@ const adminDashboard = async (req, res) => {
     }
 }
 
+
+// API to get a single doctor’s profile
+const getDoctorById = async (req, res) => {
+  try {
+    const { id } = req.params
+    const doctor = await doctorModel.findById(id).select("-password")
+    if (!doctor) return res.json({ success: false, message: "Doctor not found" })
+    res.json({ success: true, doctor })
+  } catch (error) {
+    console.error(error)
+    res.json({ success: false, message: error.message })
+  }
+}
+
+// API to update a doctor’s details
+const updateDoctor = async (req, res) => {
+  try {
+    const { id } = req.params
+    const updates = { ...req.body }
+
+        // parse address only if sent as a JSON string
+        if (updates.address && typeof updates.address === 'string') {
+            updates.address = JSON.parse(updates.address)
+        }
+
+    // password change
+    if (updates.password) {
+      const salt = await bcrypt.genSalt(10)
+      updates.password = await bcrypt.hash(updates.password, salt)
+    }
+
+    // new image upload
+    if (req.file) {
+      const uploadRes = await cloudinary.uploader.upload(req.file.path, { resource_type: "image" })
+      updates.image = uploadRes.secure_url
+    }
+
+    const doctor = await doctorModel
+      .findByIdAndUpdate(id, updates, { new: true })
+      .select("-password")
+
+    res.json({ success: true, doctor })
+  } catch (error) {
+    console.error(error)
+    res.json({ success: false, message: error.message })
+  }
+}
+
 export {
     loginAdmin,
     appointmentsAdmin,
     appointmentCancel,
     addDoctor,
     allDoctors,
-    adminDashboard
+    adminDashboard,
+    getDoctorById,
+    updateDoctor
 }

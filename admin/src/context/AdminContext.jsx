@@ -14,6 +14,7 @@ const AdminContextProvider = (props) => {
     const [appointments, setAppointments] = useState([])
     const [doctors, setDoctors] = useState([])
     const [dashData, setDashData] = useState(false)
+    const [doctorDetails, setDoctorDetails] = useState(null)
 
     // Getting all Doctors data from Database using API
     const getAllDoctors = async () => {
@@ -111,6 +112,53 @@ const AdminContextProvider = (props) => {
 
     }
 
+    // Fetch a single doctor's details
+    const getDoctorDetails = async (id) => {
+        try {
+            const { data } = await axios.get(
+                `${backendUrl}/api/admin/doctor/${id}`,
+                { headers: { aToken } }
+            )
+            if (data.success) setDoctorDetails(data.doctor)
+            else toast.error(data.message)
+        } catch (error) {
+            toast.error(error.message)
+        }
+    }
+
+    // Update a doctor's details
+    const updateDoctorDetails = async (id, updateData, imageFile) => {
+        try {
+            let response
+            if (imageFile) {
+                const formData = new FormData()
+                Object.keys(updateData).forEach((key) => {
+                    const value = updateData[key]
+                    formData.append(key, typeof value === 'object' ? JSON.stringify(value) : value)
+                })
+                formData.append('image', imageFile)
+                response = await axios.put(
+                    `${backendUrl}/api/admin/doctor/${id}`,
+                    formData,
+                    { headers: { aToken, 'Content-Type': 'multipart/form-data' } }
+                )
+            } else {
+                response = await axios.put(
+                    `${backendUrl}/api/admin/doctor/${id}`,
+                    updateData,
+                    { headers: { aToken } }
+                )
+            }
+            const { data } = response
+            if (data.success) {
+                toast.success(data.message || 'Doctor updated')
+                setDoctorDetails(data.doctor)
+            } else toast.error(data.message)
+        } catch (error) {
+            toast.error(error.message)
+        }
+    }
+
     const value = {
         aToken, setAToken,
         doctors,
@@ -120,7 +168,8 @@ const AdminContextProvider = (props) => {
         getAllAppointments,
         getDashData,
         cancelAppointment,
-        dashData
+        dashData,
+        doctorDetails, getDoctorDetails, updateDoctorDetails
     }
 
     return (
