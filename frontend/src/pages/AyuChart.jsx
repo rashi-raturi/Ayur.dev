@@ -1,10 +1,9 @@
 import React from 'react'
+import DietChartGenerator from '../components/DietChartGenerator';
 
 const AyuChart = () => {
   return (
-    <div>
-      <h1>AyuChart</h1>
-    </div>
+    <DietChartGenerator/>
   )
 }
 
