@@ -37,6 +37,10 @@ import General_physician from './General_physician.svg'
 import Gynecologist from './Gynecologist.svg'
 import Neurologist from './Neurologist.svg'
 import Pediatricians from './Pediatricians.svg'
+import AyurvedaDoc from './ayurveda_doctor.png'
+import AyurvedaTherapist from './ayurveda_therapist.png'
+import AyurvedaHealthCounsellor from './ayurveda_health_counsellor.png'
+import RasashastraExpert from './RasashastraExpert.png'
 
 
 export const assets = {
@@ -58,24 +62,28 @@ export const assets = {
     stripe_logo,
     ayurveda_hero_bg,
     ayurveda_hero_bg1,
+    AyurvedaDoc,
+    AyurvedaTherapist,
+    AyurvedaHealthCounsellor,
+    RasashastraExpert,
 }
 
 export const specialityData = [
     {
         speciality: 'Ayurvedic doctor',
-        image: General_physician
+        image: AyurvedaDoc
     },
     {
         speciality: 'Ayurvedic therapist',
-        image: Gynecologist
+        image: AyurvedaTherapist
     },
     {
         speciality: 'Ayurvedic health counsellor',
-        image: Dermatologist
+        image: AyurvedaHealthCounsellor
     },
     {
         speciality: 'Rasashastra expert',
-        image: Pediatricians
+        image: RasashastraExpert
     },
 ]
 
