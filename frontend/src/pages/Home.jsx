@@ -12,9 +12,9 @@ const Home = () => {
   return (
     <div>
       <Hero/>
-      {/* <Header />
-      <SpecialityMenu /> */}
-      {/* <TopDoctors /> */}
+      <Header />
+      <SpecialityMenu />
+      <TopDoctors />
       <FeaturesSection/>
       <Banner />
       <WhyChooseUs/>
