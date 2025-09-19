@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import PropTypes from 'prop-types';
 import ReactMarkdown from 'react-markdown';
 import { getSessionId } from './utils/session';
 import { Download, Send } from 'lucide-react';
 
 export default function ChatWindow({ onClose }) {
+  const sessionId = getSessionId();
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -11,13 +13,21 @@ export default function ChatWindow({ onClose }) {
 
   const url = import.meta.env.VITE_RAG_URL
 
+  // on mount: load saved chat or show welcome
   useEffect(() => {
-    const welcomeMessage = {
-      role: 'bot',
-      content: "Hi! I'm AyurMind, your friendly Ayurvedic assistant. How can I help you today?",
-    };
-    setMessages([welcomeMessage]);
-  }, []);
+    const saved = sessionStorage.getItem(`ayur_chat_${sessionId}`);
+    if (saved) {
+      setMessages(JSON.parse(saved));
+    } else {
+      const welcomeMessage = { role: 'bot', content: "Hi! I'm AyurMind, your friendly Ayurvedic assistant. How can I help you today?" };
+      setMessages([welcomeMessage]);
+    }
+  }, [sessionId]);
+
+  // persist chat whenever messages change
+  useEffect(() => {
+    sessionStorage.setItem(`ayur_chat_${sessionId}`, JSON.stringify(messages));
+  }, [messages, sessionId]);
 
   const sendMessage = async () => {
     if (!input.trim()) return;
@@ -162,3 +172,8 @@ export default function ChatWindow({ onClose }) {
     </div>
   );
 }
+
+// validate props
+ChatWindow.propTypes = {
+  onClose: PropTypes.func.isRequired,
+};
