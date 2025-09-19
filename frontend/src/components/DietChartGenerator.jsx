@@ -1,9 +1,10 @@
-import React, { useState } from "react";
+import { useState, useEffect } from "react";
+import ReactMarkdown from "react-markdown";
 import { Send, User, Bot, Download } from "lucide-react";
 import { getSessionId } from './utils/session';
-import ReactMarkdown from "react-markdown";
 
 export default function DietChartGenerator() {
+  const sessionId = getSessionId();
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [messages, setMessages] = useState([]);
@@ -12,6 +13,18 @@ export default function DietChartGenerator() {
   // Base URL for AI/chat and PDF endpoints (must be VITE_RAG_URL in .env)
   const url = import.meta.env.VITE_RAG_URL
 
+  // load saved diet chat on mount
+  useEffect(() => {
+    const saved = sessionStorage.getItem(`ayur_diet_${sessionId}`);
+    if (saved) setMessages(JSON.parse(saved));
+  }, [sessionId]);
+
+  // persist diet chat whenever messages change
+  useEffect(() => {
+    sessionStorage.setItem(`ayur_diet_${sessionId}`, JSON.stringify(messages));
+  }, [messages, sessionId]);
+
+  /* eslint-disable no-unused-vars */
   const processDietChartData = (rawData) => {
     // Process your specific format here
     // This is a placeholder - replace with your actual format processing
@@ -149,17 +162,17 @@ export default function DietChartGenerator() {
   };
 
   return (
-    <div className="flex flex-col h-screen w-full mx-auto bg-primary rounded-lg">
+    <div className="flex flex-col h-screen w-full mx-auto bg-yellow-100">
       {/* Chat Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-6">
         {messages.length === 0 ? (
           <div className="text-center py-12">
             {/* AyuChart Title */}
-            <h1 className="text-8xl font-bold text-white mb-6">AyuChart</h1>
-            <p className="text-xl text-white mb-8">Get personalized nutrition recommendations</p>
+            <h1 className="text-8xl font-bold text-black mb-6">AyuChart</h1>
+            <p className="text-xl text-gray-600 mb-8">Get personalized nutrition recommendations</p>
             
             {/* Text Area */}
-            <div className="max-w-3xl mx-auto mb-8 bg-primary">
+            <div className="max-w-3xl mx-auto mb-8 bg-yellow-100">
               <div className="relative">
                 <textarea
                   placeholder="Describe your dietary needs, health goals, allergies, age, activity level..."
@@ -188,32 +201,32 @@ export default function DietChartGenerator() {
             {/* Suggestion Options */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 max-w-3xl mx-auto">
               <button
-                className="group p-4 text-left border border-gray-300 rounded-xl hover:bg-yellow-100 hover:border-black transition-all bg-gray-200"
+                className="group p-4 text-left border border-gray-300 rounded-xl hover:bg-primary hover:border-black transition-all"
                 onClick={() => handleSuggestionClick("I'm a 25-year-old vegetarian looking to lose weight")}
               >
-                <div className="font-semibold text-gray-900 mb-1 group-hover:text-black">Weight Loss Plan</div>
-                <div className="text-sm text-black">Vegetarian, 25 years old</div>
+                <div className="font-semibold text-gray-900 mb-1 group-hover:text-white">Weight Loss Plan</div>
+                <div className="text-sm text-gray-500 group-hover:text-white">Vegetarian, 25 years old</div>
               </button>
               <button 
-                className="group p-4 text-left border border-gray-300 rounded-xl hover:bg-yellow-100 hover:border-black transition-all bg-gray-200"
+                className="group p-4 text-left border border-gray-300 rounded-xl hover:bg-primary hover:border-black transition-all"
                 onClick={() => handleSuggestionClick("I need a muscle building diet plan, I'm 28 and go to gym 5 times a week")}
               >
-                <div className="font-semibold text-gray-900 mb-1 group-hover:text-black">Muscle Building</div>
-                <div className="text-sm text-black">High protein, gym routine</div>
+                <div className="font-semibold text-gray-900 mb-1 group-hover:text-white">Muscle Building</div>
+                <div className="text-sm text-gray-500 group-hover:text-white">High protein, gym routine</div>
               </button>
               <button 
-                className="group p-4 text-left border border-gray-300 rounded-xl hover:bg-yellow-100 hover:border-black transition-all bg-gray-200"
+                className="group p-4 text-left border border-gray-300 rounded-xl hover:bg-primary hover:border-black transition-all"
                 onClick={() => handleSuggestionClick("I have diabetes and need a balanced diet plan")}
               >
-                <div className="font-semibold text-gray-900 mb-1 group-hover:text-black">Diabetic Diet</div>
-                <div className="text-sm text-black">Blood sugar management</div>
+                <div className="font-semibold text-gray-900 mb-1 group-hover:text-white">Diabetic Diet</div>
+                <div className="text-sm text-gray-500 group-hover:text-white">Blood sugar management</div>
               </button>
               <button 
-                className="group p-4 text-left border border-gray-300 rounded-xl hover:bg-yellow-100 hover:border-black transition-all bg-gray-200"
+                className="group p-4 text-left border border-gray-300 rounded-xl hover:bg-primary hover:border-black transition-all"
                 onClick={() => handleSuggestionClick("I'm pregnant and need nutritional guidance")}
               >
-                <div className="font-semibold text-gray-900 mb-1 group-hover:text-black">Pregnancy Nutrition</div>
-                <div className="text-sm text-black">Mother and baby health</div>
+                <div className="font-semibold text-gray-900 mb-1 group-hover:text-white">Pregnancy Nutrition</div>
+                <div className="text-sm text-gray-500 group-hover:text-white">Mother and baby health</div>
               </button>
             </div>
           </div>
@@ -278,7 +291,7 @@ export default function DietChartGenerator() {
             )}
 
             {/* Input Area for Chat Mode */}
-            <div className="sticky bottom-0 border-t border-primary p-4 -mx-4 bg-primary">
+            <div className="sticky bottom-0 border-t border-gray-200 p-4 -mx-4 bg-yellow-100">
               <div className="flex items-end space-x-3 max-w-4xl mx-auto">
                 <div className="flex-1 relative">
                   <textarea
@@ -308,7 +321,7 @@ export default function DietChartGenerator() {
                   </button>
                 </div>
               </div>
-              <p className="text-xs text-white text-center mt-2">
+              <p className="text-xs text-gray-500 text-center mt-2">
                 This AI provides general dietary suggestions. Consult healthcare professionals for medical conditions.
               </p>
             </div>
