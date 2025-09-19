@@ -4,11 +4,37 @@ import validator from "validator";
 import userModel from "../models/userModel.js";
 import doctorModel from "../models/doctorModel.js";
 import appointmentModel from "../models/appointmentModel.js";
+import assessmentModel from "../models/assessmentModel.js";
 import { v2 as cloudinary } from 'cloudinary'
 import stripe from "stripe";
 
 // Gateway Initialize
 const stripeInstance = new stripe(process.env.STRIPE_SECRET_KEY)
+
+// Static recommendations for each dosha
+const doshaRecommendations = {
+    Vata: [
+        "Maintain regular daily routines",
+        "Eat warm, cooked foods",
+        "Practice calming activities like yoga",
+        "Get adequate rest and sleep",
+        "Stay warm and avoid cold environments",
+    ],
+    Pitta: [
+        "Keep cool and avoid excessive heat",
+        "Eat cooling foods like cucumber and coconut",
+        "Practice moderation in activities",
+        "Avoid spicy and acidic foods",
+        "Take time for relaxation and leisure",
+    ],
+    Kapha: [
+        "Engage in regular vigorous exercise",
+        "Eat light, warm, and spicy foods",
+        "Avoid heavy, oily, and sweet foods",
+        "Stay active and avoid oversleeping",
+        "Embrace variety and new experiences",
+    ],
+};
 
 // API to register user
 const registerUser = async (req, res) => {
@@ -290,7 +316,60 @@ const verifyStripe = async (req, res) => {
         res.json({ success: false, message: error.message })
     }
 
-}
+};
+
+// API to create a PrakrutiSense assessment
+const createAssessment = async (req, res) => {
+    try {
+        const { userId, inputData, resultData } = req.body;
+        if (!userId || !inputData || !resultData) {
+            return res.json({ success: false, message: 'Missing assessment data' });
+        }
+                // compute recommendations for stored resultData
+                const recommendations = {};
+                Object.keys(resultData).forEach((dosha) => {
+                    recommendations[dosha] = doshaRecommendations[dosha] || [];
+                });
+                const assessment = new assessmentModel({ userId, inputData, resultData, recommendations, date: Date.now() });
+        await assessment.save();
+        res.json({ success: true, assessment });
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: error.message });
+    }
+};
+
+// API to list PrakrutiSense assessment history for a user
+const listAssessments = async (req, res) => {
+    try {
+        const { userId } = req.body;
+        const assessments = await assessmentModel.find({ userId }).sort({ date: -1 });
+        res.json({ success: true, assessments });
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: error.message });
+    }
+};
+
+// API to delete a PrakrutiSense assessment
+const deleteAssessment = async (req, res) => {
+    try {
+        const { userId } = req.body;
+        const { id } = req.params;
+        const assessment = await assessmentModel.findById(id);
+        if (!assessment) {
+            return res.json({ success: false, message: 'Assessment not found' });
+        }
+        if (assessment.userId !== userId) {
+            return res.json({ success: false, message: 'Unauthorized' });
+        }
+        await assessmentModel.findByIdAndDelete(id);
+        res.json({ success: true, message: 'Assessment deleted' });
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: error.message });
+    }
+};
 
 export {
     loginUser,
@@ -301,5 +380,8 @@ export {
     listAppointment,
     cancelAppointment,
     paymentStripe,
-    verifyStripe
+    verifyStripe,
+    createAssessment,
+    listAssessments,
+    deleteAssessment
 }

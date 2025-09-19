@@ -1,8 +1,11 @@
-import React, { useState, useEffect } from "react";
+/* eslint-disable react-hooks/exhaustive-deps, react/prop-types */
+import { useState, useEffect, useContext } from "react";
 import "./MyForm.css";
 import logicData from "./logic.json";
 
-const MyForm = () => {
+import axios from 'axios';
+import { AppContext } from '../../context/AppContext';
+const MyForm = ({ onComplete }) => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState({});
   const [doshaScores, setDoshaScores] = useState({
@@ -13,6 +16,9 @@ const MyForm = () => {
   const [showResults, setShowResults] = useState(false);
   const [showThankYou, setShowThankYou] = useState(false);
   const [showWelcome, setShowWelcome] = useState(true);
+
+  // Access backend URL and auth token from context
+  const { backendUrl, token } = useContext(AppContext);
 
   // Use the imported logic data and filter out non-question blocks
   const formData = {
@@ -99,7 +105,18 @@ const MyForm = () => {
     console.log("Individual Answers:", answers);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    try {
+      // save assessment
+      await axios.post(
+        `${backendUrl}/api/user/prakruti`,
+        { inputData: answers, resultData: doshaScores },
+        { headers: { token } }
+      );
+      if (onComplete) onComplete();
+    } catch (error) {
+      console.error('Assessment save failed:', error);
+    }
     setShowThankYou(true);
   };
 
