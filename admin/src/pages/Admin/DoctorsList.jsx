@@ -13,7 +13,7 @@ const DoctorsList = () => {
 }, [aToken, getAllDoctors])
 
   return (
-    <div className='p-5 max-h-[90vh] overflow-y-scroll bg-yellow-100'>
+    <div className='p-5 h-screen overflow-y-scroll bg-yellow-100'>
       <h1 className='text-lg font-medium'>All Doctors</h1>
       <div className='w-full flex flex-wrap gap-4 pt-5 gap-y-6'>
         {doctors.map((item, index) => (
