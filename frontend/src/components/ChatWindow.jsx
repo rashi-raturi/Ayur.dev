@@ -9,6 +9,8 @@ export default function ChatWindow({ onClose }) {
   const [loading, setLoading] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
 
+  const url = import.meta.env.VITE_RAG_URL
+
   useEffect(() => {
     const welcomeMessage = {
       role: 'bot',
@@ -25,7 +27,7 @@ export default function ChatWindow({ onClose }) {
     setLoading(true);
 
     try {
-      const res = await fetch('http://127.0.0.1:8000/ask', {
+      const res = await fetch(`${url}/ask`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -71,7 +73,7 @@ export default function ChatWindow({ onClose }) {
     setDownloadingPdf(true);
     try {
       const endpoint = mode === 'diet' ? '/diet-chart/pdf' : '/diet-chart/pdf';
-      const res = await fetch(`http://127.0.0.1:8000${endpoint}`, {
+      const res = await fetch(`${url}${endpoint}`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',

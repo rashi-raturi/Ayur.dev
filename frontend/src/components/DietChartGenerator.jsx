@@ -11,7 +11,6 @@ export default function DietChartGenerator() {
 
   // Base URL for AI/chat and PDF endpoints (must be VITE_RAG_URL in .env)
   const url = import.meta.env.VITE_RAG_URL
-  console.log(url)
 
   const processDietChartData = (rawData) => {
     // Process your specific format here
