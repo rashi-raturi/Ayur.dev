@@ -1,4 +1,4 @@
-import { useContext, useEffect } from 'react'
+import React, { useContext, useEffect } from 'react'
 import { assets } from '../../assets/assets'
 import { AdminContext } from '../../context/AdminContext'
 import { AppContext } from '../../context/AppContext'
@@ -12,76 +12,54 @@ const Dashboard = () => {
     if (aToken) {
       getDashData()
     }
-  // Include getDashData to satisfy lint
-  }, [aToken, getDashData])
+  }, [aToken])
 
-  // only render once data is loaded
-  if (!dashData) return null
+  return dashData && (
+    <div className='m-5'>
 
-  return (
-    <div className="p-5 bg-yellow-100 w-full h-screen">
-      <h1 className="text-2xl font-bold text-gray-800 mb-6">Dashboard</h1>
-
-      {/* Stats Cards */}
-  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-        {/* Doctors */}
-        <div className="flex items-center gap-3 bg-white p-4 rounded-lg shadow-sm hover:shadow transition">
-          <img className="w-10" src={assets.doctor_icon} alt="Doctors" />
+      <div className='flex flex-wrap gap-3'>
+        <div className='flex items-center gap-2 bg-white p-4 min-w-52 rounded border-2 border-gray-100 cursor-pointer hover:scale-105 transition-all'>
+          <img className='w-14' src={assets.doctor_icon} alt="" />
           <div>
-            <p className="text-2xl font-semibold text-gray-800">{dashData.doctors}</p>
-            <p className="text-sm text-gray-500">Doctors</p>
+            <p className='text-xl font-semibold text-gray-600'>{dashData.doctors}</p>
+            <p className='text-gray-400'>Doctors</p>
           </div>
         </div>
-        {/* Appointments */}
-        <div className="flex items-center gap-3 bg-white p-4 rounded-lg shadow-sm hover:shadow transition">
-          <img className="w-10" src={assets.appointments_icon} alt="Appointments" />
+        <div className='flex items-center gap-2 bg-white p-4 min-w-52 rounded border-2 border-gray-100 cursor-pointer hover:scale-105 transition-all'>
+          <img className='w-14' src={assets.appointments_icon} alt="" />
           <div>
-            <p className="text-2xl font-semibold text-gray-800">{dashData.appointments}</p>
-            <p className="text-sm text-gray-500">Appointments</p>
+            <p className='text-xl font-semibold text-gray-600'>{dashData.appointments}</p>
+            <p className='text-gray-400'>Appointments</p>
           </div>
         </div>
-        {/* Patients */}
-        <div className="flex items-center gap-3 bg-white p-4 rounded-lg shadow-sm hover:shadow transition">
-          <img className="w-10" src={assets.patients_icon} alt="Patients" />
+        <div className='flex items-center gap-2 bg-white p-4 min-w-52 rounded border-2 border-gray-100 cursor-pointer hover:scale-105 transition-all'>
+          <img className='w-14' src={assets.patients_icon} alt="" />
           <div>
-            <p className="text-2xl font-semibold text-gray-800">{dashData.patients}</p>
-            <p className="text-sm text-gray-500">Patients</p>
-          </div>
+            <p className='text-xl font-semibold text-gray-600'>{dashData.patients}</p>
+            <p className='text-gray-400'>Patients</p></div>
         </div>
       </div>
 
-      {/* Latest Bookings */}
-      <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-3 bg-gray-100 border-b">
-          <div className="flex items-center gap-2">
-            <img src={assets.list_icon} alt="Latest Bookings" />
-            <p className="text-lg font-semibold text-gray-700">Latest Bookings</p>
-          </div>
-          {/* Optionally add 'View All' link here */}
+      <div className='bg-white'>
+        <div className='flex items-center gap-2.5 px-4 py-4 mt-10 rounded-t border'>
+          <img src={assets.list_icon} alt="" />
+          <p className='font-semibold'>Latest Bookings</p>
         </div>
-        <div className="divide-y">
-          {dashData.latestAppointments.slice(0, 5).map((item, idx) => (
-            <div key={idx} className="grid grid-cols-[auto,1fr,auto] items-center px-4 py-2 hover:bg-gray-50 transition">
-              <img className="w-8 h-8 rounded-full object-cover" src={item.docData.image} alt="Doctor" />
-              <div className="pl-4">
-                <p className="text-gray-800 font-medium text-sm">{item.docData.name}</p>
-                <p className="text-gray-600 text-xs">Booked on {slotDateFormat(item.slotDate)}</p>
+
+        <div className='pt-4 border border-t-0'>
+          {dashData.latestAppointments.slice(0, 5).map((item, index) => (
+            <div className='flex items-center px-6 py-3 gap-3 hover:bg-gray-100' key={index}>
+              <img className='rounded-full w-10' src={item.docData.image} alt="" />
+              <div className='flex-1 text-sm'>
+                <p className='text-gray-800 font-medium'>{item.docData.name}</p>
+                <p className='text-gray-600 '>Booking on {slotDateFormat(item.slotDate)}</p>
               </div>
-              <div className="text-right">
-                {item.cancelled ? (
-                  <span className="text-red-500 text-sm font-medium">Cancelled</span>
-                ) : item.isCompleted ? (
-                  <span className="text-green-500 text-sm font-medium">Completed</span>
-                ) : (
-                  <button onClick={() => cancelAppointment(item._id)} className="text-red-500 hover:text-red-700">
-                    <img className="w-5 h-5 inline-block" src={assets.cancel_icon} alt="Cancel" />
-                  </button>
-                )}
-              </div>
+              {item.cancelled ? <p className='text-red-400 text-xs font-medium'>Cancelled</p> : item.isCompleted ? <p className='text-green-500 text-xs font-medium'>Completed</p> : <img onClick={() => cancelAppointment(item._id)} className='w-10 cursor-pointer' src={assets.cancel_icon} alt="" />}
             </div>
           ))}
         </div>
       </div>
+
     </div>
   )
 }
