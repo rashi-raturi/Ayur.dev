@@ -33,7 +33,7 @@ const features = [
   },
   {
     id: "bookCall",
-    title: "Book A Call",
+    title: "VaaniAI",
     subtitle: "Your AI Health Companion",
     description:
       "Talk to our intelligent AI agent to get personalized Ayurvedic guidance instantly.",
@@ -42,7 +42,7 @@ const features = [
       "Instant recommendations & support",
       "Secure & private conversations",
     ],
-    buttonText: "Chat with Our AI →",
+    buttonText: "Talk with VaaniAI →",
     buttonLink: "/contact",
   },
 ];
