@@ -1,0 +1,301 @@
+{
+  "name": "Dosha Calculator",
+  "version": "1.0.0",
+  "blocks": [
+    {
+      "id": "q1",
+      "type": "multiple-choice",
+      "title": "How would you describe your body frame?",
+      "options": [
+        { "label": "Slim",   "points": {"Vata": 5, "Pitta": 0, "Kapha": 0} },
+        { "label": "Medium", "points": {"Vata": 0, "Pitta": 5, "Kapha": 0} },
+        { "label": "Heavy",  "points": {"Vata": 0, "Pitta": 0, "Kapha": 5} }
+      ]
+    },
+    {
+      "id": "q2",
+      "type": "multiple-choice",
+      "title": "How easily do you gain weight?",
+      "options": [
+        {
+          "label": "Hard to gain",
+          "points": {"Vata": 5, "Pitta": 0, "Kapha": 0}
+        },
+        { "label": "Moderate", "points": {"Vata": 0, "Pitta": 5, "Kapha": 0} },
+        { "label": "Easy", "points": {"Vata": 0, "Pitta": 0, "Kapha": 5} }
+      ]
+    },
+    {
+      "id": "q3",
+      "type": "multiple-choice",
+      "title": "What best describes your skin type?",
+      "options": [
+        { "label": "Dry", "points": {"Vata": 5, "Pitta": 0, "Kapha": 0} },
+        {
+          "label": "Warm/Oily",
+          "points": {"Vata": 0, "Pitta": 5, "Kapha": 0}
+        },
+        { "label": "Moist", "points": {"Vata": 0, "Pitta": 0, "Kapha": 5} }
+      ]
+    },
+    {
+      "id": "q4",
+      "type": "multiple-choice",
+      "title": "Which texture best describes your hair?",
+      "options": [
+        {
+          "label": "Thin, curly",
+          "points": {"Vata": 5, "Pitta": 0, "Kapha": 0}
+        },
+        {
+          "label": "Straight, soft",
+          "points": {"Vata": 0, "Pitta": 5, "Kapha": 0}
+        },
+        {
+          "label": "Thick, wavy",
+          "points": {"Vata": 0, "Pitta": 0, "Kapha": 5}
+        }
+      ]
+    },
+    {
+      "id": "q5",
+      "type": "multiple-choice",
+      "title": "How would you describe your appetite?",
+      "options": [
+        {
+          "label": "Irregular",
+          "points": {"Vata": 5, "Pitta": 0, "Kapha": 0}
+        },
+        { "label": "Strong", "points": {"Vata": 0, "Pitta": 5, "Kapha": 0} },
+        { "label": "Slow", "points": {"Vata": 0, "Pitta": 0, "Kapha": 5} }
+      ]
+    },
+    {
+      "id": "q6",
+      "type": "multiple-choice",
+      "title": "How would you describe your sleeping pattern?",
+      "options": [
+        {
+          "label": "Light / Short sleeper",
+          "points": {"Vata": 5, "Pitta": 0, "Kapha": 0}
+        },
+        { "label": "Moderate", "points": {"Vata": 0, "Pitta": 5, "Kapha": 0} },
+        { "label": "Heavy", "points": {"Vata": 0, "Pitta": 0, "Kapha": 5} }
+      ]
+    },
+    {
+      "id": "q7",
+      "type": "multiple-choice",
+      "title": "How sensitive are you to cold weather?",
+      "options": [
+        {
+          "label": "Sensitive",
+          "points": {"Vata": 5, "Pitta": 0, "Kapha": 0}
+        },
+        { "label": "Moderate", "points": {"Vata": 0, "Pitta": 5, "Kapha": 0} },
+        { "label": "Tolerant", "points": {"Vata": 0, "Pitta": 0, "Kapha": 5} }
+      ]
+    },
+    {
+      "id": "q8",
+      "type": "multiple-choice",
+      "title": "How is your energy throughout the day?",
+      "options": [
+        {
+          "label": "Quick, sporadic",
+          "points": {"Vata": 5, "Pitta": 0, "Kapha": 0}
+        },
+        {
+          "label": "Medium, sustained",
+          "points": {"Vata": 0, "Pitta": 5, "Kapha": 0}
+        },
+        {
+          "label": "Slow, steady",
+          "points": {"Vata": 0, "Pitta": 0, "Kapha": 5}
+        }
+      ]
+    },
+    {
+      "id": "q9",
+      "type": "multiple-choice",
+      "title": "How would you describe your digestion speed?",
+      "options": [
+        {
+          "label": "Irregular / fast",
+          "points": {"Vata": 5, "Pitta": 0, "Kapha": 0}
+        },
+        { "label": "Strong", "points": {"Vata": 0, "Pitta": 5, "Kapha": 0} },
+        { "label": "Slow", "points": {"Vata": 0, "Pitta": 0, "Kapha": 5} }
+      ]
+    },
+    {
+      "id": "q10",
+      "type": "multiple-choice",
+      "title": "What is your usual body temperature?",
+      "options": [
+        { "label": "Cold", "points": {"Vata": 5, "Pitta": 0, "Kapha": 0} },
+        { "label": "Warm", "points": {"Vata": 0, "Pitta": 5, "Kapha": 0} },
+        { "label": "Cool", "points": {"Vata": 0, "Pitta": 0, "Kapha": 5} }
+      ]
+    },
+    {
+      "id": "q11",
+      "type": "multiple-choice",
+      "title": "How would you describe your mental activity?",
+      "options": [
+        { "label": "Restless", "points": {"Vata": 5, "Pitta": 0, "Kapha": 0} },
+        { "label": "Focused",  "points": {"Vata": 0, "Pitta": 5, "Kapha": 0} },
+        { "label": "Calm",     "points": {"Vata": 0, "Pitta": 0, "Kapha": 5} }
+      ]
+    },
+    {
+      "id": "q12",
+      "type": "multiple-choice",
+      "title": "How would you describe your memory?",
+      "options": [
+        {
+          "label": "Quick but forgetful",
+          "points": {"Vata": 5, "Pitta": 0, "Kapha": 0}
+        },
+        {
+          "label": "Sharp, precise",
+          "points": {"Vata": 0, "Pitta": 5, "Kapha": 0}
+        },
+        {
+          "label": "Steady, slow",
+          "points": {"Vata": 0, "Pitta": 0, "Kapha": 5}
+        }
+      ]
+    },
+    {
+      "id": "q13",
+      "type": "multiple-choice",
+      "title": "How do you usually speak?",
+      "options": [
+        { "label": "Fast", "points": {"Vata": 5, "Pitta": 0, "Kapha": 0} },
+        {
+          "label": "Persuasive",
+          "points": {"Vata": 0, "Pitta": 5, "Kapha": 0}
+        },
+        { "label": "Slow", "points": {"Vata": 0, "Pitta": 0, "Kapha": 5} }
+      ]
+    },
+    {
+      "id": "q14",
+      "type": "multiple-choice",
+      "title": "How would you describe your emotions?",
+      "options": [
+        { "label": "Anxious", "points": {"Vata": 5, "Pitta": 0, "Kapha": 0} },
+        {
+          "label": "Ambitious/Irritable",
+          "points": {"Vata": 0, "Pitta": 5, "Kapha": 0}
+        },
+        {
+          "label": "Patient/Calm",
+          "points": {"Vata": 0, "Pitta": 0, "Kapha": 5}
+        }
+      ]
+    },
+    {
+      "id": "q15",
+      "type": "multiple-choice",
+      "title": "How do you make decisions?",
+      "options": [
+        { "label": "Hesitant", "points": {"Vata": 5, "Pitta": 0, "Kapha": 0} },
+        { "label": "Quick", "points": {"Vata": 0, "Pitta": 5, "Kapha": 0} },
+        {
+          "label": "Slow, careful",
+          "points": {"Vata": 0, "Pitta": 0, "Kapha": 5}
+        }
+      ]
+    },
+    {
+      "id": "q16",
+      "type": "multiple-choice",
+      "title": "How do you usually respond to stress?",
+      "options": [
+        {
+          "label": "Easily stressed",
+          "points": {"Vata": 5, "Pitta": 0, "Kapha": 0}
+        },
+        {
+          "label": "Assertive",
+          "points": {"Vata": 0, "Pitta": 5, "Kapha": 0}
+        },
+        { "label": "Calm", "points": {"Vata": 0, "Pitta": 0, "Kapha": 5} }
+      ]
+    },
+    {
+      "id": "q17",
+      "type": "multiple-choice",
+      "title": "How would you describe your creativity level?",
+      "options": [
+        {
+          "label": "High, scattered",
+          "points": {"Vata": 5, "Pitta": 0, "Kapha": 0}
+        },
+        {
+          "label": "Goal-oriented",
+          "points": {"Vata": 0, "Pitta": 5, "Kapha": 0}
+        },
+        { "label": "Practical", "points": {"Vata": 0, "Pitta": 0, "Kapha": 5} }
+      ]
+    },
+    {
+      "id": "q18",
+      "type": "multiple-choice",
+      "title": "How would you describe your social energy?",
+      "options": [
+        { "label": "Variable", "points": {"Vata": 5, "Pitta": 0, "Kapha": 0} },
+        {
+          "label": "Confident leader",
+          "points": {"Vata": 0, "Pitta": 5, "Kapha": 0}
+        },
+        { "label": "Reserved", "points": {"Vata": 0, "Pitta": 0, "Kapha": 5} }
+      ]
+    },
+    {
+      "id": "q19",
+      "type": "multiple-choice",
+      "title": "How motivated are you in general?",
+      "options": [
+        {
+          "label": "Easily distracted",
+          "points": {"Vata": 5, "Pitta": 0, "Kapha": 0}
+        },
+        {
+          "label": "Strong, focused",
+          "points": {"Vata": 0, "Pitta": 5, "Kapha": 0}
+        },
+        {
+          "label": "Slow starter",
+          "points": {"Vata": 0, "Pitta": 0, "Kapha": 5}
+        }
+      ]
+    },
+    {
+      "id": "q20",
+      "type": "multiple-choice",
+      "title": "How would you describe your emotional stability?",
+      "options": [
+        {
+          "label": "Mood swings",
+          "points": {"Vata": 5, "Pitta": 0, "Kapha": 0}
+        },
+        { "label": "Intense", "points": {"Vata": 0, "Pitta": 5, "Kapha": 0} },
+        { "label": "Steady", "points": {"Vata": 0, "Pitta": 0, "Kapha": 5} }
+      ]
+    },
+    {
+      "id": "result",
+      "type": "calculation",
+      "title": "Your Dosha Percentage",
+      "formula": {
+        "Vata" : "sum(Vata)",
+        "Pitta": "sum(Pitta)",
+        "Kapha": "sum(Kapha)"
+      },
+      "display": "Vata: {{Vata}}%, Pitta: {{Pitta}}%, Kapha: {{Kapha}}%"
+    }
+  ]
+}
