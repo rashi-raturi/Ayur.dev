@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Send, User, Bot, Download } from "lucide-react";
-
+import { getSessionId } from './utils/session';
+import ReactMarkdown from "react-markdown";
 export default function DietChartGenerator() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -57,40 +58,34 @@ export default function DietChartGenerator() {
     }
   };
 
-  const handleDownloadPdf = async (messageContent, messageData) => {
-    setDownloadingPdf(true);
-    
-    try {
-      const res = await fetch("/api/diet-chart/pdf", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          dietChart: messageContent,
-          rawData: messageData 
-        }),
-      });
+  const handleDownloadPdf = async (messageContent) => {
+  setDownloadingPdf(true);
 
-      if (!res.ok) {
-        throw new Error('Failed to generate PDF');
-      }
+  try {
+    const res = await fetch("http://127.0.0.1:8000/diet-chart/pdf", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Session-Id": getSessionId() },
+      body: JSON.stringify({ dietChart: messageContent }),
+    });
 
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.style.display = 'none';
-      a.href = url;
-      a.download = 'ayuchart-diet-plan.pdf';
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    } catch (error) {
-      console.error('Error downloading PDF:', error);
-      alert('Failed to download PDF. Please try again.');
-    } finally {
-      setDownloadingPdf(false);
-    }
-  };
+    if (!res.ok) throw new Error("Failed to generate PDF");
+
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "ayuchart-diet-plan.pdf";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+  } catch (err) {
+    console.error(err);
+    alert("Failed to download PDF. Please try again.");
+  } finally {
+    setDownloadingPdf(false);
+  }
+};
 
   const handleSend = async () => {
     if (!input.trim()) return;
@@ -101,23 +96,29 @@ export default function DietChartGenerator() {
     setLoading(true);
     setInput("");
 
-    try {
-      const res = await fetch("/api/diet-chart", {
+        try {
+      const res = await fetch("http://127.0.0.1:8000/ask", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: input }),
+
+       headers: { 
+         "Content-Type": "application/json",
+         "X-Session-Id": getSessionId()
+       },
+       body: JSON.stringify({ question: input }),
       });
 
       const data = await res.json();
-      
-      const processedContent = processDietChartData(data);
+
       
       const botMessage = {
-        type: "bot",
-        content: data.error ? data.error : processedContent,
-        rawData: data.error ? null : data,
-        hasError: !!data.error
-      };
+  type: "bot",
+  content: data.error ? data.error : data.diet_chart || data.answer || "",
+  rawData: (data.diet_chart || data.meals) ? data : null,
+  hasError: !!data.error,
+  isFinalChart: !!data.is_final_chart 
+};
+
+
       
       setMessages(prev => [...prev, botMessage]);
     } catch (error) {
@@ -226,21 +227,25 @@ export default function DietChartGenerator() {
                     ? 'bg-primary text-white rounded-2xl rounded-br-md px-4 py-3' 
                     : 'bg-gray-50 rounded-2xl rounded-bl-md px-4 py-3'
                 }`}>
-                  <div className={`whitespace-pre-wrap ${message.type === 'user' ? 'text-white' : 'text-gray-900'}`}>
-                    {message.content}
-                  </div>
-                  {message.type === 'bot' && message.rawData && !message.hasError && (
-                    <div className="mt-4 pt-3 border-t border-gray-200">
-                      <button
-                        onClick={() => handleDownloadPdf(message.content, message.rawData)}
-                        disabled={downloadingPdf}
-                        className="flex items-center space-x-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all text-sm font-medium"
-                      >
-                        <Download className="w-4 h-4" />
-                        <span>{downloadingPdf ? 'Generating PDF...' : 'Download Diet Chart PDF'}</span>
-                      </button>
-                    </div>
-                  )}
+                  <div className={`${message.type === 'user' ? 'text-white' : 'text-gray-900 prose prose-sm max-w-none'}`}>
+                   {message.type === 'bot' 
+                     ? <ReactMarkdown>{message.content}</ReactMarkdown>
+                     : message.content}
+                </div>
+                  {message.type === 'bot' && message.rawData && !message.hasError && message.isFinalChart && (
+  <div className="mt-4 pt-3 border-t border-gray-200">
+    <button
+      onClick={() => handleDownloadPdf(message.content)}
+      disabled={downloadingPdf}
+      className="flex items-center space-x-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all text-sm font-medium"
+    >
+      <Download className="w-4 h-4" />
+      <span>{downloadingPdf ? 'Generating PDF...' : 'Download Diet Chart PDF'}</span>
+    </button>
+  </div>
+)}
+
+
                 </div>
                 {message.type === 'user' && (
                   <div className="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center flex-shrink-0">
