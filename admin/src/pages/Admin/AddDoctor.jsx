@@ -14,7 +14,7 @@ const AddDoctor = () => {
     const [experience, setExperience] = useState('1 Year')
     const [fees, setFees] = useState('')
     const [about, setAbout] = useState('')
-    const [speciality, setSpeciality] = useState('General physician')
+    const [speciality, setSpeciality] = useState('Ayurvedic doctor')
     const [degree, setDegree] = useState('')
     const [address1, setAddress1] = useState('')
     const [address2, setAddress2] = useState('')
@@ -115,6 +115,7 @@ const AddDoctor = () => {
                                 <option value="4 Year">4 Years</option>
                                 <option value="5 Year">5 Years</option>
                                 <option value="6 Year">6 Years</option>
+                                <option value="7 Year">7 Years</option>
                                 <option value="8 Year">8 Years</option>
                                 <option value="9 Year">9 Years</option>
                                 <option value="10 Year">10 Years</option>
