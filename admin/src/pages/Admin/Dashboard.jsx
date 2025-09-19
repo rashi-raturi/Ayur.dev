@@ -19,7 +19,7 @@ const Dashboard = () => {
   if (!dashData) return null
 
   return (
-    <div className="m-5">
+    <div className="p-5 bg-yellow-100 w-full h-screen">
       <h1 className="text-2xl font-bold text-gray-800 mb-6">Dashboard</h1>
 
       {/* Stats Cards */}

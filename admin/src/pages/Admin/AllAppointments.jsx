@@ -16,7 +16,7 @@ const AllAppointments = () => {
   }, [aToken])
 
   return (
-    <div className='w-full max-w-6xl m-5 '>
+    <div className='w-full p-5 h-screen bg-yellow-100'>
 
       <p className='mb-3 text-lg font-medium'>All Appointments</p>
 
