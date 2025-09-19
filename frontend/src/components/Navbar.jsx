@@ -33,7 +33,7 @@ const Navbar = () => {
           <hr className='border-none outline-none h-0.5 bg-primary w-3/5 m-auto hidden' />
         </NavLink>
         <NavLink to='/contact' >
-          <li className='py-1'>VaniAI</li>
+          <li className='py-1'>Vaani AI</li>
           <hr className='border-none outline-none h-0.5 bg-primary w-3/5 m-auto hidden' />
         </NavLink>
       </ul>
