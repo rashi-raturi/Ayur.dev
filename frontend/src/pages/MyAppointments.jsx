@@ -108,6 +108,21 @@ const MyAppointments = () => {
 
                             {!item.cancelled && !item.isCompleted && <button onClick={() => cancelAppointment(item._id)} className='text-[#696969] sm:min-w-48 py-2 border rounded hover:bg-red-600 hover:text-white transition-all duration-300'>Cancel appointment</button>}
                             {item.cancelled && !item.isCompleted && <button className='sm:min-w-48 py-2 border border-red-500 rounded text-red-500'>Appointment cancelled</button>}
+                            {/* Patient Reports */}
+                            {item.reports && item.reports.length > 0 && (
+                              <div className='mt-4 text-left'>
+                                <p className='font-medium text-gray-700'>Reports:</p>
+                                <ul className='list-disc list-inside mt-1'>
+                                  {item.reports.map((report, idx) => (
+                                    <li key={idx} className='text-sm text-primary hover:underline'>
+                                      <a href={report.url} target='_blank' rel='noopener noreferrer'>
+                                        {report.title} - {new Date(report.date).toLocaleDateString()}
+                                      </a>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
                         </div>
                     </div>
                 ))}

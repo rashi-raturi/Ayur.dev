@@ -199,6 +199,18 @@ const updateDoctor = async (req, res) => {
   }
 }
 
+// API to delete a doctor's profile
+const deleteDoctor = async (req, res) => {
+  try {
+    const { id } = req.params;
+    await doctorModel.findByIdAndDelete(id);
+    res.json({ success: true, message: 'Doctor deleted' });
+  } catch (error) {
+    console.error(error);
+    res.json({ success: false, message: error.message });
+  }
+};
+
 export {
     loginAdmin,
     appointmentsAdmin,
@@ -207,5 +219,6 @@ export {
     allDoctors,
     adminDashboard,
     getDoctorById,
-    updateDoctor
+    updateDoctor,
+    deleteDoctor
 }
