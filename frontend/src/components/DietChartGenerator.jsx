@@ -168,8 +168,8 @@ export default function DietChartGenerator() {
         {messages.length === 0 ? (
           <div className="text-center py-12">
             {/* AyuChart Title */}
-            <h1 className="text-8xl font-bold text-black mb-6">AyuChart</h1>
-            <p className="text-xl text-gray-600 mb-8">Get personalized nutrition recommendations</p>
+            <h1 className="md:text-7xl text-5xl font-bold text-white mb-6">AyuChart</h1>
+            <p className="text-xl text-white mb-8">Get personalized nutrition recommendations</p>
             
             {/* Text Area */}
             <div className="max-w-3xl mx-auto mb-8 bg-yellow-100">
