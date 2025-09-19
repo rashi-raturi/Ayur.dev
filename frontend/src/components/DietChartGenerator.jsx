@@ -2,11 +2,16 @@ import React, { useState } from "react";
 import { Send, User, Bot, Download } from "lucide-react";
 import { getSessionId } from './utils/session';
 import ReactMarkdown from "react-markdown";
+
 export default function DietChartGenerator() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [messages, setMessages] = useState([]);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
+
+  // Base URL for AI/chat and PDF endpoints (must be VITE_RAG_URL in .env)
+  const url = import.meta.env.VITE_RAG_URL
+  console.log(url)
 
   const processDietChartData = (rawData) => {
     // Process your specific format here
@@ -62,7 +67,7 @@ export default function DietChartGenerator() {
   setDownloadingPdf(true);
 
   try {
-    const res = await fetch("http://127.0.0.1:8000/diet-chart/pdf", {
+    const res = await fetch(`${url}/diet-chart/pdf`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-Session-Id": getSessionId() },
       body: JSON.stringify({ dietChart: messageContent }),
@@ -97,7 +102,7 @@ export default function DietChartGenerator() {
     setInput("");
 
         try {
-      const res = await fetch("http://127.0.0.1:8000/ask", {
+      const res = await fetch(`${url}/ask`, {
         method: "POST",
 
        headers: { 
