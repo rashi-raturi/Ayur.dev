@@ -14,7 +14,7 @@ export default function ChatWindow({ onClose }) {
   useEffect(() => {
     const welcomeMessage = {
       role: 'bot',
-      content: "Hi! I'm Ayur.chat, your friendly Ayurvedic assistant. How can I help you today?",
+      content: "Hi! I'm AyurMind, your friendly Ayurvedic assistant. How can I help you today?",
     };
     setMessages([welcomeMessage]);
   }, []);
@@ -110,7 +110,7 @@ export default function ChatWindow({ onClose }) {
     <div className="fixed bottom-20 right-4 w-80 h-96 bg-white border rounded-lg shadow-lg flex flex-col z-50">
       {/* Header */}
       <div className="flex justify-between items-center p-3 border-b bg-primary text-white rounded-t-lg">
-        <span className="font-semibold">Ayur.chat</span>
+        <span className="font-semibold">AyurMind</span>
         <button onClick={onClose} className="text-xl font-bold hover:text-gray-300">&times;</button>
       </div>
 
@@ -120,7 +120,7 @@ export default function ChatWindow({ onClose }) {
           <div
             key={idx}
             className={`p-2 rounded-md max-w-[70%] break-words ${
-              msg.role === 'user' ? 'bg-gray-100 text-black self-end ml-auto' : 'bg-primary text-white'
+              msg.role === 'user' ? 'bg-gray-200 text-black self-end ml-auto' : 'bg-primary text-white'
             }`}
           >
             {msg.role === 'bot' ? <ReactMarkdown>{msg.content}</ReactMarkdown> : msg.content}
