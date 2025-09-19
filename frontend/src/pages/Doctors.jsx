@@ -12,16 +12,17 @@ const Doctors = () => {
 
   const { doctors } = useContext(AppContext)
 
-  const applyFilter = () => {
+  useEffect(() => {
     if (speciality) {
-      setFilterDoc(doctors.filter(doc => doc.speciality === speciality))
+      const key = speciality.toLowerCase().trim()
+      setFilterDoc(
+        doctors.filter(
+          (doc) => doc.speciality && doc.speciality.toLowerCase().trim() === key
+        )
+      )
     } else {
       setFilterDoc(doctors)
     }
-  }
-
-  useEffect(() => {
-    applyFilter()
   }, [doctors, speciality])
 
   return (
@@ -35,7 +36,12 @@ const Doctors = () => {
           <p onClick={() => speciality === 'Ayurvedic health counsellor' ? navigate('/doctors') : navigate('/doctors/Ayurvedic health counsellor')} className={`w-[94vw] sm:w-auto pl-3 py-1.5 pr-16 border border-gray-300 rounded transition-all cursor-pointer ${speciality === 'Ayurvedic health counsellor' ? 'bg-[#E2E5FF] text-black ' : ''}`}>Ayurvedic Health Counsellor</p>
           <p onClick={() => speciality === 'Rasashastra expert' ? navigate('/doctors') : navigate('/doctors/Rasashastra expert')} className={`w-[94vw] sm:w-auto pl-3 py-1.5 pr-16 border border-gray-300 rounded transition-all cursor-pointer ${speciality === 'Rasashastra expert' ? 'bg-[#E2E5FF] text-black ' : ''}`}>Rasashastra Expert</p>
         </div>
-        <div className='w-full grid grid-cols-auto gap-4 gap-y-6'>
+        <div className='w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 gap-y-6'>
+          {filterDoc.length === 0 && (
+            <p className='col-span-full text-center text-gray-500'>
+              No doctors found for “{speciality || 'all'}”.
+            </p>
+          )}
           {filterDoc.map((item, index) => (
             <div onClick={() => { navigate(`/appointment/${item._id}`); scrollTo(0, 0) }} className='border border-[#C9D8FF] rounded-xl overflow-hidden cursor-pointer hover:translate-y-[-10px] transition-all duration-500' key={index}>
               <img className='bg-[#EAEFFF]' src={item.image} alt="" />

@@ -3,9 +3,10 @@ import { createContext, useState } from "react";
 import { toast } from "react-toastify";
 
 
+/* eslint-disable react/prop-types */
 export const AdminContext = createContext()
 
-const AdminContextProvider = (props) => {
+const AdminContextProvider = ({ children }) => {
 
     const backendUrl = import.meta.env.VITE_BACKEND_URL
 
@@ -159,11 +160,30 @@ const AdminContextProvider = (props) => {
         }
     }
 
+    // Function to delete a doctor by admin
+    const deleteDoctor = async (docId) => {
+        try {
+            const { data } = await axios.delete(
+                `${backendUrl}/api/admin/doctor/${docId}`,
+                { headers: { aToken } }
+            )
+            if (data.success) {
+                toast.success(data.message)
+                getAllDoctors()
+            } else {
+                toast.error(data.message)
+            }
+        } catch (error) {
+            toast.error(error.message)
+        }
+    }
+
     const value = {
         aToken, setAToken,
         doctors,
         getAllDoctors,
         changeAvailability,
+        deleteDoctor,
         appointments,
         getAllAppointments,
         getDashData,
@@ -174,7 +194,7 @@ const AdminContextProvider = (props) => {
 
     return (
         <AdminContext.Provider value={value}>
-            {props.children}
+            {children}
         </AdminContext.Provider>
     )
 
