@@ -1,21 +1,33 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import PropTypes from 'prop-types';
 import ReactMarkdown from 'react-markdown';
 import { getSessionId } from './utils/session';
 import { Download, Send } from 'lucide-react';
 
 export default function ChatWindow({ onClose }) {
+  const sessionId = getSessionId();
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
 
+  const url = import.meta.env.VITE_RAG_URL
+
+  // on mount: load saved chat or show welcome
   useEffect(() => {
-    const welcomeMessage = {
-      role: 'bot',
-      content: "Hi! I'm Ayur.chat, your friendly Ayurvedic assistant. How can I help you today?",
-    };
-    setMessages([welcomeMessage]);
-  }, []);
+    const saved = sessionStorage.getItem(`ayur_chat_${sessionId}`);
+    if (saved) {
+      setMessages(JSON.parse(saved));
+    } else {
+      const welcomeMessage = { role: 'bot', content: "Hi! I'm AyurMind, your friendly Ayurvedic assistant. How can I help you today?" };
+      setMessages([welcomeMessage]);
+    }
+  }, [sessionId]);
+
+  // persist chat whenever messages change
+  useEffect(() => {
+    sessionStorage.setItem(`ayur_chat_${sessionId}`, JSON.stringify(messages));
+  }, [messages, sessionId]);
 
   const sendMessage = async () => {
     if (!input.trim()) return;
@@ -25,7 +37,7 @@ export default function ChatWindow({ onClose }) {
     setLoading(true);
 
     try {
-      const res = await fetch('http://127.0.0.1:8000/ask', {
+      const res = await fetch(`${url}/ask`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -71,7 +83,7 @@ export default function ChatWindow({ onClose }) {
     setDownloadingPdf(true);
     try {
       const endpoint = mode === 'diet' ? '/diet-chart/pdf' : '/diet-chart/pdf';
-      const res = await fetch(`http://127.0.0.1:8000${endpoint}`, {
+      const res = await fetch(`${url}${endpoint}`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -108,7 +120,7 @@ export default function ChatWindow({ onClose }) {
     <div className="fixed bottom-20 right-4 w-80 h-96 bg-white border rounded-lg shadow-lg flex flex-col z-50">
       {/* Header */}
       <div className="flex justify-between items-center p-3 border-b bg-primary text-white rounded-t-lg">
-        <span className="font-semibold">Ayur.chat</span>
+        <span className="font-semibold">AyurMind</span>
         <button onClick={onClose} className="text-xl font-bold hover:text-gray-300">&times;</button>
       </div>
 
@@ -160,3 +172,8 @@ export default function ChatWindow({ onClose }) {
     </div>
   );
 }
+
+// validate props
+ChatWindow.propTypes = {
+  onClose: PropTypes.func.isRequired,
+};

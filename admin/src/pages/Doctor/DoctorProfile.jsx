@@ -47,13 +47,13 @@ const DoctorProfile = () => {
     }, [dToken])
 
     return profileData && (
-        <div>
-            <div className='flex flex-col gap-4 m-5'>
+        <div className='bg-yellow-100 w-full min-h-screen'>
+            <div className='flex flex-col gap-4 p-5'>
                 <div>
                     <img className='bg-primary/80 w-full sm:max-w-64 rounded-lg' src={profileData.image} alt="" />
                 </div>
 
-                <div className='flex-1 border border-stone-100 rounded-lg p-8 py-7 bg-white'>
+                <div className='flex-1 border border-stone-100 rounded-lg p-8 py-7 bg-white max-w-4xl'>
 
                     {/* ----- Doc Info : name, degree, experience ----- */}
 
@@ -66,15 +66,20 @@ const DoctorProfile = () => {
                     {/* ----- Doc About ----- */}
                     <div>
                         <p className='flex items-center gap-1 text-sm font-medium text-[#262626] mt-3'>About :</p>
-                        <p className='text-sm text-gray-600 max-w-[700px] mt-1'>
+                        <p className='text-sm text-gray-600 max-w-[700px] mt-1 '>
                             {
                                 isEdit
-                                    ? <textarea onChange={(e) => setProfileData(prev => ({ ...prev, about: e.target.value }))} type='text' className='w-full outline-primary p-2' rows={8} value={profileData.about} />
+                                    ? <textarea 
+                                        onChange={(e) => setProfileData(prev => ({ ...prev, about: e.target.value }))} 
+                                        type='text' 
+                                        className='w-full outline-primary p-2 resize-none' 
+                                        style={{ height: '80px' }}
+                                        value={profileData.about} 
+                                    />
                                     : profileData.about
                             }
                         </p>
                     </div>
-
                     <p className='text-gray-600 font-medium mt-4'>
                         Appointment fee: <span className='text-gray-800'>{currency} {isEdit ? <input type='number' onChange={(e) => setProfileData(prev => ({ ...prev, fees: e.target.value }))} value={profileData.fees} /> : profileData.fees}</span>
                     </p>
