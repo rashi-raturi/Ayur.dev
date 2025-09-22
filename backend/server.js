@@ -1,6 +1,7 @@
 import express from "express"
 import cors from 'cors'
 import 'dotenv/config'
+import path from 'path'
 import connectDB from "./config/mongodb.js"
 import connectCloudinary from "./config/cloudinary.js"
 import userRouter from "./routes/userRoute.js"
@@ -18,11 +19,10 @@ connectCloudinary()
 app.use(express.json());
 app.use(cors());
 
-// serve prescription uploads
-import path from 'path';
+// serve prescription uploads from uploads/prescriptions
 app.use(
   '/uploads/prescriptions',
-  express.static(path.join(process.cwd(), 'backend/uploads/prescriptions'))
+  express.static(path.join(process.cwd(), 'uploads/prescriptions'))
 );
 
 // api endpoints
