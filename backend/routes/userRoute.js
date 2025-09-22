@@ -1,6 +1,7 @@
 import express from 'express';
 import { loginUser, registerUser, getProfile, updateProfile, bookAppointment, listAppointment, cancelAppointment, paymentStripe, verifyStripe } from '../controllers/userController.js';
-import { uploadPrescription } from '../controllers/prescriptionController.js';
+import { uploadPrescription, listPrescriptions } from '../controllers/prescriptionController.js';
+
 import upload from '../middleware/multer.js';
 import authUser from '../middleware/authUser.js';
 const userRouter = express.Router();
@@ -16,7 +17,7 @@ userRouter.post("/cancel-appointment", authUser, cancelAppointment)
 userRouter.post("/payment-stripe", authUser, paymentStripe)
 userRouter.post("/verifyStripe", authUser, verifyStripe)
 
-// 
 userRouter.post("/prescription", authUser, upload.single('prescription'), uploadPrescription)
+userRouter.get("/prescriptions", authUser, listPrescriptions)
 
 export default userRouter;

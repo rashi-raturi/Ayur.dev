@@ -51,3 +51,13 @@ export const uploadPrescription = async (req, res) => {
 		res.status(500).json({ success: false, message: 'Server error processing prescription' });
 	}
 };
+
+export const listPrescriptions = async (req, res) => {
+	try {
+		const prescriptions = await Prescription.find({ user: req.user._id }).sort({ createdAt: -1 });
+		res.json({ success: true, prescriptions });
+	} catch (error) {
+		console.error('List prescriptions error:', error);
+		res.status(500).json({ success: false, message: 'Error fetching prescriptions' });
+	}
+};
