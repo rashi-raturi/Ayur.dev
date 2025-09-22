@@ -14,8 +14,16 @@ connectDB()
 connectCloudinary()
 
 // middlewares
-app.use(express.json())
-app.use(cors())
+// JSON body parsing and CORS
+app.use(express.json());
+app.use(cors());
+
+// serve prescription uploads
+import path from 'path';
+app.use(
+  '/uploads/prescriptions',
+  express.static(path.join(process.cwd(), 'backend/uploads/prescriptions'))
+);
 
 // api endpoints
 app.use("/api/user", userRouter)

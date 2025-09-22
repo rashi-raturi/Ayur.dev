@@ -1,8 +1,15 @@
 import multer from "multer";
 
+import path from 'path';
 const storage = multer.diskStorage({
-    filename: function (req, file, callback) {
-        callback(null, file.originalname)
+    // store in backend/uploads/prescriptions
+        destination: (req, file, cb) => {
+            // store in backend/uploads/prescriptions (cwd is already backend)
+            cb(null, path.join(process.cwd(), 'uploads/prescriptions'));
+    },
+    filename: (req, file, cb) => {
+        const filename = `${Date.now()}-${file.originalname}`;
+        cb(null, filename);
     }
 });
 
