@@ -64,7 +64,14 @@ const DoctorAppointments = () => {
                 {item.payment?'Online':'CASH'}
               </p>
             </div>
-            <p className='max-sm:hidden'>{calculateAge(item.userData.dob)}</p>
+            <p className='max-sm:hidden'>
+              {item.userData.dob ? (
+                (() => {
+                  const age = calculateAge(item.userData.dob);
+                  return !isNaN(age) && age > 0 ? age : 'N/A';
+                })()
+              ) : 'N/A'}
+            </p>
             <p>{slotDateFormat(item.slotDate)}, {item.slotTime}</p>
             <p>{currency}{item.amount}</p>
             {item.cancelled

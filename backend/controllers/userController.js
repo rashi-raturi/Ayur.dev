@@ -303,3 +303,18 @@ export {
     paymentStripe,
     verifyStripe
 }
+
+// API to fetch any user's profile by ID (for doctor/admin views)
+export const getPatientProfileById = async (req, res) => {
+    try {
+        const { patientId } = req.params;
+        const patient = await userModel.findById(patientId).select('-password');
+        if (!patient) {
+            return res.status(404).json({ success: false, message: 'Patient not found' });
+        }
+        res.json({ success: true, patient });
+    } catch (error) {
+        console.error('Get patient profile error:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};

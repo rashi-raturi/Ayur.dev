@@ -7,8 +7,10 @@ const authDoctor = async (req, res, next) => {
         return res.json({ success: false, message: 'Not Authorized Login Again' })
     }
     try {
-        const token_decode = jwt.verify(dtoken, process.env.JWT_SECRET)
-        req.body.docId = token_decode.id
+    const token_decode = jwt.verify(dtoken, process.env.JWT_SECRET)
+    // attach doctor info for downstream handlers
+    req.user = { _id: token_decode.id };
+    req.body.docId = token_decode.id;
         next()
     } catch (error) {
         console.log(error)

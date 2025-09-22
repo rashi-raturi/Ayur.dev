@@ -1,6 +1,6 @@
 import express from 'express';
-import { loginUser, registerUser, getProfile, updateProfile, bookAppointment, listAppointment, cancelAppointment, paymentStripe, verifyStripe } from '../controllers/userController.js';
-import { uploadPrescription, listPrescriptions } from '../controllers/prescriptionController.js';
+import { loginUser, registerUser, getProfile, updateProfile, bookAppointment, listAppointment, cancelAppointment, paymentStripe, verifyStripe, getPatientProfileById } from '../controllers/userController.js';
+import { uploadDoctorPrescription, listPrescriptions } from '../controllers/prescriptionController.js';
 
 import upload from '../middleware/multer.js';
 import authUser from '../middleware/authUser.js';
@@ -17,7 +17,8 @@ userRouter.post("/cancel-appointment", authUser, cancelAppointment)
 userRouter.post("/payment-stripe", authUser, paymentStripe)
 userRouter.post("/verifyStripe", authUser, verifyStripe)
 
-userRouter.post("/prescription", authUser, upload.single('prescription'), uploadPrescription)
 userRouter.get("/prescriptions", authUser, listPrescriptions)
+
+userRouter.get("/patient-profile/:patientId", authUser, getPatientProfileById)
 
 export default userRouter;

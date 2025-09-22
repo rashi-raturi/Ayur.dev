@@ -33,15 +33,40 @@ const loginAdmin = async (req, res) => {
 // API to get all appointments list
 const appointmentsAdmin = async (req, res) => {
     try {
-
         const appointments = await appointmentModel.find({})
-        res.json({ success: true, appointments })
+        
+        // Update userData with fresh data from user collection
+        const updatedAppointments = await Promise.all(
+            appointments.map(async (appointment) => {
+                try {
+                    const freshUserData = await userModel.findById(appointment.userId)
+                    if (freshUserData) {
+                        // Update the userData with fresh data
+                        appointment.userData = {
+                            ...appointment.userData,
+                            dob: freshUserData.dob,
+                            name: freshUserData.name,
+                            email: freshUserData.email,
+                            phone: freshUserData.phone,
+                            address: freshUserData.address,
+                            gender: freshUserData.gender,
+                            image: freshUserData.image
+                        }
+                    }
+                    return appointment
+                } catch (userError) {
+                    console.log('Error fetching user data for appointment:', userError)
+                    return appointment
+                }
+            })
+        )
+        
+        res.json({ success: true, appointments: updatedAppointments })
 
     } catch (error) {
         console.log(error)
         res.json({ success: false, message: error.message })
     }
-
 }
 
 // API for appointment cancellation
