@@ -15,7 +15,7 @@ const Dashboard = () => {
   }, [aToken])
 
   return dashData && (
-    <div className='m-5'>
+    <div className='p-5 bg-yellow-100 w-full h-screen'>
 
       <div className='flex flex-wrap gap-3'>
         <div className='flex items-center gap-2 bg-white p-4 min-w-52 rounded border-2 border-gray-100 cursor-pointer hover:scale-105 transition-all'>
