@@ -164,7 +164,7 @@ export default function DietChartGenerator() {
   return (
     <div className="flex flex-col h-screen w-full mx-auto bg-primary rounded-lg">
       {/* Chat Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-6">
+      <div className="flex-1 overflow-y-auto p-6 space-y-6 mt-4">
         {messages.length === 0 ? (
           <div className="text-center py-12">
             {/* AyuChart Title */}
