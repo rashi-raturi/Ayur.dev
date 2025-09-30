@@ -15,6 +15,8 @@ import Verify from './pages/Verify'
 import PrakrutiSense from './pages/PrakrutiSense'
 import AyuChart from './pages/AyuChart'
 import ChatbotWidget from './components/ChatbotWidget'
+import { Analytics } from '@vercel/analytics/react';
+ 
 
 const App = () => {
   return (
@@ -36,6 +38,7 @@ const App = () => {
         <Route path='/AyuChart' element={<AyuChart />} />
       </Routes>
       <Footer />
+      <Analytics />
     </div>
   )
 }
