@@ -16,6 +16,8 @@ import DoctorAppointments from './pages/Doctor/DoctorAppointments';
 import DoctorDashboard from './pages/Doctor/DoctorDashboard';
 import DoctorProfile from './pages/Doctor/DoctorProfile';
 import AyuChart from './pages/Doctor/AyuCHart';
+import PatientManagement from './pages/Doctor/PatientManagement';
+import Prescriptions from './pages/Doctor/Prescriptions';
 
 const App = () => {
 
@@ -24,7 +26,18 @@ const App = () => {
 
   return dToken || aToken ? (
     <div className='bg-[#F8F9FD]'>
-      <ToastContainer />
+      <ToastContainer 
+        position="top-right"
+        autoClose={3000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="light"
+      />
       <Navbar />
       <div className='flex items-start'>
         <Sidebar />
@@ -39,12 +52,25 @@ const App = () => {
           <Route path='/doctor-appointments' element={<DoctorAppointments />} />
           <Route path='/doctor-profile' element={<DoctorProfile />} />
           <Route path='/dietchart-generator' element={<AyuChart/>} />
+          <Route path='/patient-management' element={<PatientManagement/>} />
+          <Route path='/prescriptions' element={<Prescriptions/>} />
         </Routes>
       </div>
     </div>
   ) : (
     <>
-      <ToastContainer />
+      <ToastContainer 
+        position="top-right"
+        autoClose={3000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="light"
+      />
       <Login />
     </>
   )

@@ -1,10 +1,13 @@
 import fs from 'fs';
 // import the core parser directly to skip pdf-parse index debug code
 import pdfParse from 'pdf-parse/lib/pdf-parse.js';
+import mongoose from 'mongoose';
 
 import { Groq } from 'groq-sdk';
 import Prescription from '../models/prescriptionModel.js';
 import appointmentModel from '../models/appointmentModel.js';
+import userModel from '../models/userModel.js';
+import doctorModel from '../models/doctorModel.js';
 
 // POST /api/user/prescription
 export const uploadPrescription = async (req, res) => {
@@ -80,13 +83,13 @@ export const uploadPrescription = async (req, res) => {
 			console.error('AI parsing error, proceeding with empty parsed data:', aiError);
 		}
 
+		// Save under new schema fields
 		const prescription = new Prescription({
-			user: req.user._id,
-			date: parsed.date ? new Date(parsed.date) : undefined,
-			patientName: parsed['patient name'] || parsed.patientName,
-			doctorName: parsed['doctor name'] || parsed.doctorName,
+			patientId: req.user._id,
+			doctorId: req.body.doctorId,
+			date: parsed.date ? new Date(parsed.date) : Date.now(),
 			symptoms: parsed.symptoms || [],
-			medicine: parsed.medicine || [],
+			medicines: parsed.medicine || [],
 			recommendations: parsed.recommendations || [],
 			notes: parsed.notes || '',
 			filePath: `/uploads/prescriptions/${req.file.filename}`
@@ -101,7 +104,9 @@ export const uploadPrescription = async (req, res) => {
 
 export const listPrescriptions = async (req, res) => {
 	try {
-		const prescriptions = await Prescription.find({ user: req.user._id }).sort({ createdAt: -1 });
+		const prescriptions = await Prescription.find({ patientId: req.user._id })
+			.sort({ createdAt: -1 })
+			.populate('doctorId', 'name speciality');
 		res.json({ success: true, prescriptions });
 	} catch (error) {
 		console.error('List prescriptions error:', error);
@@ -116,19 +121,21 @@ export const generatePatientSummary = async (req, res) => {
 		const docId = req.body.docId;
 		const { patientId } = req.params;
 	
-		const hasAppointment = await appointmentModel.exists({ docId, userId: patientId });
-		if (!hasAppointment) {
-			return res.status(403).json({ success: false, message: 'Unauthorized access' });
+		// Check if the patient belongs to this doctor
+		const patient = await userModel.findOne({ _id: patientId, doctor: docId });
+		if (!patient) {
+			return res.status(403).json({ success: false, message: 'Unauthorized access. Patient not under your care.' });
 		}
 	
-		const prescriptions = await Prescription.find({ user: patientId }).sort({ createdAt: -1 });
-	
+		const prescriptions = await Prescription.find({ patientId })
+			.sort({ createdAt: -1 })
+			.populate('doctorId', 'name speciality');
 		const payload = prescriptions.map(p => ({
 			date: p.date,
-			patientName: p.patientName,
-			doctorName: p.doctorName,
+			patientName: p.patientId.name,
+			doctorName: p.doctorId.name,
 			symptoms: p.symptoms,
-			medicine: p.medicine,
+			medicines: p.medicines,
 			recommendations: p.recommendations,
 			notes: p.notes
 		}));
@@ -170,11 +177,21 @@ export const uploadDoctorPrescription = async (req, res) => {
 		if (!req.file) return res.status(400).json({ success: false, message: 'No file uploaded' });
 		const { patientId } = req.params;
 		const docId = req.user._id;
-	
-		const hasAppointment = await appointmentModel.exists({ docId, userId: patientId });
-		if (!hasAppointment) {
-			return res.status(403).json({ success: false, message: 'Unauthorized to upload prescription for this patient' });
+		
+		console.log('Upload prescription - patientId:', patientId, 'docId:', docId);
+		
+		// Validate ObjectId format
+		if (!mongoose.Types.ObjectId.isValid(patientId)) {
+			return res.status(400).json({ success: false, message: 'Invalid patient ID format' });
 		}
+	
+		// Check if the patient belongs to this doctor
+		const patient = await userModel.findOne({ _id: patientId, doctor: docId });
+		if (!patient) {
+			return res.status(403).json({ success: false, message: 'Unauthorized to upload prescription for this patient. Patient not under your care.' });
+		}
+
+		console.log('Patient found, proceeding with prescription upload');
 
 		const fileBuffer = fs.readFileSync(req.file.path);
 		const data = await pdfParse(fileBuffer);
@@ -248,12 +265,11 @@ export const uploadDoctorPrescription = async (req, res) => {
 		}
 
 		const prescription = new Prescription({
-			user: patientId,
-			date: parsed.date ? new Date(parsed.date) : undefined,
-			patientName: parsed['patient name'] || parsed.patientName,
-			doctorName: parsed['doctor name'] || parsed.doctorName,
+			patientId,
+			doctorId: req.user._id,
+			date: parsed.date ? new Date(parsed.date) : Date.now(),
 			symptoms: parsed.symptoms || [],
-			medicine: parsed.medicine || [],
+			medicines: parsed.medicine || [],
 			recommendations: parsed.recommendations || [],
 			notes: parsed.notes || '',
 			filePath: `/uploads/prescriptions/${req.file.filename}`
@@ -270,18 +286,315 @@ export const uploadDoctorPrescription = async (req, res) => {
 // GET /api/doctor/prescriptions/:patientId
 export const listDoctorPrescriptions = async (req, res) => {
 	try {
-		const docId = req.body.docId;
 		const { patientId } = req.params;
-
-		const hasAppointment = await appointmentModel.exists({ docId, userId: patientId });
-		if (!hasAppointment) {
-			return res.status(403).json({ success: false, message: 'Unauthorized access to patient prescriptions' });
+		const docId = req.user._id;
+		
+		console.log('Fetching prescriptions for patientId:', patientId);
+		
+		if (!patientId) {
+			return res.status(400).json({ success: false, message: 'Patient ID is required' });
 		}
-
-		const prescriptions = await Prescription.find({ user: patientId }).sort({ createdAt: -1 });
+		
+		// Validate ObjectId format
+		if (!mongoose.Types.ObjectId.isValid(patientId)) {
+			return res.status(400).json({ success: false, message: 'Invalid patient ID format' });
+		}
+		
+		// Check if the patient belongs to this doctor
+		const patient = await userModel.findOne({ _id: patientId, doctor: docId });
+		if (!patient) {
+			return res.status(403).json({ success: false, message: 'Unauthorized access. Patient not under your care.' });
+		}
+		
+		const prescriptions = await Prescription.find({ patientId })
+			.sort({ createdAt: -1 })
+			.populate('doctorId', 'name speciality');
+			
+		console.log('Found prescriptions:', prescriptions.length);
+		
 		res.json({ success: true, prescriptions });
 	} catch (error) {
 		console.error('List doctor prescriptions error:', error);
 		res.status(500).json({ success: false, message: error.message });
+	}
+};
+
+
+// POST /api/doctor/create-prescription
+export const createPrescription = async (req, res) => {
+	try {
+		const doctorId = req.user._id;
+		const {
+			patientId,
+			patientInfo,
+			chiefComplaint,
+			diagnosis,
+			medications,
+			dietaryRecommendations,
+			lifestyleAdvice,
+			followUpDate
+		} = req.body;
+
+		// Validate required fields
+		if (!patientId || !patientInfo?.name || !chiefComplaint) {
+			return res.status(400).json({ 
+				success: false, 
+				message: 'Patient ID, patient name, and chief complaint are required' 
+			});
+		}
+
+		// Validate ObjectId format
+		if (!mongoose.Types.ObjectId.isValid(patientId)) {
+			return res.status(400).json({ success: false, message: 'Invalid patient ID format' });
+		}
+
+		// Check if the patient belongs to this doctor
+		const patient = await userModel.findOne({ _id: patientId, doctor: doctorId });
+		if (!patient) {
+			return res.status(403).json({ 
+				success: false, 
+				message: 'Unauthorized. Patient not under your care.' 
+			});
+		}
+
+		// Fetch doctor information
+		const doctor = await doctorModel.findById(doctorId).select('name registrationNumber speciality');
+		if (!doctor) {
+			return res.status(404).json({ 
+				success: false, 
+				message: 'Doctor not found' 
+			});
+		}
+
+		// Generate fallback registration number if missing
+		const registrationNumber = doctor.registrationNumber || 
+			`${(doctor.speciality || 'AYU').toUpperCase().substring(0, 3)}${Date.now().toString().slice(-5)}`;
+
+		// Create new prescription
+		const prescription = new Prescription({
+			patientId,
+			doctorId,
+			doctorInfo: {
+				name: doctor.name,
+				registrationNumber: registrationNumber,
+				speciality: doctor.speciality
+			},
+			patientInfo: {
+				name: patientInfo.name,
+				age: parseInt(patientInfo.age) || 0,
+				gender: patientInfo.gender || '',
+				contactNumber: patientInfo.contactNumber || '',
+				constitution: patientInfo.constitution || ''
+			},
+			chiefComplaint,
+			diagnosis: diagnosis || '',
+			medications: medications || [],
+			dietaryRecommendations: dietaryRecommendations || '',
+			lifestyleAdvice: lifestyleAdvice || '',
+			followUpDate: followUpDate ? new Date(followUpDate) : null,
+			status: 'Active'
+		});
+
+		await prescription.save();
+
+		res.status(201).json({ 
+			success: true, 
+			message: 'Prescription created successfully',
+			prescription: {
+				id: prescription._id,
+				patientName: prescription.patientInfo.name,
+				date: prescription.date,
+				status: prescription.status,
+				medications: prescription.medications,
+				chiefComplaint: prescription.chiefComplaint,
+				diagnosis: prescription.diagnosis,
+				doctorInfo: prescription.doctorInfo,
+				patientInfo: prescription.patientInfo,
+				dietaryRecommendations: prescription.dietaryRecommendations,
+				lifestyleAdvice: prescription.lifestyleAdvice,
+				followUpDate: prescription.followUpDate
+			}
+		});
+
+	} catch (error) {
+		console.error('Create prescription error:', error);
+		res.status(500).json({ 
+			success: false, 
+			message: 'Error creating prescription: ' + error.message 
+		});
+	}
+};
+
+
+// GET /api/doctor/prescriptions - Get all prescriptions created by this doctor
+export const listAllDoctorPrescriptions = async (req, res) => {
+	try {
+		const doctorId = req.user._id;
+		
+		const prescriptions = await Prescription.find({ doctorId })
+			.sort({ createdAt: -1 })
+			.populate('patientId', 'name email phone')
+			.populate('doctorId', 'name speciality');
+
+		// Format prescriptions for frontend
+		const formattedPrescriptions = prescriptions.map(prescription => ({
+			id: prescription._id,
+			patientName: prescription.patientInfo?.name || prescription.patientId?.name,
+			date: prescription.date,
+			status: prescription.status,
+			medications: prescription.medications,
+			chiefComplaint: prescription.chiefComplaint,
+			diagnosis: prescription.diagnosis,
+			doctorInfo: prescription.doctorInfo,
+			patientInfo: prescription.patientInfo,
+			dietaryRecommendations: prescription.dietaryRecommendations,
+			lifestyleAdvice: prescription.lifestyleAdvice,
+			followUpDate: prescription.followUpDate
+		}));
+
+		res.json({ 
+			success: true, 
+			prescriptions: formattedPrescriptions 
+		});
+
+	} catch (error) {
+		console.error('List all doctor prescriptions error:', error);
+		res.status(500).json({ 
+			success: false, 
+			message: 'Error fetching prescriptions: ' + error.message 
+		});
+	}
+};
+
+// PUT /api/doctor/prescription/:id - Update a prescription
+export const updatePrescription = async (req, res) => {
+	try {
+		const doctorId = req.user._id;
+		const prescriptionId = req.params.id;
+		const {
+			patientId,
+			patientInfo,
+			chiefComplaint,
+			diagnosis,
+			medications,
+			dietaryRecommendations,
+			lifestyleAdvice,
+			followUpDate
+		} = req.body;
+
+		// Validate required fields
+		if (!patientInfo?.name || !chiefComplaint) {
+			return res.status(400).json({ 
+				success: false, 
+				message: 'Patient name and chief complaint are required' 
+			});
+		}
+
+		// Find the prescription and verify ownership
+		const prescription = await Prescription.findOne({ 
+			_id: prescriptionId, 
+			doctorId: doctorId 
+		});
+
+		if (!prescription) {
+			return res.status(404).json({ 
+				success: false, 
+				message: 'Prescription not found or unauthorized' 
+			});
+		}
+
+		// Fetch doctor information to ensure it's up to date
+		const doctor = await doctorModel.findById(doctorId).select('name registrationNumber speciality');
+		if (!doctor) {
+			return res.status(404).json({ 
+				success: false, 
+				message: 'Doctor not found' 
+			});
+		}
+
+		// Generate fallback registration number if missing
+		const registrationNumber = doctor.registrationNumber || 
+			`${(doctor.speciality || 'AYU').toUpperCase().substring(0, 3)}${Date.now().toString().slice(-5)}`;
+
+		// Update prescription with doctor info preserved/updated
+		prescription.doctorInfo = {
+			name: doctor.name,
+			registrationNumber: registrationNumber,
+			speciality: doctor.speciality
+		};
+		prescription.patientInfo = {
+			name: patientInfo.name,
+			age: parseInt(patientInfo.age) || prescription.patientInfo.age,
+			gender: patientInfo.gender || prescription.patientInfo.gender,
+			contactNumber: patientInfo.contactNumber || prescription.patientInfo.contactNumber,
+			constitution: patientInfo.constitution || prescription.patientInfo.constitution
+		};
+		prescription.chiefComplaint = chiefComplaint;
+		prescription.diagnosis = diagnosis || prescription.diagnosis;
+		prescription.medications = medications || prescription.medications;
+		prescription.dietaryRecommendations = dietaryRecommendations || prescription.dietaryRecommendations;
+		prescription.lifestyleAdvice = lifestyleAdvice || prescription.lifestyleAdvice;
+		prescription.followUpDate = followUpDate ? new Date(followUpDate) : prescription.followUpDate;
+
+		await prescription.save();
+
+		res.json({ 
+			success: true, 
+			message: 'Prescription updated successfully',
+			prescription: {
+				id: prescription._id,
+				patientName: prescription.patientInfo.name,
+				date: prescription.date,
+				status: prescription.status,
+				medications: prescription.medications,
+				chiefComplaint: prescription.chiefComplaint,
+				diagnosis: prescription.diagnosis,
+				doctorInfo: prescription.doctorInfo,
+				patientInfo: prescription.patientInfo,
+				dietaryRecommendations: prescription.dietaryRecommendations,
+				lifestyleAdvice: prescription.lifestyleAdvice,
+				followUpDate: prescription.followUpDate
+			}
+		});
+
+	} catch (error) {
+		console.error('Update prescription error:', error);
+		res.status(500).json({ 
+			success: false, 
+			message: 'Error updating prescription: ' + error.message 
+		});
+	}
+};
+
+// DELETE /api/doctor/prescription/:id - Delete a prescription
+export const deletePrescription = async (req, res) => {
+	try {
+		const doctorId = req.user._id;
+		const prescriptionId = req.params.id;
+
+		// Find and delete the prescription, but only if it belongs to this doctor
+		const prescription = await Prescription.findOneAndDelete({ 
+			_id: prescriptionId, 
+			doctorId: doctorId 
+		});
+
+		if (!prescription) {
+			return res.status(404).json({ 
+				success: false, 
+				message: 'Prescription not found or unauthorized' 
+			});
+		}
+
+		res.json({ 
+			success: true, 
+			message: 'Prescription deleted successfully' 
+		});
+
+	} catch (error) {
+		console.error('Delete prescription error:', error);
+		res.status(500).json({ 
+			success: false, 
+			message: 'Error deleting prescription: ' + error.message 
+		});
 	}
 };

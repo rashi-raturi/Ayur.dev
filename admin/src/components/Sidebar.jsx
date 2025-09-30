@@ -1,9 +1,9 @@
-import React, { useContext } from 'react'
+import { useContext } from 'react'
 import { assets } from '../assets/assets'
 import { NavLink } from 'react-router-dom'
 import { DoctorContext } from '../context/DoctorContext'
 import { AdminContext } from '../context/AdminContext'
-import { Clipboard } from 'lucide-react';
+import { Clipboard, Users, FileText } from 'lucide-react';
 
 const Sidebar = () => {
 
@@ -41,12 +41,20 @@ const Sidebar = () => {
           <img className='min-w-5' src={assets.appointment_icon} alt='' />
           <p className='hidden md:block'>Appointments</p>
         </NavLink>
+        <NavLink to={'/patient-management'} className={({ isActive }) => `flex items-center gap-3 py-3.5 px-3 md:px-6 md:min-w-56 cursor-pointer ${isActive ? 'bg-primary text-white border-r-4 border-primary' : ''}`}>
+          <Users className="w-5 h-5 text-current" />
+          <p className='hidden md:block'>Patients</p>
+        </NavLink>
+        <NavLink to={'/prescriptions'} className={({ isActive }) => `flex items-center gap-3 py-3.5 px-3 md:px-6 md:min-w-56 cursor-pointer ${isActive ? 'bg-primary text-white border-r-4 border-primary' : ''}`}>
+          <FileText className="w-5 h-5 text-current" />
+          <p className='hidden md:block'>Prescriptions</p>
+        </NavLink>
         <NavLink to={'/dietchart-generator'} className={({ isActive }) => `flex items-center gap-3 py-3.5 px-3 md:px-6 md:min-w-56 cursor-pointer ${isActive ? 'bg-primary text-white border-r-4 border-primary' : ''}`}>
           <Clipboard className="w-5 h-5 text-current " />
           <p className='hidden md:block'>AyuChart</p>
         </NavLink>
         <NavLink to={'/doctor-profile'} className={({ isActive }) => `flex items-center gap-3 py-3.5 px-3 md:px-6 md:min-w-56 cursor-pointer ${isActive ? 'bg-primary text-white border-r-4 border-primary' : ''}`}>
-          <img className='min-w-5' src={assets.people_icon} alt='' />
+          <Users className="w-5 h-5 text-current" />
           <p className='hidden md:block'>Profile</p>
         </NavLink>
       </ul>}
