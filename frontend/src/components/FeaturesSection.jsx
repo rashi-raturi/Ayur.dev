@@ -73,7 +73,7 @@ const FeaturesSection=()=>{
                 <ul className="space-y-1 mb-4">
                   {points.map((point, idx) => (
                     <li key={idx} className="flex items-start gap-2">
-                      <Check className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
+                      <span className="text-black mt-0.5 flex-shrink-0 w-4 h-7">➤</span>
                       <span className="text-gray-700">{point}</span>
                     </li>
                   ))}
