@@ -180,9 +180,9 @@ const PatientProfileModal = ({ isOpen, onClose, patientId }) => {
                                 <div className='animate-spin rounded-full h-12 w-12 border-b-2 border-primary'></div>
                             </div>
                         ) : patientData ? (
-                            <div className='flex gap-6 h-full'>
+                            <div className='flex flex-col lg:flex-row gap-6 h-full'>
                                 {/* Left Half - Patient Profile Information */}
-                                <div className='w-1/2 bg-primary p-8 rounded-lg'>
+                                <div className='w-full lg:w-1/2 bg-primary p-8 rounded-lg'>
                                     <div className='max-w-lg flex flex-col gap-2 text-sm text-white'>
                                         <img className='w-36 rounded' src={patientData.image} alt={patientData.name} />
                                         
@@ -244,7 +244,7 @@ const PatientProfileModal = ({ isOpen, onClose, patientId }) => {
                                 </div>
 
                                 {/* Right Half - Prescriptions Management */}
-                                <div className='w-1/2 bg-gray-50 p-8 rounded-lg'>
+                                <div className='w-full lg:w-1/2 bg-gray-50 p-8 rounded-lg'>
                                     <div className='max-w-lg'>
                                         <h3 className='text-3xl font-medium text-[#262626] mb-6'>Medical Records</h3>
                                         

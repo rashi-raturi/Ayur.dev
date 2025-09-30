@@ -1,6 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import {Check,ArrowRight} from 'lucide-react';
+import {Check} from 'lucide-react';
 
 const features = [
   {
@@ -49,7 +49,7 @@ const features = [
 
 const FeaturesSection=()=>{
   return (
-    <section className="w-full py-20 px-6 md:px-10 lg:px-20">
+    <section className="w-full py-20 px-6 md:px-8 lg:px-16">
       <div className="text-center mb-16">
           <h2 className="text-4xl md:text-5xl font-bold text-primary mb-4">
             Explore Our Core Features
@@ -64,7 +64,7 @@ const FeaturesSection=()=>{
           ({ id, title, subtitle, description, points, buttonText, buttonLink }) => (
             <div
               key={id}
-              className="group relative bg-white rounded-lg hover:shadow-lg p-8 flex flex-col justify-between transition-all duration-300 hover:-translate-y-2 "
+              className="group relative bg-white rounded-lg hover:shadow-lg p-8 flex flex-col justify-between transition-all duration-300"
             >
               <div>
                 <h3 className="text-2xl font-bold text-gray-900 ">{title}</h3>
@@ -73,7 +73,7 @@ const FeaturesSection=()=>{
                 <ul className="space-y-1 mb-4">
                   {points.map((point, idx) => (
                     <li key={idx} className="flex items-start gap-2">
-                      <Check className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
+                      <span className="text-black mt-0.5 flex-shrink-0 w-4 h-7">➤</span>
                       <span className="text-gray-700">{point}</span>
                     </li>
                   ))}
@@ -82,7 +82,7 @@ const FeaturesSection=()=>{
               <div>
                 <Link
                   to={buttonLink}
-                  className="inline-block px-5 py-2 bg-primary text-white rounded-full text-sm hover:bg-green-700 transition-all"
+                  className="inline-block px-5 py-2 bg-primary text-white rounded-full text-sm hover:bg-green-700 transition-all hover:scale-105"
                 >
                   {buttonText}
                 </Link>

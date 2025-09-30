@@ -162,7 +162,8 @@ export default function DietChartGenerator() {
   };
 
   return (
-    <div className="flex flex-col h-screen w-full mx-auto bg-primary rounded-lg">
+    <div className="bg-yellow-100 w-full h-screen">
+        <div className="flex flex-col mx-auto max-w-5xl bg-primary rounded-lg mt-8">
       {/* Chat Messages */}
       <div className="flex-1 overflow-y-auto p-6 space-y-6 mt-4">
         {messages.length === 0 ? (
@@ -328,6 +329,7 @@ export default function DietChartGenerator() {
           </>
         )}
       </div>
+    </div>
     </div>
   );
 }
