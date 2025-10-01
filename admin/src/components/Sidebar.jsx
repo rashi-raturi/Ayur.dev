@@ -11,7 +11,7 @@ const Sidebar = () => {
   const { aToken } = useContext(AdminContext)
 
   return (
-    <div className='min-h-screen bg-yellow-100 border-r border-primary '>
+    <div className='sticky top-0 h-screen bg-yellow-100 border-r border-primary'>
       {aToken && <ul className='text-[#515151] mt-5'>
 
         <NavLink to={'/admin-dashboard'} className={({ isActive }) => `flex items-center gap-3 py-3.5 px-3 md:px-6 md:min-w-56 cursor-pointer ${isActive ? 'bg-primary text-white border-r-4 border-primary' : ''}`}>

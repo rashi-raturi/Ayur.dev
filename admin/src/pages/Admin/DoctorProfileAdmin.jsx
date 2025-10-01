@@ -51,7 +51,8 @@ const DoctorProfileAdmin = () => {
   if (!formData) return <p className="p-5">Loading...</p>
 
   return (
-    <div className="p-6 max-w-4xl mx-auto bg-gray-50 rounded-lg shadow-lg mt-8 mb-8">
+    <div className='min-h-screen w-full bg-yellow-100'>
+      <div className="p-6 max-w-4xl mx-auto bg-gray-50 rounded-lg shadow-lg mt-8 mb-8">
       <div className="flex items-center justify-between mb-6">
         <button onClick={() => navigate(-1)} className="text-sm text-primary hover:underline">← Back</button>
         
@@ -164,6 +165,7 @@ const DoctorProfileAdmin = () => {
           }
         </div>
       </div>
+    </div> 
     </div>
   )
 }
