@@ -26,6 +26,7 @@ const userSchema = new mongoose.Schema({
     // Medical information
     constitution: { type: String, default: '' }, // Ayurvedic constitution (Vata, Pitta, Kapha, etc.)
     condition: { type: String, default: '' }, // Current medical condition
+    foodAllergies: { type: String, default: '' }, // Food allergies and dietary restrictions
     medications: [{ type: String }], // List of current medications
     notes: { type: String, default: '' }, // Doctor's notes about the patient
     

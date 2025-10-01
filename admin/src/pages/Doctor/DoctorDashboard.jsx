@@ -11,14 +11,17 @@ const DoctorDashboard = () => {
   const { dToken, dashData, getDashData, backendUrl, profileData, getProfileData } = useContext(DoctorContext)
   const [recentPatients, setRecentPatients] = useState([])
   const [todaysAppointments, setTodaysAppointments] = useState([])
+  const [totalPatients, setTotalPatients] = useState(0)
   const navigate = useNavigate()
 
   const fetchRecentPatients = useCallback(async () => {
     try {
-      const { data } = await axios.get(`${backendUrl}/api/doctor/all-patients`, {
+      const { data } = await axios.get(`${backendUrl}/api/doctor/patients`, {
         headers: { dToken }
       })
       if (data.success) {
+        // Set total patient count
+        setTotalPatients(data.patients.length)
         // Sort patients by creation date (most recent first) and take first 4
         const sortedPatients = data.patients.sort((a, b) => new Date(b.date) - new Date(a.date))
         setRecentPatients(sortedPatients.slice(0, 4))
@@ -57,7 +60,8 @@ const DoctorDashboard = () => {
       }
     }
     fetchData()
-  }, [dToken, getDashData, getProfileData, fetchRecentPatients, fetchTodaysAppointments])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dToken])
 
   const getPatientStatusBadge = () => {
     // Determine status based on recent activity or patient condition
@@ -88,13 +92,13 @@ const DoctorDashboard = () => {
   }
 
   return dashData && (
-  <div className='bg-white min-h-screen w-full px-4 pt-4'>
+  <div className='bg-white min-h-screen w-full px-6 pt-6'>
       
       {/* Welcome Section */}
-      <div className="mb-6">
+      <div className="mb-8">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold text-gray-900">
+            <h1 className="text-2xl font-bold text-gray-900">
               Welcome back, Dr. {profileData?.name || 'Doctor'}
             </h1>
             <p className="text-gray-600 text-sm">Here&apos;s what&apos;s happening with your practice today</p>
@@ -119,8 +123,8 @@ const DoctorDashboard = () => {
       <Users className='w-5 h-5 text-blue-600' />
     </div>
     <div>
-            <p className='text-3xl font-semibold text-black'>{dashData?.patients || 0}</p>
-            <p className='text-xs text-gray-500'>this month</p>
+            <p className='text-3xl font-semibold text-black'>{totalPatients}</p>
+            <p className='text-xs text-gray-500'>all time</p>
     </div>
   </div>
 

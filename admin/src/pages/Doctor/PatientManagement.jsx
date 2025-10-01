@@ -3,6 +3,7 @@ import { DoctorContext } from '../../context/DoctorContext';
 import { toast } from 'react-toastify';
 import axios from 'axios';
 import { Search, Plus, Eye, Edit2, Calendar, User, Stethoscope, Activity, CheckCircle, Clock, AlertCircle, Upload, FileText, Download, Loader } from 'lucide-react';
+import PrescriptionPreview from '../../components/PrescriptionPreview';
 
 const PatientManagement = () => {
   const { dToken, backendUrl } = useContext(DoctorContext);
@@ -13,6 +14,8 @@ const PatientManagement = () => {
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [showPatientModal, setShowPatientModal] = useState(false);
   const [showAddPatientModal, setShowAddPatientModal] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editingPatient, setEditingPatient] = useState(null);
   const [addPatientData, setAddPatientData] = useState({
     name: '',
     email: '',
@@ -26,7 +29,10 @@ const PatientManagement = () => {
       country: 'India'
     },
     gender: '',
-    dob: ''
+    dob: '',
+    constitution: '',
+    condition: '',
+    foodAllergies: ''
   });
   const [addPatientLoading, setAddPatientLoading] = useState(false);
   
@@ -43,6 +49,8 @@ const PatientManagement = () => {
   const [medicationStatuses, setMedicationStatuses] = useState({});
   const [editingSymptom, setEditingSymptom] = useState(null);
   const [editingMedication, setEditingMedication] = useState(null);
+  const [previewPrescription, setPreviewPrescription] = useState(null);
+  const [showPrescriptionPreview, setShowPrescriptionPreview] = useState(false);
 
   const fetchPatients = useCallback(async () => {
     try {
@@ -71,7 +79,8 @@ const PatientManagement = () => {
   const filteredPatients = patients.filter(patient =>
     patient.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     patient.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    patient.phone.includes(searchTerm)
+    patient.phone.includes(searchTerm) ||
+    (patient.constitution && patient.constitution.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   const getStatusColor = (status) => {
@@ -173,15 +182,59 @@ const PatientManagement = () => {
     }
   };
 
+  const handleEditPatient = (patient) => {
+    console.log('Editing patient:', patient);
+    setEditingPatient(patient);
+    setIsEditMode(true);
+    
+    // Pre-fill the form with patient data
+    const dobValue = patient.dob ? new Date(patient.dob).toISOString().split('T')[0] : '';
+    console.log('Patient DOB:', patient.dob, 'Formatted:', dobValue);
+    
+    setAddPatientData({
+      name: patient.name || '',
+      email: patient.email || '',
+      phone: patient.phone || '',
+      address: {
+        line1: patient.address?.line1 || '',
+        line2: patient.address?.line2 || '',
+        city: patient.address?.city || '',
+        state: patient.address?.state || '',
+        pincode: patient.address?.pincode || '',
+        country: patient.address?.country || 'India'
+      },
+      gender: patient.gender && patient.gender !== 'Not Selected' ? patient.gender : '',
+      dob: dobValue,
+      constitution: patient.constitution || '',
+      condition: patient.condition || '',
+      foodAllergies: patient.foodAllergies || ''
+    });
+    
+    setShowAddPatientModal(true);
+  };
+
   const handleAddPatient = async (e) => {
     e.preventDefault();
     setAddPatientLoading(true);
 
     try {
       // Validate required fields
-      if (!addPatientData.name || !addPatientData.email || !addPatientData.dob || !addPatientData.gender) {
+      if (!addPatientData.name || !addPatientData.email || !addPatientData.dob || 
+          !addPatientData.gender || addPatientData.gender === 'Not Selected') {
         toast.error('Please fill in all required fields');
+        setAddPatientLoading(false);
         return;
+      }
+
+      // Validate patient ID in edit mode
+      if (isEditMode) {
+        console.log('Edit mode - editingPatient:', editingPatient);
+        if (!editingPatient || !editingPatient._id) {
+          console.error('Missing patient ID in edit mode:', { editingPatient, hasId: !!editingPatient?._id });
+          toast.error('Invalid patient data. Please try again.');
+          setAddPatientLoading(false);
+          return;
+        }
       }
 
       const formData = new FormData();
@@ -191,17 +244,45 @@ const PatientManagement = () => {
       formData.append('address', JSON.stringify(addPatientData.address));
       formData.append('gender', addPatientData.gender);
       formData.append('dob', addPatientData.dob);
+      formData.append('constitution', addPatientData.constitution || '');
+      formData.append('condition', addPatientData.condition || '');
+      formData.append('foodAllergies', addPatientData.foodAllergies || '');
 
-      const { data } = await axios.post(`${backendUrl}/api/doctor/add-patient`, formData, {
-        headers: { 
-          dToken,
-          'Content-Type': 'multipart/form-data'
-        }
-      });
+      let data;
+      if (isEditMode && editingPatient) {
+        // Edit existing patient
+        console.log('Updating patient with ID:', editingPatient._id);
+        console.log('Update data:', {
+          name: addPatientData.name,
+          email: addPatientData.email,
+          phone: addPatientData.phone,
+          gender: addPatientData.gender,
+          dob: addPatientData.dob
+        });
+        const response = await axios.put(`${backendUrl}/api/doctor/patient/${editingPatient._id}`, formData, {
+          headers: { 
+            dToken,
+            'Content-Type': 'multipart/form-data'
+          }
+        });
+        data = response.data;
+        console.log('Update response:', data);
+      } else {
+        // Add new patient
+        const response = await axios.post(`${backendUrl}/api/doctor/add-patient`, formData, {
+          headers: { 
+            dToken,
+            'Content-Type': 'multipart/form-data'
+          }
+        });
+        data = response.data;
+      }
 
       if (data.success) {
-        toast.success('Patient added successfully');
+        toast.success(isEditMode ? 'Patient updated successfully' : 'Patient added successfully');
         setShowAddPatientModal(false);
+        setIsEditMode(false);
+        setEditingPatient(null);
         setAddPatientData({
           name: '',
           email: '',
@@ -214,16 +295,19 @@ const PatientManagement = () => {
             pincode: '',
             country: 'India'
           },
-          gender: 'Not Selected',
-          dob: ''
+          gender: '',
+          dob: '',
+          constitution: '',
+          condition: '',
+          foodAllergies: ''
         });
         fetchPatients(); // Refresh patient list
       } else {
-        toast.error(data.message || 'Failed to add patient');
+        toast.error(data.message || (isEditMode ? 'Failed to update patient' : 'Failed to add patient'));
       }
     } catch (error) {
-      console.error('Error adding patient:', error);
-      toast.error('Failed to add patient');
+      console.error('Error saving patient:', error);
+      toast.error(isEditMode ? 'Failed to update patient' : 'Failed to add patient');
     } finally {
       setAddPatientLoading(false);
     }
@@ -234,22 +318,57 @@ const PatientManagement = () => {
 
     const currentData = patient;
 
-    // Helper function to get unique symptoms from all prescriptions
+    // Helper function to get chief complaints from all prescriptions
     const getAllSymptoms = () => {
-      const allSymptoms = [];
+      const allComplaints = [];
       prescriptions.forEach(prescription => {
+        // Get chief complaint from new schema
+        if (prescription.chiefComplaint) {
+          allComplaints.push(prescription.chiefComplaint);
+        }
+        // Also check old schema symptoms for backward compatibility
         if (prescription.symptoms && prescription.symptoms.length > 0) {
-          allSymptoms.push(...prescription.symptoms);
+          allComplaints.push(...prescription.symptoms);
         }
       });
-      return [...new Set(allSymptoms)]; // Remove duplicates
+      return [...new Set(allComplaints)]; // Remove duplicates
     };
 
-    // Helper function to get unique medications from all prescriptions
+    // Helper function to get medications from all prescriptions
     const getAllMedicines = () => {
       const allMedicines = [];
       prescriptions.forEach(prescription => {
-        if (prescription.medicines && prescription.medicines.length > 0) {
+        // Get medications from new schema (structured objects)
+        if (prescription.medications && Array.isArray(prescription.medications) && prescription.medications.length > 0) {
+          prescription.medications.forEach(medication => {
+            // Check if medication is an object (new schema) or string (old schema)
+            if (typeof medication === 'object' && medication !== null) {
+              allMedicines.push({
+                fullText: medication.name,
+                name: medication.name || '',
+                dosage: medication.dosage || '',
+                frequency: medication.frequency || '',
+                duration: medication.duration || '',
+                timing: medication.timing || '',
+                instructions: medication.instructions || '',
+                date: prescription.date || prescription.createdAt
+              });
+            } else if (typeof medication === 'string') {
+              // Handle old schema string format
+              const parts = medication.split(' - ');
+              allMedicines.push({
+                fullText: medication,
+                name: parts[0] || medication,
+                dosage: parts[1] || '',
+                frequency: parts[2] || '',
+                duration: parts[3] || '',
+                date: prescription.date || prescription.createdAt
+              });
+            }
+          });
+        }
+        // Also check old schema medicines for backward compatibility
+        else if (prescription.medicines && prescription.medicines.length > 0) {
           prescription.medicines.forEach(medicine => {
             // Try to parse medicine string to extract name, dosage, etc.
             const parts = medicine.split(' - ');
@@ -346,7 +465,7 @@ const PatientManagement = () => {
           <div>
             <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
               <Activity className="w-5 h-5" />
-              Current Symptoms
+              Current Symptoms & Chief Complaints
             </h3>
             <div className="space-y-3">
               {symptoms.length > 0 ? (
@@ -356,8 +475,8 @@ const PatientManagement = () => {
                   
                   return (
                     <div key={index} className="bg-white rounded-lg p-4 border border-gray-200 flex items-center justify-between">
-                      <div>
-                        <div className="font-medium text-gray-900 capitalize">{symptom}</div>
+                      <div className="flex-1 mr-4">
+                        <div className="font-medium text-gray-900">{symptom}</div>
                         <div className="text-sm text-gray-500">From prescription records</div>
                       </div>
                       
@@ -401,8 +520,8 @@ const PatientManagement = () => {
               ) : (
                 <div className="bg-gray-50 rounded-lg p-6 text-center">
                   <Activity className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                  <p className="text-gray-500 mb-2">No symptoms recorded</p>
-                  <p className="text-sm text-gray-400">Symptoms will appear here when prescriptions are uploaded</p>
+                  <p className="text-gray-500 mb-2">No symptoms or complaints recorded</p>
+                  <p className="text-sm text-gray-400">Chief complaints and symptoms will appear here when prescriptions are created</p>
                 </div>
               )}
             </div>
@@ -454,35 +573,98 @@ const PatientManagement = () => {
     const renderMedicationsContent = () => {
       const medicines = getAllMedicines();
       
+      // Sort medicines: Active/Completed/On Hold first, Discontinued at the bottom
+      const sortedMedicines = [...medicines].sort((a, b) => {
+        const statusA = getMedicationStatus(a.name).status;
+        const statusB = getMedicationStatus(b.name).status;
+        
+        // Discontinued medicines go to bottom
+        if (statusA === 'Discontinued' && statusB !== 'Discontinued') return 1;
+        if (statusA !== 'Discontinued' && statusB === 'Discontinued') return -1;
+        
+        // Otherwise maintain original order
+        return 0;
+      });
+      
+      // Count active and discontinued medications
+      const activeMedicines = sortedMedicines.filter(m => getMedicationStatus(m.name).status !== 'Discontinued');
+      const discontinuedMedicines = sortedMedicines.filter(m => getMedicationStatus(m.name).status === 'Discontinued');
+      
       return (
         <div className="space-y-6">
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-lg font-semibold text-green-700">Medications & Supplements</h3>
-            <span className="text-sm text-green-600 font-medium">
-              {medicines.length} {medicines.length === 1 ? 'medication' : 'medications'} in record
-            </span>
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-green-600 font-medium">
+                {activeMedicines.length} active
+              </span>
+              {discontinuedMedicines.length > 0 && (
+                <>
+                  <span className="text-gray-400">•</span>
+                  <span className="text-sm text-red-600 font-medium">
+                    {discontinuedMedicines.length} discontinued
+                  </span>
+                </>
+              )}
+            </div>
           </div>
           
           <div className="space-y-4">
-            {medicines.length > 0 ? (
-              medicines.map((medicine, index) => {
-                const medicationStatus = getMedicationStatus(medicine.name);
-                const isEditing = editingMedication === medicine.name;
-                
-                return (
-                  <div key={index} className="bg-white rounded-lg border-l-4 border-l-green-500 p-4 shadow-sm">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                          <Activity className="w-4 h-4 text-green-600" />
+            {sortedMedicines.length > 0 ? (
+              <>
+                {sortedMedicines.map((medicine, index) => {
+                  const medicationStatus = getMedicationStatus(medicine.name);
+                  const isEditing = editingMedication === medicine.name;
+                  const isDiscontinued = medicationStatus.status === 'Discontinued';
+                  const isFirstDiscontinued = index > 0 && 
+                    !isDiscontinued && 
+                    sortedMedicines[index + 1] && 
+                    getMedicationStatus(sortedMedicines[index + 1].name).status === 'Discontinued';
+                  
+                  return (
+                    <div key={index}>
+                      {/* Divider before discontinued section */}
+                      {isFirstDiscontinued && (
+                        <div className="flex items-center gap-3 my-6">
+                          <div className="flex-1 border-t border-gray-300"></div>
+                          <span className="text-sm font-medium text-gray-500 uppercase tracking-wide">
+                            Discontinued Medications
+                          </span>
+                          <div className="flex-1 border-t border-gray-300"></div>
                         </div>
-                        <div>
-                          <h4 className="font-medium text-gray-900 text-sm capitalize">{medicine.name}</h4>
-                          <p className="text-xs text-gray-500">
-                            Added {new Date(medicine.date).toLocaleDateString()}
-                          </p>
-                        </div>
-                      </div>
+                      )}
+                      
+                      <div className={`bg-white rounded-lg border-l-4 p-4 shadow-sm transition-opacity ${
+                        isDiscontinued 
+                          ? 'border-l-red-400 opacity-60' 
+                          : 'border-l-green-500'
+                      }`}>
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                              isDiscontinued 
+                                ? 'bg-red-100' 
+                                : 'bg-green-100'
+                            }`}>
+                              <Activity className={`w-4 h-4 ${
+                                isDiscontinued 
+                                  ? 'text-red-600' 
+                                  : 'text-green-600'
+                              }`} />
+                            </div>
+                            <div>
+                              <h4 className={`font-medium text-sm capitalize ${
+                                isDiscontinued 
+                                  ? 'text-gray-600 line-through' 
+                                  : 'text-gray-900'
+                              }`}>
+                                {medicine.name}
+                              </h4>
+                              <p className="text-xs text-gray-500">
+                                Added {new Date(medicine.date).toLocaleDateString()}
+                              </p>
+                            </div>
+                          </div>
                       
                       {/* Editable Medication Status */}
                       <div className="relative">
@@ -521,37 +703,65 @@ const PatientManagement = () => {
                     </div>
                     
                     {/* Medicine Details */}
-                    {(medicine.dosage || medicine.frequency || medicine.duration) ? (
-                      <div className="grid grid-cols-3 gap-3">
-                        <div className="bg-blue-50 p-2 rounded-lg">
-                          <div className="text-xs text-blue-600 font-medium mb-1">DOSAGE</div>
-                          <div className="font-medium text-blue-800 text-sm">
-                            {medicine.dosage || 'As prescribed'}
+                    <div className="space-y-3">
+                      {(medicine.dosage || medicine.frequency || medicine.duration || medicine.timing) ? (
+                        <>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            {medicine.dosage && (
+                              <div className="bg-blue-50 p-2 rounded-lg">
+                                <div className="text-xs text-blue-600 font-medium mb-1">DOSAGE</div>
+                                <div className="font-medium text-blue-800 text-sm">
+                                  {medicine.dosage}
+                                </div>
+                              </div>
+                            )}
+                            {medicine.frequency && (
+                              <div className="bg-purple-50 p-2 rounded-lg">
+                                <div className="text-xs text-purple-600 font-medium mb-1">FREQUENCY</div>
+                                <div className="font-medium text-purple-800 text-sm">
+                                  {medicine.frequency}
+                                </div>
+                              </div>
+                            )}
+                            {medicine.duration && (
+                              <div className="bg-orange-50 p-2 rounded-lg">
+                                <div className="text-xs text-orange-600 font-medium mb-1">DURATION</div>
+                                <div className="font-medium text-orange-800 text-sm">
+                                  {medicine.duration}
+                                </div>
+                              </div>
+                            )}
+                            {medicine.timing && (
+                              <div className="bg-green-50 p-2 rounded-lg">
+                                <div className="text-xs text-green-600 font-medium mb-1">TIMING</div>
+                                <div className="font-medium text-green-800 text-sm">
+                                  {medicine.timing}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                          {medicine.instructions && (
+                            <div className="bg-gray-50 p-2 rounded-lg border-l-2 border-gray-300">
+                              <div className="text-xs text-gray-600 font-medium mb-1">INSTRUCTIONS</div>
+                              <div className="text-sm text-gray-700">
+                                {medicine.instructions}
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <div className="bg-gray-50 p-2 rounded-lg">
+                          <div className="text-xs text-gray-600">
+                            <strong>Full Prescription:</strong> {medicine.fullText}
                           </div>
                         </div>
-                        <div className="bg-purple-50 p-2 rounded-lg">
-                          <div className="text-xs text-purple-600 font-medium mb-1">FREQUENCY</div>
-                          <div className="font-medium text-purple-800 text-sm">
-                            {medicine.frequency || 'As directed'}
-                          </div>
-                        </div>
-                        <div className="bg-orange-50 p-2 rounded-lg">
-                          <div className="text-xs text-orange-600 font-medium mb-1">DURATION</div>
-                          <div className="font-medium text-orange-800 text-sm">
-                            {medicine.duration || 'As needed'}
-                          </div>
-                        </div>
+                      )}
+                    </div>
                       </div>
-                    ) : (
-                      <div className="bg-gray-50 p-2 rounded-lg">
-                        <div className="text-xs text-gray-600">
-                          <strong>Full Prescription:</strong> {medicine.fullText}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })
+                    </div>
+                  );
+                })}
+              </>
             ) : (
               <div className="text-center py-12 bg-gray-50 rounded-lg">
                 <Activity className="w-16 h-16 text-gray-400 mx-auto mb-4" />
@@ -755,11 +965,6 @@ const PatientManagement = () => {
                               <p className="text-sm text-gray-600 mb-2">
                                 Date: {new Date(prescription.date || prescription.createdAt).toLocaleDateString()}
                               </p>
-                              {prescription.doctorId && (
-                                <p className="text-sm text-gray-600 mb-2">
-                                  Dr. {prescription.doctorId.name} - {prescription.doctorId.speciality}
-                                </p>
-                              )}
                               
                               {/* Symptoms */}
                               {prescription.symptoms && prescription.symptoms.length > 0 && (
@@ -814,8 +1019,8 @@ const PatientManagement = () => {
                             )}
                             <button
                               onClick={() => {
-                                // Handle view details - could open a detailed modal
-                                console.log('View prescription details:', prescription);
+                                setPreviewPrescription(prescription);
+                                setShowPrescriptionPreview(true);
                               }}
                               className="p-2 text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
                               title="View Details"
@@ -963,8 +1168,7 @@ const PatientManagement = () => {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
-              <User className="w-6 h-6" />
+            <h1 className="text-2xl font-bold text-gray-900">
               Patient Management
             </h1>
             <p className="text-gray-600 mt-1 text-sm">Manage your patient records and appointments</p>
@@ -979,15 +1183,15 @@ const PatientManagement = () => {
         </div>
 
   {/* Search Bar */}
-  <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+  <div className="mb-6">
           <div className="relative w-full">
             <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input
               type="text"
-              placeholder="Search patients by name or condition..."
+              placeholder="Search by patient name, constitution, or tags..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm bg-gray-50"
+              className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm bg-white"
             />
           </div>
         </div>
@@ -1039,8 +1243,12 @@ const PatientManagement = () => {
 
                   {/* Constitution */}
                   <div className="col-span-1">
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                      {patient.constitution}
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      patient.constitution && patient.constitution !== 'Not assessed' 
+                        ? 'bg-blue-100 text-blue-800' 
+                        : 'bg-gray-100 text-gray-500'
+                    }`}>
+                      {patient.constitution || 'Not assessed'}
                     </span>
                   </div>
 
@@ -1084,7 +1292,7 @@ const PatientManagement = () => {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          handlePatientClick(patient);
+                          handleEditPatient(patient);
                         }}
                         className="p-1.5 text-gray-400 hover:text-green-600 transition-colors"
                         title="Edit Patient"
@@ -1118,24 +1326,48 @@ const PatientManagement = () => {
       {showAddPatientModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            {/* Modal Header */}
-            <div className="p-6 border-b border-gray-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-xl font-semibold text-gray-900">Add New Patient</h2>
-                  <p className="text-sm text-gray-500 mt-1">Enter the patient&apos;s basic information to create a new record.</p>
+            <form onSubmit={handleAddPatient}>
+              {/* Modal Header */}
+              <div className="p-6 border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-xl font-semibold text-gray-900">
+                      {isEditMode ? 'Edit Patient' : 'Create New Patient'}
+                    </h2>
+                    <p className="text-sm text-gray-500 mt-1">
+                      {isEditMode 
+                        ? 'Update patient information in your Ayurvedic practice records' 
+                        : 'Fill out the form to create a comprehensive Ayurvedic patient record'}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAddPatientModal(false);
+                        setIsEditMode(false);
+                        setEditingPatient(null);
+                      }}
+                      className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors font-medium text-sm"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={addPatientLoading}
+                      className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-xl hover:bg-green-700 transition-colors font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <FileText className="w-4 h-4" />
+                      {addPatientLoading 
+                        ? (isEditMode ? 'Updating...' : 'Saving...') 
+                        : (isEditMode ? 'Update Patient' : 'Save Patient')}
+                    </button>
+                  </div>
                 </div>
-                <button
-                  onClick={() => setShowAddPatientModal(false)}
-                  className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  ✕
-                </button>
               </div>
-            </div>
 
-            {/* Modal Content */}
-            <form onSubmit={handleAddPatient} className="p-6">
+              {/* Modal Content */}
+              <div className="p-6">
               <div className="space-y-4">
                 {/* Name and Email Row */}
                 <div className="grid grid-cols-2 gap-4">
@@ -1183,8 +1415,9 @@ const PatientManagement = () => {
                       value={addPatientData.gender}
                       onChange={(e) => setAddPatientData({...addPatientData, gender: e.target.value})}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm text-gray-500"
+                      required
                     >
-                      <option value="Not Selected">Select</option>
+                      <option value="">Select Gender</option>
                       <option value="Male">Male</option>
                       <option value="Female">Female</option>
                       <option value="Other">Other</option>
@@ -1202,6 +1435,60 @@ const PatientManagement = () => {
                       required
                     />
                   </div>
+                </div>
+
+                {/* Divider after Gender/DOB/Contact */}
+                <div className="pt-4">
+                  <div className="border-t border-gray-200 mb-4"></div>
+                </div>
+
+                {/* Constitution and Condition Row */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Constitution (Prakriti)
+                    </label>
+                    <select
+                      value={addPatientData.constitution}
+                      onChange={(e) => setAddPatientData({...addPatientData, constitution: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+                    >
+                      <option value="">Select Constitution</option>
+                      <option value="Vata">Vata</option>
+                      <option value="Pitta">Pitta</option>
+                      <option value="Kapha">Kapha</option>
+                      <option value="Vata-Pitta">Vata-Pitta</option>
+                      <option value="Vata-Kapha">Vata-Kapha</option>
+                      <option value="Pitta-Kapha">Pitta-Kapha</option>
+                      <option value="Tridosha">Tridosha</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Current Condition
+                    </label>
+                    <input
+                      type="text"
+                      value={addPatientData.condition}
+                      onChange={(e) => setAddPatientData({...addPatientData, condition: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+                      placeholder="e.g., Arthritis, Digestive issues"
+                    />
+                  </div>
+                </div>
+
+                {/* Food Allergies & Restrictions */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Food Allergies & Restrictions
+                  </label>
+                  <textarea
+                    value={addPatientData.foodAllergies}
+                    onChange={(e) => setAddPatientData({...addPatientData, foodAllergies: e.target.value})}
+                    placeholder="e.g., Dairy allergy, Gluten sensitivity, Vegetarian"
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm resize-none"
+                  />
                 </div>
 
                 {/* Address Section Divider */}
@@ -1283,23 +1570,6 @@ const PatientManagement = () => {
                   </div>
                 </div>
               </div>
-
-              {/* Action Button */}
-              <div className="mt-6">
-                <button
-                  type="submit"
-                  disabled={addPatientLoading}
-                  className="w-full bg-gray-900 text-white py-3 rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-                >
-                  {addPatientLoading ? (
-                    <div className="flex items-center justify-center gap-2">
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                      Adding Patient...
-                    </div>
-                  ) : (
-                    'Add Patient'
-                  )}
-                </button>
               </div>
             </form>
           </div>
@@ -1313,6 +1583,16 @@ const PatientManagement = () => {
         onClose={() => {
           setShowPatientModal(false);
           setSelectedPatient(null);
+        }}
+      />
+
+      {/* Prescription Preview Modal */}
+      <PrescriptionPreview
+        prescription={previewPrescription}
+        isOpen={showPrescriptionPreview}
+        onClose={() => {
+          setShowPrescriptionPreview(false);
+          setPreviewPrescription(null);
         }}
       />
     </div>

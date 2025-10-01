@@ -370,6 +370,15 @@ export const createPrescription = async (req, res) => {
 		const registrationNumber = doctor.registrationNumber || 
 			`${(doctor.speciality || 'AYU').toUpperCase().substring(0, 3)}${Date.now().toString().slice(-5)}`;
 
+		// Update patient's constitution in user database if provided
+		if (patientInfo.constitution) {
+			await userModel.findByIdAndUpdate(
+				patientId,
+				{ constitution: patientInfo.constitution },
+				{ new: true }
+			);
+		}
+
 		// Create new prescription
 		const prescription = new Prescription({
 			patientId,
@@ -439,6 +448,8 @@ export const listAllDoctorPrescriptions = async (req, res) => {
 		// Format prescriptions for frontend
 		const formattedPrescriptions = prescriptions.map(prescription => ({
 			id: prescription._id,
+			prescriptionId: prescription.prescriptionId,
+			patientId: prescription.patientId?._id || prescription.patientId,
 			patientName: prescription.patientInfo?.name || prescription.patientId?.name,
 			date: prescription.date,
 			status: prescription.status,
@@ -449,7 +460,8 @@ export const listAllDoctorPrescriptions = async (req, res) => {
 			patientInfo: prescription.patientInfo,
 			dietaryRecommendations: prescription.dietaryRecommendations,
 			lifestyleAdvice: prescription.lifestyleAdvice,
-			followUpDate: prescription.followUpDate
+			followUpDate: prescription.followUpDate,
+			emailedAt: prescription.emailedAt
 		}));
 
 		res.json({ 
@@ -479,10 +491,35 @@ export const updatePrescription = async (req, res) => {
 			medications,
 			dietaryRecommendations,
 			lifestyleAdvice,
-			followUpDate
+			followUpDate,
+			status
 		} = req.body;
 
-		// Validate required fields
+		// If only status is being updated, handle it separately
+		if (status && !patientInfo && !chiefComplaint && !diagnosis && !medications) {
+			const prescription = await Prescription.findOne({ 
+				_id: prescriptionId, 
+				doctorId: doctorId 
+			});
+
+			if (!prescription) {
+				return res.status(404).json({ 
+					success: false, 
+					message: 'Prescription not found or unauthorized' 
+				});
+			}
+
+			prescription.status = status;
+			await prescription.save();
+
+			return res.status(200).json({
+				success: true,
+				message: 'Status updated successfully',
+				prescription
+			});
+		}
+
+		// Validate required fields for full update
 		if (!patientInfo?.name || !chiefComplaint) {
 			return res.status(400).json({ 
 				success: false, 
@@ -515,6 +552,15 @@ export const updatePrescription = async (req, res) => {
 		// Generate fallback registration number if missing
 		const registrationNumber = doctor.registrationNumber || 
 			`${(doctor.speciality || 'AYU').toUpperCase().substring(0, 3)}${Date.now().toString().slice(-5)}`;
+
+		// Update patient's constitution in user database if provided
+		if (patientInfo.constitution) {
+			await userModel.findByIdAndUpdate(
+				prescription.patientId,
+				{ constitution: patientInfo.constitution },
+				{ new: true }
+			);
+		}
 
 		// Update prescription with doctor info preserved/updated
 		prescription.doctorInfo = {

@@ -5,6 +5,11 @@ import { v2 as cloudinary } from 'cloudinary';
 import doctorModel from "../models/doctorModel.js";
 import appointmentModel from "../models/appointmentModel.js";
 import userModel from "../models/userModel.js";
+import prescriptionModel from "../models/prescriptionModel.js";
+import transporter from "../config/nodemailer.js";
+import { generatePrescriptionPDF } from "../utils/pdfGenerator.js";
+import { getPrescriptionEmailTemplate } from "../utils/emailTemplate.js";
+import fs from 'fs';
 
 // API for doctor Login 
 const loginDoctor = async (req, res) => {
@@ -144,10 +149,19 @@ const doctorProfile = async (req, res) => {
 const updateDoctorProfile = async (req, res) => {
     try {
 
-        const { fees, address, available } = req.body
+        const { fees, address, available, about, degree, experience, phone } = req.body
         const docId = req.doctorId;
 
-        await doctorModel.findByIdAndUpdate(docId, { fees, address, available })
+        const updateData = {};
+        if (fees !== undefined) updateData.fees = fees;
+        if (address !== undefined) updateData.address = address;
+        if (available !== undefined) updateData.available = available;
+        if (about !== undefined) updateData.about = about;
+        if (degree !== undefined) updateData.degree = degree;
+        if (experience !== undefined) updateData.experience = experience;
+        if (phone !== undefined) updateData.phone = phone;
+
+        await doctorModel.findByIdAndUpdate(docId, updateData)
 
         res.json({ success: true, message: 'Profile Updated' })
 
@@ -206,7 +220,7 @@ const addPatientByDoctor = async (req, res) => {
         console.log('req.doctorId:', req.doctorId);
         console.log('req.headers:', req.headers);
         
-        const { name, email, password, phone, address, gender, dob } = req.body;
+        const { name, email, password, phone, address, gender, dob, constitution, condition, foodAllergies } = req.body;
         const docId = req.doctorId; // Get from req instead of req.body
         const imageFile = req.file;
 
@@ -275,6 +289,9 @@ const addPatientByDoctor = async (req, res) => {
             address: parsedAddress || { line1: '', line2: '', city: '', state: '', pincode: '', country: '' },
             gender: gender || 'Not Selected',
             dob: dob ? new Date(dob) : new Date(),
+            constitution: constitution || '',
+            condition: condition || '',
+            foodAllergies: foodAllergies || '',
             doctor: docId // Associate patient with the doctor who added them
         };
 
@@ -315,11 +332,26 @@ const updatePatientByDoctor = async (req, res) => {
         const docId = req.doctorId;
         const updates = { ...req.body };
 
-        // Verify doctor has access to this patient
+        console.log('Update patient request - patientId:', patientId, 'docId:', docId);
+
+        // Validate patientId
+        if (!patientId || patientId === 'undefined') {
+            console.error('Invalid patient ID received:', patientId);
+            return res.json({ success: false, message: 'Invalid patient ID' });
+        }
+
+        // Verify doctor has access to this patient (either through appointment or direct assignment)
         const hasAppointment = await appointmentModel.exists({ docId, userId: patientId });
-        if (!hasAppointment) {
+        const isAssignedDoctor = await userModel.exists({ _id: patientId, doctor: docId });
+        
+        console.log('Access check - hasAppointment:', hasAppointment, 'isAssignedDoctor:', isAssignedDoctor);
+        
+        if (!hasAppointment && !isAssignedDoctor) {
+            console.log('Doctor does not have access to patient - no appointment and not assigned doctor');
             return res.json({ success: false, message: 'Unauthorized access to patient' });
         }
+
+        console.log('Updates received:', updates);
 
         // Parse address if provided as string
         if (updates.address && typeof updates.address === 'string') {
@@ -341,11 +373,6 @@ const updatePatientByDoctor = async (req, res) => {
             updates.password = await bcrypt.hash(updates.password, salt);
         }
 
-        // Handle image upload
-        if (req.file) {
-            const uploadRes = await cloudinary.uploader.upload(req.file.path, { resource_type: "image" });
-            updates.image = uploadRes.secure_url;
-        }
 
         // Remove docId from updates to prevent updating it
         delete updates.docId;
@@ -355,12 +382,14 @@ const updatePatientByDoctor = async (req, res) => {
             .select("-password");
 
         if (!patient) {
+            console.log('Patient not found with ID:', patientId);
             return res.json({ success: false, message: 'Patient not found' });
         }
 
+        console.log('Patient updated successfully:', patient._id);
         res.json({ success: true, patient });
     } catch (error) {
-        console.log(error);
+        console.error('Error updating patient:', error);
         res.json({ success: false, message: error.message });
     }
 };
@@ -391,15 +420,29 @@ const getPatients = async (req, res) => {
             }
 
             return {
+                _id: patient._id,
                 id: patient._id.toString(),
                 name: patient.name,
+                email: patient.email,
                 phone: patient.phone || 'Not provided',
                 age: age,
+                dob: patient.dob,
                 gender: patient.gender || 'Not Selected',
-                email: patient.email,
-                address: `${patient.address?.line1 || ''} ${patient.address?.line2 || ''}`.trim() || 'Not provided',
+                constitution: patient.constitution || 'Not assessed',
+                condition: patient.condition || '',
+                foodAllergies: patient.foodAllergies || '',
+                address: patient.address || {
+                    line1: '',
+                    line2: '',
+                    city: '',
+                    state: '',
+                    pincode: '',
+                    country: 'India'
+                },
+                addressDisplay: `${patient.address?.line1 || ''} ${patient.address?.line2 || ''}`.trim() || 'Not provided',
                 registrationDate: patient.createdAt,
-                status: 'Active'
+                status: 'Active',
+                image: patient.image
             };
         });
 
@@ -407,6 +450,101 @@ const getPatients = async (req, res) => {
 
     } catch (error) {
         console.log(error);
+        res.json({ success: false, message: error.message });
+    }
+};
+
+// API to email prescription to patient
+const emailPrescription = async (req, res) => {
+    try {
+        const { prescriptionId } = req.params;
+        const doctorId = req.doctorId;
+
+        // Find the prescription and populate patient info
+        const prescription = await prescriptionModel.findById(prescriptionId);
+        
+        if (!prescription) {
+            return res.json({ success: false, message: 'Prescription not found' });
+        }
+
+        // Get doctor info
+        const doctor = await doctorModel.findById(doctorId);
+        if (!doctor) {
+            return res.json({ success: false, message: 'Doctor not found' });
+        }
+
+        // Get patient email - check if patientId exists, otherwise use patientInfo.email
+        let patientEmail = prescription.patientInfo?.email;
+        
+        if (prescription.patientId) {
+            const patient = await userModel.findById(prescription.patientId);
+            if (patient && patient.email) {
+                patientEmail = patient.email;
+            }
+        }
+
+        if (!patientEmail) {
+            return res.json({ success: false, message: 'Patient email not found' });
+        }
+
+        // Generate PDF
+        console.log('Generating PDF for prescription:', prescriptionId);
+        const { filepath, filename } = await generatePrescriptionPDF(prescription, {
+            name: doctor.name,
+            speciality: doctor.speciality,
+            email: doctor.email
+        });
+
+        // Generate email HTML
+        const emailHTML = getPrescriptionEmailTemplate(prescription, {
+            name: doctor.name,
+            speciality: doctor.speciality,
+            email: doctor.email
+        });
+
+        // Determine from address based on email service
+        let fromAddress;
+        if (process.env.EMAIL_SERVICE === 'ethereal' || !process.env.EMAIL_USER) {
+            // For Ethereal, use a default sender (Ethereal will override with test account)
+            fromAddress = `"${doctor.name} - Ayurvedic Health Center" <noreply@ayurveda.com>`;
+        } else {
+            fromAddress = `"${doctor.name} - Ayurvedic Health Center" <${process.env.EMAIL_USER}>`;
+        }
+
+        // Send email
+        const mailOptions = {
+            from: fromAddress,
+            to: patientEmail,
+            subject: `Your Ayurvedic Prescription - ${prescription.prescriptionId}`,
+            html: emailHTML,
+            attachments: [
+                {
+                    filename: `Prescription_${prescription.prescriptionId}.pdf`,
+                    path: filepath
+                }
+            ]
+        };
+
+        await transporter.sendMail(mailOptions);
+        console.log('Email sent successfully to:', patientEmail);
+
+        // Update prescription with emailedAt timestamp
+        prescription.emailedAt = new Date();
+        await prescription.save();
+
+        // Delete the temporary PDF file
+        fs.unlink(filepath, (err) => {
+            if (err) console.error('Error deleting PDF file:', err);
+        });
+
+        res.json({ 
+            success: true, 
+            message: 'Prescription emailed successfully',
+            emailedAt: prescription.emailedAt
+        });
+
+    } catch (error) {
+        console.error('Error emailing prescription:', error);
         res.json({ success: false, message: error.message });
     }
 };
@@ -423,5 +561,6 @@ export {
     updateDoctorProfile,
     getPatients,
     addPatientByDoctor,
-    updatePatientByDoctor
+    updatePatientByDoctor,
+    emailPrescription
 }

@@ -3,62 +3,171 @@ import { assets } from '../assets/assets'
 import { NavLink } from 'react-router-dom'
 import { DoctorContext } from '../context/DoctorContext'
 import { AdminContext } from '../context/AdminContext'
-import { Clipboard, Users, FileText } from 'lucide-react';
+import { SidebarContext } from '../context/SidebarContext'
+import { LayoutDashboard, Users, Calendar, FileText, ClipboardList, User, X, Menu } from 'lucide-react';
 
 const Sidebar = () => {
 
   const { dToken } = useContext(DoctorContext)
   const { aToken } = useContext(AdminContext)
+  const { isSidebarOpen, setIsSidebarOpen } = useContext(SidebarContext)
 
   return (
-    <div className='min-h-screen bg-yellow-100 border-r border-primary '>
-      {aToken && <ul className='text-[#515151] mt-5'>
+    <>
+      {/* Toggle Button - Hamburger Menu */}
+      {!isSidebarOpen && (
+        <button
+          onClick={() => setIsSidebarOpen(true)}
+          className="fixed top-4 left-4 z-50 bg-white border border-gray-200 rounded-lg p-2 hover:bg-gray-50 transition-colors shadow-md"
+        >
+          <Menu className="w-5 h-5 text-gray-700" />
+        </button>
+      )}
 
-        <NavLink to={'/admin-dashboard'} className={({ isActive }) => `flex items-center gap-3 py-3.5 px-3 md:px-6 md:min-w-56 cursor-pointer ${isActive ? 'bg-primary text-white border-r-4 border-primary' : ''}`}>
-          <img className='min-w-5' src={assets.home_icon} alt='' />
-          <p className='hidden md:block'>Dashboard</p>
-        </NavLink>
-        <NavLink to={'/all-appointments'} className={({ isActive }) => `flex items-center gap-3 py-3.5 px-3 md:px-6 md:min-w-56 cursor-pointer ${isActive ? 'bg-primary text-white border-r-4 border-primary' : ''}`}>
-          <img className='min-w-5' src={assets.appointment_icon} alt='' />
-          <p className='hidden md:block'>Appointments</p>
-        </NavLink>
-        <NavLink to={'/add-doctor'} className={({ isActive }) => `flex items-center gap-3 py-3.5 px-3 md:px-6 md:min-w-56 cursor-pointer ${isActive ? 'bg-primary text-white border-r-4 border-primary' : ''}`}>
-          <img className='min-w-5' src={assets.add_icon} alt='' />
-          <p className='hidden md:block'>Add Doctor</p>
-        </NavLink>
-        <NavLink to={'/doctor-list'} className={({ isActive }) => `flex items-center gap-3 py-3.5 px-3 md:px-6 md:min-w-56 cursor-pointer ${isActive ? 'bg-primary text-white border-r-4 border-primary' : ''}`}>
-          <img className='min-w-5' src={assets.people_icon} alt='' />
-          <p className='hidden md:block'>Doctors List</p>
-        </NavLink>
-      </ul>}
+      {/* Sidebar */}
+      <div className={`fixed top-0 left-0 h-screen bg-gray-50 border-r border-gray-200 transition-all duration-300 z-40 ${isSidebarOpen ? 'w-64' : 'w-0'} overflow-hidden`}>
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gray-900 rounded-xl flex items-center justify-center">
+              <img src={assets.logo} alt="Logo" className="w-6 h-6 brightness-0 invert" />
+            </div>
+            <div>
+              <h1 className="text-base font-semibold text-gray-900">ayur.dev</h1>
+              <p className="text-xs text-blue-600">Holistic Healthcare</p>
+            </div>
+          </div>
+          <button
+            onClick={() => setIsSidebarOpen(false)}
+            className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <X className="w-5 h-5 text-gray-500" />
+          </button>
+        </div>
+        {/* Navigation */}
+        <nav className="p-4 space-y-1">
+          {aToken && (
+            <>
+              <NavLink 
+                to={'/admin-dashboard'} 
+                className={({ isActive }) => `flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors text-sm ${
+                  isActive 
+                    ? 'bg-gray-100 text-gray-900 font-medium' 
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                <LayoutDashboard className="w-4 h-4" />
+                <span>Dashboard</span>
+              </NavLink>
+              <NavLink 
+                to={'/all-appointments'} 
+                className={({ isActive }) => `flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors text-sm ${
+                  isActive 
+                    ? 'bg-gray-100 text-gray-900 font-medium' 
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                <Calendar className="w-4 h-4" />
+                <span>Appointments</span>
+              </NavLink>
+              <NavLink 
+                to={'/add-doctor'} 
+                className={({ isActive }) => `flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors text-sm ${
+                  isActive 
+                    ? 'bg-gray-100 text-gray-900 font-medium' 
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                <Users className="w-4 h-4" />
+                <span>Add Doctor</span>
+              </NavLink>
+              <NavLink 
+                to={'/doctor-list'} 
+                className={({ isActive }) => `flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors text-sm ${
+                  isActive 
+                    ? 'bg-gray-100 text-gray-900 font-medium' 
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                <Users className="w-4 h-4" />
+                <span>Doctors List</span>
+              </NavLink>
+            </>
+          )}
 
-      {dToken && <ul className='text-[#515151] mt-5'>
-        <NavLink to={'/doctor-dashboard'} className={({ isActive }) => `flex items-center gap-3 py-3.5 px-3 md:px-6 md:min-w-56 cursor-pointer ${isActive ? 'bg-primary text-white border-r-4 border-primary' : ''}`}>
-          <img className='min-w-5' src={assets.home_icon} alt='' />
-          <p className='hidden md:block'>Dashboard</p>
-        </NavLink>
-        <NavLink to={'/doctor-appointments'} className={({ isActive }) => `flex items-center gap-3 py-3.5 px-3 md:px-6 md:min-w-56 cursor-pointer ${isActive ? 'bg-primary text-white border-r-4 border-primary' : ''}`}>
-          <img className='min-w-5' src={assets.appointment_icon} alt='' />
-          <p className='hidden md:block'>Appointments</p>
-        </NavLink>
-        <NavLink to={'/patient-management'} className={({ isActive }) => `flex items-center gap-3 py-3.5 px-3 md:px-6 md:min-w-56 cursor-pointer ${isActive ? 'bg-primary text-white border-r-4 border-primary' : ''}`}>
-          <Users className="w-5 h-5 text-current" />
-          <p className='hidden md:block'>Patients</p>
-        </NavLink>
-        <NavLink to={'/prescriptions'} className={({ isActive }) => `flex items-center gap-3 py-3.5 px-3 md:px-6 md:min-w-56 cursor-pointer ${isActive ? 'bg-primary text-white border-r-4 border-primary' : ''}`}>
-          <FileText className="w-5 h-5 text-current" />
-          <p className='hidden md:block'>Prescriptions</p>
-        </NavLink>
-        <NavLink to={'/dietchart-generator'} className={({ isActive }) => `flex items-center gap-3 py-3.5 px-3 md:px-6 md:min-w-56 cursor-pointer ${isActive ? 'bg-primary text-white border-r-4 border-primary' : ''}`}>
-          <Clipboard className="w-5 h-5 text-current " />
-          <p className='hidden md:block'>AyuChart</p>
-        </NavLink>
-        <NavLink to={'/doctor-profile'} className={({ isActive }) => `flex items-center gap-3 py-3.5 px-3 md:px-6 md:min-w-56 cursor-pointer ${isActive ? 'bg-primary text-white border-r-4 border-primary' : ''}`}>
-          <Users className="w-5 h-5 text-current" />
-          <p className='hidden md:block'>Profile</p>
-        </NavLink>
-      </ul>}
-    </div>
+          {dToken && (
+            <>
+              <NavLink 
+                to={'/doctor-dashboard'} 
+                className={({ isActive }) => `flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors text-sm ${
+                  isActive 
+                    ? 'bg-gray-100 text-gray-900 font-medium' 
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                <LayoutDashboard className="w-4 h-4" />
+                <span>Dashboard</span>
+              </NavLink>
+              <NavLink 
+                to={'/patient-management'} 
+                className={({ isActive }) => `flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors text-sm ${
+                  isActive 
+                    ? 'bg-gray-100 text-gray-900 font-medium' 
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                <Users className="w-4 h-4" />
+                <span>Patients</span>
+              </NavLink>
+              <NavLink 
+                to={'/doctor-appointments'} 
+                className={({ isActive }) => `flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors text-sm ${
+                  isActive 
+                    ? 'bg-gray-100 text-gray-900 font-medium' 
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                <Calendar className="w-4 h-4" />
+                <span>Appointments</span>
+              </NavLink>
+              <NavLink 
+                to={'/prescriptions'} 
+                className={({ isActive }) => `flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors text-sm ${
+                  isActive 
+                    ? 'bg-gray-100 text-gray-900 font-medium' 
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                <FileText className="w-4 h-4" />
+                <span>Prescriptions</span>
+              </NavLink>
+              <NavLink 
+                to={'/dietchart-generator'} 
+                className={({ isActive }) => `flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors text-sm ${
+                  isActive 
+                    ? 'bg-gray-100 text-gray-900 font-medium' 
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                <ClipboardList className="w-4 h-4" />
+                <span>Diet Charts</span>
+              </NavLink>
+              <NavLink 
+                to={'/doctor-profile'} 
+                className={({ isActive }) => `flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors text-sm ${
+                  isActive 
+                    ? 'bg-gray-100 text-gray-900 font-medium' 
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                <User className="w-4 h-4" />
+                <span>Profile</span>
+              </NavLink>
+            </>
+          )}
+        </nav>
+      </div>
+    </>
   )
 }
 

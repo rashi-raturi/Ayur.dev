@@ -1,9 +1,11 @@
 import { useState, useEffect, useContext, useCallback } from 'react';
 import { DoctorContext } from '../../context/DoctorContext';
-import { FileText, Plus, Eye, Download, Search, Calendar, Clock, User, ChevronDown, Edit, Trash2 } from 'lucide-react';
+import { FileText, Plus, Eye, Search, ChevronDown, User, Trash2, Mail, Phone, Calendar, Clock } from 'lucide-react';
 import axios from 'axios';
 import PrescriptionPreview from '../../components/PrescriptionPreview';
 import { toast } from 'react-toastify';
+import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
 
 const Prescriptions = () => {
   const { dToken, backendUrl } = useContext(DoctorContext);
@@ -11,7 +13,7 @@ const Prescriptions = () => {
   const [prescriptions, setPrescriptions] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
-  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [activeTab, setActiveTab] = useState('saved'); // 'saved' or 'create'
   const [patients, setPatients] = useState([]);
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [patientSearchTerm, setPatientSearchTerm] = useState('');
@@ -44,6 +46,7 @@ const Prescriptions = () => {
   const [editingPrescription, setEditingPrescription] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [prescriptionToDelete, setPrescriptionToDelete] = useState(null);
+  const [openStatusDropdownId, setOpenStatusDropdownId] = useState(null);
 
   useEffect(() => {
     // Fetch prescriptions from API
@@ -104,6 +107,18 @@ const Prescriptions = () => {
     }
   }, [backendUrl, dToken]);
 
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (openStatusDropdownId && !event.target.closest('.status-dropdown-container')) {
+        setOpenStatusDropdownId(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [openStatusDropdownId]);
+
   // Fetch patients when form is opened
   const fetchPatients = useCallback(async () => {
     try {
@@ -154,10 +169,10 @@ const Prescriptions = () => {
   }, [backendUrl, dToken]);
 
   useEffect(() => {
-    if (showCreateForm) {
+    if (activeTab === 'create') {
       fetchPatients();
     }
-  }, [showCreateForm, fetchPatients]);
+  }, [activeTab, fetchPatients]);
 
   const filteredPatients = patients.filter(patient =>
     patient.name.toLowerCase().includes(patientSearchTerm.toLowerCase()) ||
@@ -181,7 +196,8 @@ const Prescriptions = () => {
   const filteredPrescriptions = (Array.isArray(prescriptions) ? prescriptions : []).filter(prescription =>
     prescription && prescription.patientName && prescription.id &&
     (prescription.patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-     prescription.id.toString().toLowerCase().includes(searchTerm.toLowerCase())) &&
+     prescription.id.toString().toLowerCase().includes(searchTerm.toLowerCase()) ||
+     (prescription.prescriptionId && prescription.prescriptionId.toLowerCase().includes(searchTerm.toLowerCase()))) &&
     (selectedStatus === 'All Status' || prescription.status === selectedStatus)
   );
 
@@ -189,7 +205,7 @@ const Prescriptions = () => {
     switch (status) {
       case 'Active':
         return 'bg-green-100 text-green-800';
-      case 'Completed':
+      case 'Dispensed':
         return 'bg-blue-100 text-blue-800';
       case 'Draft':
         return 'bg-yellow-100 text-yellow-800';
@@ -273,7 +289,7 @@ const Prescriptions = () => {
           toast.success('Prescription created successfully!');
         }
         
-        setShowCreateForm(false);
+        setActiveTab(false);
         setEditingPrescription(null);
         
         // Reset form
@@ -333,7 +349,7 @@ const Prescriptions = () => {
     });
     
     setEditingPrescription(prescription);
-    setShowCreateForm(true);
+    setActiveTab(true);
   };
 
   const handleDeletePrescription = (prescription) => {
@@ -370,62 +386,262 @@ const Prescriptions = () => {
     setPrescriptionToDelete(null);
   };
 
-  if (showCreateForm) {
-    return (
-      <div className="bg-white min-h-screen w-full px-6 pt-6">
-        <div className="w-full max-w-4xl mx-auto">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">
-                {editingPrescription ? 'Edit Prescription' : 'Create New Prescription'}
-              </h1>
-              <p className="text-gray-600 mt-1 text-sm">
-                {editingPrescription 
-                  ? 'Update the prescription details below' 
-                  : 'Fill out the form to create a comprehensive Ayurvedic prescription'
-                }
-              </p>
-            </div>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => {
-                  setShowCreateForm(false);
-                  setEditingPrescription(null);
-                  setSelectedPatient(null);
-                  setPatientSearchTerm('');
-                  setShowPatientDropdown(false);
-                  // Reset form data
-                  setFormData({
-                    patientId: '',
-                    patientName: '',
-                    age: '',
-                    gender: '',
-                    contactNumber: '',
-                    constitution: '',
-                    chiefComplaint: '',
-                    diagnosis: '',
-                    medications: [],
-                    dietaryRecommendations: '',
-                    lifestyleAdvice: '',
-                    followUpDate: ''
-                  });
-                }}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors font-medium text-sm"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSavePrescription}
-                className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-xl hover:bg-green-700 transition-colors font-medium text-sm"
-              >
-                <FileText className="w-4 h-4" />
-                {editingPrescription ? 'Update Prescription' : 'Save Prescription'}
-              </button>
+  // Handle status change
+  const handleStatusChange = async (prescriptionId, newStatus) => {
+    try {
+      const { data } = await axios.put(
+        `${backendUrl}/api/doctor/prescription/${prescriptionId}`,
+        { status: newStatus },
+        { headers: { dToken } }
+      );
+
+      if (data.success) {
+        // Update local state
+        setPrescriptions(prev => prev.map(p => 
+          p.id === prescriptionId ? { ...p, status: newStatus } : p
+        ));
+        toast.success('Status updated successfully!');
+      } else {
+        toast.error(data.message || 'Failed to update status');
+      }
+    } catch (error) {
+      console.error('Error updating status:', error);
+      toast.error('Error updating status: ' + (error.response?.data?.message || error.message));
+    } finally {
+      setOpenStatusDropdownId(null);
+    }
+  };
+
+  // Handle email prescription
+  const handleEmailPrescription = async (prescription) => {
+    try {
+      // Show loading toast
+      const loadingToast = toast.loading('Generating PDF and sending email...');
+      
+      const { data } = await axios.post(
+        `${backendUrl}/api/doctor/prescription/${prescription.id}/email`,
+        {},
+        { headers: { dToken } }
+      );
+
+      toast.dismiss(loadingToast);
+
+      if (data.success) {
+        // Update local state with emailedAt timestamp
+        setPrescriptions(prev => prev.map(p => 
+          p.id === prescription.id ? { ...p, emailedAt: data.emailedAt } : p
+        ));
+        toast.success('Prescription emailed successfully!');
+      } else {
+        toast.error(data.message || 'Failed to send email');
+      }
+    } catch (error) {
+      console.error('Error emailing prescription:', error);
+      toast.error('Error sending email: ' + (error.response?.data?.message || error.message));
+    }
+  };
+
+  // Handle PDF download
+  const handleDownloadPDF = async (prescription) => {
+    try {
+      toast.info('Generating PDF...');
+      
+      // Create a hidden div to render prescription content
+      const printDiv = document.createElement('div');
+      printDiv.style.position = 'absolute';
+      printDiv.style.left = '-9999px';
+      printDiv.style.width = '210mm';
+      printDiv.style.padding = '40px';
+      printDiv.style.backgroundColor = 'white';
+      printDiv.style.fontFamily = 'Arial, sans-serif';
+      
+      // Build HTML content
+      printDiv.innerHTML = `
+        <div style="max-width: 800px; margin: 0 auto;">
+          <!-- Header -->
+          <div style="text-align: center; margin-bottom: 30px; border-bottom: 2px solid #e5e7eb; padding-bottom: 20px;">
+            <h1 style="font-size: 28px; font-weight: bold; color: #1f2937; margin-bottom: 10px;">AYURVEDIC PRESCRIPTION</h1>
+            <p style="font-size: 16px; color: #4b5563; margin: 5px 0;">Dr. ${prescription.doctorInfo?.name || 'N/A'}</p>
+            <p style="font-size: 14px; color: #6b7280; margin: 5px 0;">Registration No: ${prescription.doctorInfo?.registrationNumber || 'N/A'}</p>
+            <p style="font-size: 14px; color: #6b7280; margin: 5px 0;">Date: ${new Date(prescription.date).toLocaleDateString()}</p>
+            <div style="display: inline-block; background: #f3f4f6; border: 1px solid #d1d5db; padding: 8px 16px; border-radius: 8px; margin-top: 10px;">
+              <span style="font-size: 13px; font-weight: 600; color: #374151;">Prescription ID: ${prescription.prescriptionId || prescription.id}</span>
             </div>
           </div>
 
-          {/* Patient Information Section */}
+          <!-- Patient Info and Clinical Assessment Grid -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 25px;">
+            <!-- Patient Information -->
+            <div style="border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; background: #f9fafb;">
+              <h3 style="font-size: 16px; font-weight: bold; color: #1f2937; margin-bottom: 15px;">Patient Information</h3>
+              <div style="line-height: 1.8;">
+                <p style="margin: 8px 0;"><span style="color: #6b7280;">Name:</span> <strong>${prescription.patientInfo?.name || prescription.patientName}</strong></p>
+                <p style="margin: 8px 0;"><span style="color: #6b7280;">Age:</span> <strong>${prescription.patientInfo?.age || 'N/A'} years</strong></p>
+                <p style="margin: 8px 0;"><span style="color: #6b7280;">Gender:</span> <strong>${prescription.patientInfo?.gender || 'N/A'}</strong></p>
+                <p style="margin: 8px 0;"><span style="color: #6b7280;">Contact:</span> <strong>${prescription.patientInfo?.contactNumber || 'N/A'}</strong></p>
+                <p style="margin: 8px 0;"><span style="color: #6b7280;">Constitution:</span> <strong>${prescription.patientInfo?.constitution || 'N/A'}</strong></p>
+              </div>
+            </div>
+
+            <!-- Clinical Assessment -->
+            <div style="border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; background: #f9fafb;">
+              <h3 style="font-size: 16px; font-weight: bold; color: #1f2937; margin-bottom: 15px;">Clinical Assessment</h3>
+              <div style="margin-bottom: 15px;">
+                <h4 style="font-size: 14px; font-weight: 600; color: #374151; margin-bottom: 8px;">Chief Complaint:</h4>
+                <p style="background: #e5e7eb; padding: 10px; border-radius: 8px; font-size: 13px; color: #1f2937;">${prescription.chiefComplaint || 'N/A'}</p>
+              </div>
+              <div>
+                <h4 style="font-size: 14px; font-weight: 600; color: #374151; margin-bottom: 8px;">Diagnosis:</h4>
+                <p style="background: #e5e7eb; padding: 10px; border-radius: 8px; font-size: 13px; color: #1f2937;">${prescription.diagnosis || 'N/A'}</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Medications -->
+          <div style="margin-bottom: 25px;">
+            <h3 style="font-size: 16px; font-weight: bold; color: #1f2937; margin-bottom: 15px;">Prescribed Medications (${prescription.medications?.length || 0})</h3>
+            ${prescription.medications?.map((med, index) => `
+              <div style="background: #ecfdf5; border: 1px solid #10b981; border-radius: 12px; padding: 20px; margin-bottom: 15px;">
+                <div style="display: flex; align-items: start; gap: 15px;">
+                  <div style="background: #10b981; color: white; width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px; flex-shrink: 0;">${index + 1}</div>
+                  <div style="flex: 1;">
+                    <h4 style="font-size: 16px; font-weight: bold; color: #1f2937; margin-bottom: 12px;">${med.name}</h4>
+                    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; font-size: 13px; margin-bottom: 10px;">
+                      <div><span style="color: #6b7280; display: block; margin-bottom: 4px;">Dosage:</span><strong>${med.dosage}</strong></div>
+                      <div><span style="color: #6b7280; display: block; margin-bottom: 4px;">Frequency:</span><strong>${med.frequency}</strong></div>
+                      <div><span style="color: #6b7280; display: block; margin-bottom: 4px;">Duration:</span><strong>${med.duration}</strong></div>
+                      <div><span style="color: #6b7280; display: block; margin-bottom: 4px;">Timing:</span><strong>${med.timing || 'Before meals'}</strong></div>
+                    </div>
+                    ${med.instructions ? `<div style="margin-top: 10px;"><span style="color: #6b7280; font-size: 12px;">Instructions:</span> <span style="font-weight: 500; font-size: 13px;">${med.instructions}</span></div>` : ''}
+                  </div>
+                </div>
+              </div>
+            `).join('') || '<p style="color: #6b7280;">No medications prescribed</p>'}
+          </div>
+
+          <!-- Recommendations Grid -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 25px;">
+            <!-- Dietary Recommendations -->
+            <div style="border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; background: #f9fafb;">
+              <h3 style="font-size: 16px; font-weight: bold; color: #1f2937; margin-bottom: 12px;">Dietary Recommendations</h3>
+              <p style="background: #e5e7eb; padding: 12px; border-radius: 8px; font-size: 13px; color: #1f2937;">${prescription.dietaryRecommendations || 'Follow standard Ayurvedic dietary guidelines'}</p>
+            </div>
+
+            <!-- Lifestyle Advice -->
+            <div style="border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; background: #f9fafb;">
+              <h3 style="font-size: 16px; font-weight: bold; color: #1f2937; margin-bottom: 12px;">Lifestyle Advice</h3>
+              <p style="background: #e5e7eb; padding: 12px; border-radius: 8px; font-size: 13px; color: #1f2937;">${prescription.lifestyleAdvice || 'Maintain regular daily routine'}</p>
+            </div>
+          </div>
+
+          <!-- Follow-up -->
+          <div style="border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; margin-bottom: 20px; background: #f9fafb;">
+            <p style="font-size: 15px; font-weight: 600; color: #374151; margin-bottom: 5px;">Next Follow-up Appointment</p>
+            <p style="font-size: 16px; font-weight: bold; color: #1f2937;">${prescription.followUpDate ? new Date(prescription.followUpDate).toLocaleDateString() : 'Not scheduled'}</p>
+          </div>
+
+          <!-- Footer -->
+          <div style="text-align: center; padding-top: 15px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #6b7280;">
+            <p>Generated on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}</p>
+          </div>
+        </div>
+      `;
+      
+      document.body.appendChild(printDiv);
+
+      // Wait a bit for rendering
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Generate canvas
+      const canvas = await html2canvas(printDiv, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff'
+      });
+
+      // Remove the div
+      document.body.removeChild(printDiv);
+
+      // Create PDF
+      const imgWidth = 210; // A4 width in mm
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const imgData = canvas.toDataURL('image/png');
+      
+      // Handle multi-page if content is too long
+      let heightLeft = imgHeight;
+      let position = 0;
+      
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= 297; // A4 height
+      
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= 297;
+      }
+      
+      // Save
+      const fileName = `Prescription_${prescription.prescriptionId || prescription.id}_${prescription.patientName?.replace(/\s+/g, '_')}.pdf`;
+      pdf.save(fileName);
+      
+      toast.success('PDF downloaded successfully!');
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      toast.error('Failed to generate PDF. Please try again.');
+    }
+  };
+
+  // Create form content (will be rendered conditionally below)
+  const renderCreateForm = () => (
+    <div className="w-full max-w-4xl mx-auto">
+      {/* Header with Title and Buttons */}
+      <div className="flex items-start justify-between mb-6">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">Create New Prescription</h2>
+          <p className="text-gray-600 text-sm mt-1">Fill out the form to create a comprehensive Ayurvedic prescription</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => {
+              setActiveTab('saved');
+              setEditingPrescription(null);
+              setSelectedPatient(null);
+              setPatientSearchTerm('');
+              setShowPatientDropdown(false);
+              // Reset form data
+              setFormData({
+                patientId: '',
+                patientName: '',
+                age: '',
+                gender: '',
+                contactNumber: '',
+                constitution: '',
+                chiefComplaint: '',
+                diagnosis: '',
+                medications: [],
+                dietaryRecommendations: '',
+                lifestyleAdvice: '',
+                followUpDate: ''
+              });
+            }}
+            className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors font-medium text-sm border border-gray-300 rounded-lg"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSavePrescription}
+            className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors font-medium text-sm"
+          >
+            <FileText className="w-4 h-4" />
+            {editingPrescription ? 'Update Prescription' : 'Save Prescription'}
+          </button>
+        </div>
+      </div>
+
+      {/* Patient Information Section */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
             <div className="flex items-center gap-2 mb-6">
               <User className="w-5 h-5 text-gray-600" />
@@ -710,15 +926,13 @@ const Prescriptions = () => {
               />
             </div>
           </div>
-        </div>
-      </div>
-    );
-  }
+    </div>
+  );
 
   if (loading) {
     return (
-      <div className="bg-white min-h-screen w-full pt-6">
-        <div className="w-full px-6">
+      <div className="bg-white min-h-screen w-full p-6">
+        <div className="w-full">
           <div className="animate-pulse">
             <div className="h-8 bg-gray-200 rounded w-1/4 mb-4"></div>
             <div className="h-4 bg-gray-200 rounded w-1/2 mb-8"></div>
@@ -735,161 +949,201 @@ const Prescriptions = () => {
 
   return (
     <>
-    <div className="bg-gray-50 min-h-screen w-full px-6 pt-6">
+    <div className="bg-white min-h-screen w-full px-6 pt-6">
       <div className="w-full">
         {/* Header */}
-        {/* Header Row with Search, Status, and New Button */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-1">Prescription Management</h1>
-            <p className="text-gray-600 text-sm">Create, manage, and download Ayurvedic prescriptions</p>
+            <h1 className="text-2xl font-bold text-gray-900">Prescription Management</h1>
+            <p className="text-gray-600 mt-1 text-sm">Create, manage, and download Ayurvedic prescriptions</p>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search..."
+                placeholder="Search prescriptions..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-48 pl-10 pr-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm bg-white"
+                className="w-[280px] pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm bg-white"
               />
             </div>
-            <select
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
-              className="px-3 py-1.5 border border-gray-300 rounded-lg bg-white text-sm text-gray-700 focus:outline-none"
-            >
-              <option>All Status</option>
-              <option>Active</option>
-              <option>Completed</option>
-              <option>Draft</option>
-            </select>
-            <button
-              onClick={() => setShowCreateForm(true)}
-              className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors font-medium text-sm"
-            >
-              <Plus className="w-4 h-4" />
-              New Prescription
-            </button>
+            <div className="relative">
+              <select
+                value={selectedStatus}
+                onChange={(e) => setSelectedStatus(e.target.value)}
+                className="appearance-none pl-4 pr-10 py-2 border border-gray-300 rounded-lg bg-white text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium cursor-pointer"
+              >
+                <option>All Status</option>
+                <option>Draft</option>
+                <option>Active</option>
+                <option>Dispensed</option>
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-600 pointer-events-none" />
+            </div>
           </div>
         </div>
 
         {/* Tab Interface */}
-        <div className="bg-gray-100 rounded-full shadow-sm border border-gray-200 overflow-hidden mb-6 flex">
-          <div
-            className="flex-1 flex items-center justify-center gap-2 bg-white px-6 py-3 cursor-pointer"
+        <div className="bg-gray-100 rounded-full p-1 mb-6 flex w-full">
+          <button
+            onClick={() => setActiveTab('saved')}
+            className={`flex items-center justify-center gap-2 flex-1 px-6 py-2.5 cursor-pointer transition-all duration-200 text-sm font-medium rounded-full ${
+              activeTab === 'saved' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-600 hover:text-gray-900'
+            }`}
           >
-            <FileText className="w-5 h-5 text-gray-600" />
-            <span className="font-medium text-gray-900">All Prescriptions ({filteredPrescriptions.length})</span>
-          </div>
-          <div
-            onClick={() => setShowCreateForm(true)}
-            className="flex items-center justify-center gap-2 px-6 py-3 cursor-pointer"
+            <FileText className="w-4 h-4" />
+            <span>All Prescriptions ({filteredPrescriptions.length})</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('create')}
+            className={`flex items-center justify-center gap-2 flex-1 px-6 py-2.5 cursor-pointer transition-all duration-200 text-sm font-medium rounded-full ${
+              activeTab === 'create' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-600 hover:text-gray-900'
+            }`}
           >
-            <Plus className="w-4 h-4 text-gray-600" />
-            <span className="font-medium text-gray-900">Create New</span>
-          </div>
+            <Plus className="w-4 h-4" />
+            <span>Create New</span>
+          </button>
         </div>
 
+        {/* Content Area - switches based on active tab */}
+        {activeTab === 'create' ? (
+          renderCreateForm()
+        ) : (
+          <>
+
           {/* Prescription Cards */}
-          <div className="p-6">
-            <div className="space-y-4">
+            <div className="space-y-3">
               {filteredPrescriptions.map((prescription) => (
               <div
                 key={prescription.id}
-                className="border border-gray-200 rounded-xl p-6 hover:shadow-md transition-shadow"
+                className="border border-gray-200 rounded-lg p-4 hover:shadow-sm transition-shadow bg-white"
               >
-                <div className="flex items-start justify-between">
-                  {/* Left Side - Patient & Prescription Info */}
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                        <FileText className="w-6 h-6 text-green-600" />
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-semibold text-gray-900">{prescription.patientName}</h3>
-                        <div className="flex items-center gap-4 text-sm text-gray-500">
-                          <span>ID: {prescription.id}</span>
-                          <span className="flex items-center gap-1">
-                            <Calendar className="w-4 h-4" />
-                            {prescription.date ? new Date(prescription.date).toLocaleDateString() : 'N/A'}
-                          </span>
-                          <span>
-                            {Array.isArray(prescription.medications) 
-                              ? `${prescription.medications.length} medication${prescription.medications.length !== 1 ? 's' : ''}`
-                              : `${prescription.medications || 0} medication${prescription.medications !== 1 ? 's' : ''}`
-                            }
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Clinical Information */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-3">
-                      <div>
-                        <h4 className="text-sm font-medium text-gray-700 mb-1">Chief Complaint</h4>
-                        <p className="text-sm text-gray-600">{prescription.chiefComplaint || 'N/A'}</p>
-                            {/* Divider */}
-                            <hr className="border-t border-gray-200 my-4" />
-                            {/* Created & Follow-up Info */}
-                            <div className="flex items-center text-sm text-gray-500 gap-6">
-                              <span className="flex items-center gap-1">
-                                <Clock className="w-4 h-4" />
-                                Created: {prescription.date ? new Date(prescription.date).toLocaleDateString() : 'N/A'}
-                              </span>
-                              <span className="flex items-center gap-1">
-                                <Calendar className="w-4 h-4" />
-                                Follow-up: {prescription.followUpDate ? new Date(prescription.followUpDate).toLocaleDateString() : 'N/A'}
-                              </span>
+                <div className="flex items-center justify-between gap-4">
+                  {/* Left Side - Avatar and Basic Info */}
+                            <div className="flex items-start gap-3 flex-1 min-w-0 pr-4 border-r border-gray-200">
+                              {/* Avatar */}
+                              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
+                                <span className="text-base font-semibold text-green-700">
+                                  {prescription.patientName?.split(' ').map(n => n[0]).join('').slice(0, 2) || 'RX'}
+                                </span>
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                {/* Name and Status */}
+                                <div className="flex items-center gap-2 mb-2">
+                                  <h3 className="text-base font-semibold text-gray-900">{prescription.patientName}</h3>
+                                  <div className="relative status-dropdown-container">
+                                    <button
+                                      onClick={() => setOpenStatusDropdownId(openStatusDropdownId === prescription.id ? null : prescription.id)}
+                                      className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(prescription.status)} hover:opacity-80 transition-opacity`}
+                                    >
+                                      {prescription.status}
+                                      <ChevronDown className="w-3 h-3" />
+                                    </button>
+                                    
+                                    {/* Status Dropdown */}
+                                    {openStatusDropdownId === prescription.id && (
+                                      <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-10 min-w-[120px]">
+                                        {['Draft', 'Active', 'Dispensed'].map((status) => (
+                                          <button
+                                            key={status}
+                                            onClick={() => handleStatusChange(prescription.id, status)}
+                                            className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 ${
+                                              prescription.status === status ? 'bg-gray-50 font-medium' : ''
+                                            }`}
+                                          >
+                                            {status}
+                                          </button>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                                {/* Badge Pills Row */}
+                                <div className="flex flex-wrap items-center gap-2 mb-2">
+                                  <span className="inline-flex items-center px-2.5 py-1 bg-gray-100 text-gray-700 rounded-md text-xs font-medium">
+                                    {prescription.prescriptionId || `#${prescription.id?.slice(-4) || 'N/A'}`}
+                                  </span>
+                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white text-gray-600 rounded-md text-xs">
+                                    <User className="w-3 h-3" />
+                                    {prescription.patientInfo?.age || 'N/A'}y, {prescription.patientInfo?.gender || 'N/A'}
+                                  </span>
+                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white text-gray-600 rounded-md text-xs">
+                                    <Phone className="w-3 h-3" />
+                                    {prescription.patientInfo?.contactNumber || 'N/A'}
+                                  </span>
+                                </div>
+                                {/* Constitution and Medications Row */}
+                                <div className="flex items-center gap-3 text-xs text-gray-600">
+                                  <span className="text-gray-500">Constitution:</span>
+                                  <span className="inline-flex items-center px-2.5 py-1 bg-white border border-gray-200 text-gray-800 rounded-full text-xs font-medium">
+                                    {prescription.patientInfo?.constitution || 'N/A'}
+                                  </span>
+                                  <span className="text-gray-500">Medications:</span>
+                                  <span className="inline-flex items-center px-2.5 py-1 bg-white border border-gray-200 text-gray-800 rounded-full text-xs font-medium">
+                                    {Array.isArray(prescription.medications) 
+                                      ? `${prescription.medications.length} item${prescription.medications.length !== 1 ? 's' : ''}`
+                                      : `${prescription.medications || 0} item${prescription.medications !== 1 ? 's' : ''}`
+                                    }
+                                  </span>
+                                </div>
+                              </div>
                             </div>
-                      </div>
-                      <div>
-                        <h4 className="text-sm font-medium text-gray-700 mb-1">Diagnosis</h4>
-                        <p className="text-sm text-gray-600">{prescription.diagnosis || 'N/A'}</p>
-                      </div>
+
+                  {/* Middle - Clinical Info */}
+                  <div className="flex-1 min-w-0 pl-4 pr-4 border-r border-gray-200">
+                    <div className="mb-2">
+                      <h4 className="text-xs font-medium text-gray-500 mb-0.5">Chief Complaint</h4>
+                      <p className="text-sm text-gray-900 line-clamp-1">{prescription.chiefComplaint || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-medium text-gray-500 mb-0.5">Diagnosis</h4>
+                      <p className="text-sm text-gray-900 line-clamp-1">{prescription.diagnosis || 'N/A'}</p>
+                    </div>
+                    <div className="flex flex-wrap items-center text-xs text-gray-500 gap-3 mt-2">
+                      <span className="flex items-center gap-1">
+                        <Calendar className="w-3 h-3" />
+                        Created: {prescription.date ? new Date(prescription.date).toLocaleDateString() : 'N/A'}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        Follow-up: {prescription.followUpDate ? new Date(prescription.followUpDate).toLocaleDateString() : 'N/A'}
+                      </span>
+                      {prescription.emailedAt && (
+                        <span className="flex items-center gap-1 text-green-600">
+                          <Mail className="w-3 h-3" />
+                          Emailed: {new Date(prescription.emailedAt).toLocaleDateString()}
+                        </span>
+                      )}
                     </div>
                   </div>
 
-                  {/* Right Side - Status & Actions */}
-                  <div className="flex flex-col items-end gap-3">
-                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(prescription.status)}`}>
-                      {prescription.status}
-                    </span>
-
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => handlePreviewPrescription(prescription)}
-                        className="flex items-center gap-1 px-3 py-1.5 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors text-sm"
-                        title="Preview"
-                      >
-                        <Eye className="w-4 h-4" />
-                        Preview
-                      </button>
-                      <button
-                        onClick={() => handleEditPrescription(prescription)}
-                        className="flex items-center gap-1 px-3 py-1.5 text-gray-600 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors text-sm"
-                        title="Edit"
-                      >
-                        <Edit className="w-4 h-4" />
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleDeletePrescription(prescription)}
-                        className="flex items-center gap-1 px-3 py-1.5 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors text-sm"
-                        title="Delete"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        Delete
-                      </button>
-                      <button
-                        className="flex items-center gap-1 px-3 py-1.5 text-gray-600 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors text-sm"
-                        title="Download PDF"
-                      >
-                        <Download className="w-4 h-4" />
-                        PDF
-                      </button>
-                    </div>
+                  {/* Right Side - Actions */}
+                  <div className="flex flex-col gap-2 flex-shrink-0 pl-4 min-w-[180px]">
+                    <button
+                      onClick={() => handlePreviewPrescription(prescription)}
+                      className="flex items-center justify-center gap-2 px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
+                      title="View Details"
+                    >
+                      <Eye className="w-4 h-4" />
+                      View Details
+                    </button>
+                    <button
+                      onClick={() => handleEmailPrescription(prescription)}
+                      className="flex items-center justify-center gap-2 px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
+                      title="Email Patient"
+                    >
+                      <Mail className="w-4 h-4" />
+                      Email Patient
+                    </button>
+                    <button
+                      onClick={() => handleDeletePrescription(prescription)}
+                      className="flex items-center justify-center gap-2 px-4 py-2 text-red-600 bg-white border border-red-300 rounded-lg hover:bg-red-50 transition-colors text-sm font-medium"
+                      title="Delete"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Delete
+                    </button>
                   </div>
                 </div>
               </div>
@@ -909,8 +1163,10 @@ const Prescriptions = () => {
               </div>
             )}
           </div>
-        </div>
+          </>
+        )}
       </div>
+    </div>
 
       {/* Prescription Preview Modal */}
       <PrescriptionPreview
@@ -961,7 +1217,6 @@ const Prescriptions = () => {
           </div>
         </div>
       )}
-    </div>
     </>
   );
 };

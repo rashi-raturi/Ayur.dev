@@ -1,7 +1,8 @@
 import { useContext } from 'react'
 import { DoctorContext } from './context/DoctorContext';
 import { AdminContext } from './context/AdminContext';
-import { Route, Routes } from 'react-router-dom'
+import { SidebarProvider, SidebarContext } from './context/SidebarContext';
+import { Route, Routes, useLocation, Navigate } from 'react-router-dom'
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import Navbar from './components/Navbar'
@@ -15,14 +16,15 @@ import Login from './pages/Login';
 import DoctorAppointments from './pages/Doctor/DoctorAppointments';
 import DoctorDashboard from './pages/Doctor/DoctorDashboard';
 import DoctorProfile from './pages/Doctor/DoctorProfile';
-import AyuChart from './pages/Doctor/AyuCHart';
+import DietChartGenerator from './pages/Doctor/DietChartGenerator';
 import PatientManagement from './pages/Doctor/PatientManagement';
 import Prescriptions from './pages/Doctor/Prescriptions';
 
-const App = () => {
-
+const AppContent = () => {
   const { dToken } = useContext(DoctorContext)
   const { aToken } = useContext(AdminContext)
+  const { isSidebarOpen } = useContext(SidebarContext)
+  const location = useLocation()
 
   return dToken || aToken ? (
     <div className='bg-[#F8F9FD]'>
@@ -41,20 +43,26 @@ const App = () => {
       <Navbar />
       <div className='flex items-start'>
         <Sidebar />
-        <Routes>
-          <Route path='/' element={<></>} />
-          <Route path='/admin-dashboard' element={<Dashboard />} />
-          <Route path='/all-appointments' element={<AllAppointments />} />
-          <Route path='/add-doctor' element={<AddDoctor />} />
-          <Route path='/doctor-list' element={<DoctorsList />} />
-          <Route path='/doctor/:id' element={<DoctorProfileAdmin />} />
-          <Route path='/doctor-dashboard' element={<DoctorDashboard />} />
-          <Route path='/doctor-appointments' element={<DoctorAppointments />} />
-          <Route path='/doctor-profile' element={<DoctorProfile />} />
-          <Route path='/dietchart-generator' element={<AyuChart/>} />
-          <Route path='/patient-management' element={<PatientManagement/>} />
-          <Route path='/prescriptions' element={<Prescriptions/>} />
-        </Routes>
+        <div className={`flex-1 transition-all duration-300 px-6 pb-6 bg-white ${isSidebarOpen ? 'ml-64' : 'ml-0'}`}>
+          <div key={location.pathname} className='animate-fadeIn'>
+            <Routes location={location}>
+              <Route path='/' element={
+                aToken ? <Navigate to='/admin-dashboard' replace /> : <Navigate to='/doctor-dashboard' replace />
+              } />
+              <Route path='/admin-dashboard' element={<Dashboard />} />
+              <Route path='/all-appointments' element={<AllAppointments />} />
+              <Route path='/add-doctor' element={<AddDoctor />} />
+              <Route path='/doctor-list' element={<DoctorsList />} />
+              <Route path='/doctor/:id' element={<DoctorProfileAdmin />} />
+              <Route path='/doctor-dashboard' element={<DoctorDashboard />} />
+              <Route path='/doctor-appointments' element={<DoctorAppointments />} />
+              <Route path='/doctor-profile' element={<DoctorProfile />} />
+              <Route path='/dietchart-generator' element={<DietChartGenerator/>} />
+              <Route path='/patient-management' element={<PatientManagement/>} />
+              <Route path='/prescriptions' element={<Prescriptions/>} />
+            </Routes>
+          </div>
+        </div>
       </div>
     </div>
   ) : (
@@ -73,6 +81,14 @@ const App = () => {
       />
       <Login />
     </>
+  )
+}
+
+const App = () => {
+  return (
+    <SidebarProvider>
+      <AppContent />
+    </SidebarProvider>
   )
 }
 

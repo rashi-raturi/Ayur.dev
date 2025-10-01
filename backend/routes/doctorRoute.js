@@ -1,5 +1,5 @@
 import express from 'express';
-import { loginDoctor, appointmentsDoctor, appointmentCancel, doctorList, changeAvailablity, appointmentComplete, doctorDashboard, doctorProfile, updateDoctorProfile, getPatients, addPatientByDoctor, updatePatientByDoctor } from '../controllers/doctorController.js';
+import { loginDoctor, appointmentsDoctor, appointmentCancel, doctorList, changeAvailablity, appointmentComplete, doctorDashboard, doctorProfile, updateDoctorProfile, getPatients, addPatientByDoctor, updatePatientByDoctor, emailPrescription } from '../controllers/doctorController.js';
 import authDoctor from '../middleware/authDoctor.js';
 import upload from '../middleware/multer.js';
 import { listDoctorPrescriptions, uploadDoctorPrescription, generatePatientSummary, createPrescription, listAllDoctorPrescriptions, updatePrescription, deletePrescription } from '../controllers/prescriptionController.js';
@@ -30,6 +30,7 @@ doctorRouter.post("/patient-summary/:patientId", authDoctor, generatePatientSumm
 doctorRouter.post("/prescription/create", authDoctor, createPrescription)
 doctorRouter.put("/prescription/:id", authDoctor, updatePrescription)
 doctorRouter.delete("/prescription/:id", authDoctor, deletePrescription)
+doctorRouter.post("/prescription/:prescriptionId/email", authDoctor, emailPrescription)
 doctorRouter.get("/prescriptions", authDoctor, listAllDoctorPrescriptions)
 
 // File upload prescription route (put this after the specific routes)
