@@ -8,28 +8,57 @@ import axios from 'axios'
 
 const DoctorDashboard = () => {
 
-  const { dToken, dashData, getDashData, backendUrl, profileData, getProfileData } = useContext(DoctorContext)
+  const { dToken, dashData, getDashData, backendUrl, profileData, getProfileData, patients, getPatients } = useContext(DoctorContext)
   const [recentPatients, setRecentPatients] = useState([])
   const [todaysAppointments, setTodaysAppointments] = useState([])
   const [totalPatients, setTotalPatients] = useState(0)
+  const [patientAppointmentDates, setPatientAppointmentDates] = useState({})
   const navigate = useNavigate()
 
   const fetchRecentPatients = useCallback(async () => {
     try {
-      const { data } = await axios.get(`${backendUrl}/api/doctor/patients`, {
-        headers: { dToken }
-      })
-      if (data.success) {
+      const fetchedPatients = await getPatients() // Use cached data
+      if (fetchedPatients && fetchedPatients.length > 0) {
         // Set total patient count
-        setTotalPatients(data.patients.length)
-        // Sort patients by creation date (most recent first) and take first 4
-        const sortedPatients = data.patients.sort((a, b) => new Date(b.date) - new Date(a.date))
-        setRecentPatients(sortedPatients.slice(0, 4))
+        setTotalPatients(fetchedPatients.length)
+        
+        // Get all appointments to find most recent appointment per patient
+        const { data } = await axios.get(`${backendUrl}/api/doctor/appointments`, {
+          headers: { dToken }
+        })
+        
+        if (data.success) {
+          // Create a map of patient ID to their most recent appointment date
+          const patientLastAppointment = {}
+          data.appointments.forEach(apt => {
+            const patientId = apt.userId
+            const aptDate = new Date(apt.slotDate)
+            if (!patientLastAppointment[patientId] || aptDate > patientLastAppointment[patientId]) {
+              patientLastAppointment[patientId] = aptDate
+            }
+          })
+          
+          // Store the mapping for use in getTimeAgo
+          setPatientAppointmentDates(patientLastAppointment)
+          
+          // Sort patients by their most recent appointment
+          const sortedPatients = [...fetchedPatients].sort((a, b) => {
+            const dateA = patientLastAppointment[a._id] || new Date(a.date)
+            const dateB = patientLastAppointment[b._id] || new Date(b.date)
+            return dateB - dateA
+          })
+          
+          setRecentPatients(sortedPatients.slice(0, 4))
+        } else {
+          // Fallback to sorting by creation date
+          const sortedPatients = [...fetchedPatients].sort((a, b) => new Date(b.date) - new Date(a.date))
+          setRecentPatients(sortedPatients.slice(0, 4))
+        }
       }
     } catch (error) {
       console.error('Error fetching patients:', error)
     }
-  }, [backendUrl, dToken])
+  }, [getPatients, backendUrl, dToken])
 
   const fetchTodaysAppointments = useCallback(async () => {
     try {
@@ -43,7 +72,17 @@ const DoctorDashboard = () => {
           const appointmentDate = new Date(appointment.slotDate).toDateString()
           return appointmentDate === today
         })
-        setTodaysAppointments(todayAppointments.slice(0, 4))
+        
+        // Sort by time - nearest first (earliest time to latest time)
+        const sortedAppointments = todayAppointments.sort((a, b) => {
+          const timeA = a.slotTime.split(':').map(Number)
+          const timeB = b.slotTime.split(':').map(Number)
+          const minutesA = timeA[0] * 60 + timeA[1]
+          const minutesB = timeB[0] * 60 + timeB[1]
+          return minutesA - minutesB
+        })
+        
+        setTodaysAppointments(sortedAppointments.slice(0, 4))
       }
     } catch (error) {
       console.error('Error fetching appointments:', error)
@@ -81,14 +120,30 @@ const DoctorDashboard = () => {
   }
 
   const getTimeAgo = (dateString) => {
+    if (!dateString) return 'No recent visits'
+    
     const now = new Date()
     const date = new Date(dateString)
-    const diffInHours = Math.floor((now - date) / (1000 * 60 * 60))
     
-    if (diffInHours < 1) return 'Just now'
+    // Check if date is valid
+    if (isNaN(date.getTime())) return 'No recent visits'
+    
+    const diffInMs = now - date
+    const diffInMinutes = Math.floor(diffInMs / (1000 * 60))
+    const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60))
+    const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24))
+    const diffInWeeks = Math.floor(diffInDays / 7)
+    const diffInMonths = Math.floor(diffInDays / 30)
+    
+    if (diffInMinutes < 1) return 'Just now'
+    if (diffInMinutes < 60) return `${diffInMinutes} minute${diffInMinutes > 1 ? 's' : ''} ago`
     if (diffInHours < 24) return `${diffInHours} hour${diffInHours > 1 ? 's' : ''} ago`
-    if (diffInHours < 24 * 7) return `${Math.floor(diffInHours / 24)} day${Math.floor(diffInHours / 24) > 1 ? 's' : ''} ago`
-    return `${Math.floor(diffInHours / (24 * 7))} week${Math.floor(diffInHours / (24 * 7)) > 1 ? 's' : ''} ago`
+    if (diffInDays < 7) return `${diffInDays} day${diffInDays > 1 ? 's' : ''} ago`
+    if (diffInWeeks < 4) return `${diffInWeeks} week${diffInWeeks > 1 ? 's' : ''} ago`
+    if (diffInMonths < 12) return `${diffInMonths} month${diffInMonths > 1 ? 's' : ''} ago`
+    
+    const diffInYears = Math.floor(diffInDays / 365)
+    return `${diffInYears} year${diffInYears > 1 ? 's' : ''} ago`
   }
 
   return dashData && (
@@ -130,7 +185,7 @@ const DoctorDashboard = () => {
 
   <div className='bg-white p-4 rounded-xl shadow-sm border border-gray-200 h-36 flex flex-col justify-between'>
           <div className='flex items-center justify-between'>
-            <p className='text-sm text-black'>Consultations Today</p>
+            <p className='text-sm text-black'>Appointments Today</p>
       <MessageCircle className='w-5 h-5 text-green-600' />
     </div>
     <div>
@@ -157,7 +212,7 @@ const DoctorDashboard = () => {
     </div>
     <div>
             <p className='text-3xl font-semibold text-black'>{dashData?.earnings ? `₹${dashData.earnings}` : '₹0'}</p>
-            <p className='text-xs text-gray-500'>vs last month</p>
+            <p className='text-xs text-gray-500'>this month</p>
     </div>
   </div>
 </div>
@@ -186,7 +241,7 @@ const DoctorDashboard = () => {
                 </div>
                 <div className="text-right">
                   <p className="text-gray-500 text-xs mb-1">
-                    {getTimeAgo(patient.date)}
+                    {getTimeAgo(patientAppointmentDates[patient._id] || patient.date)}
                   </p>
                   {getPatientStatusBadge()}
                 </div>
@@ -235,25 +290,25 @@ const DoctorDashboard = () => {
         <h3 className="text-md font-semibold text-gray-900 mb-4">Quick Actions</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <button
-            onClick={() => navigate('/patient-management')}
-            className="flex items-center justify-between w-full border border-gray-200 rounded-xl px-6 py-4 hover:bg-gray-50 transition-colors"
+            onClick={() => navigate('/patient-management', { state: { openAddPatientForm: true } })}
+            className="flex items-center justify-between w-full border border-gray-200 rounded-md px-4 py-2 hover:bg-gray-50 transition-colors"
           >
-            <span className="text-gray-900 font-medium">Add New Patient</span>
-            <UserPlus className="w-6 h-6 text-gray-600" />
+            <span className="text-gray-900 font-medium text-sm">Add New Patient</span>
+            <UserPlus className="w-5 h-5 text-gray-600" />
           </button>
           <button
             onClick={() => navigate('/doctor-appointments')}
-            className="flex items-center justify-between w-full border border-gray-200 rounded-xl px-6 py-4 hover:bg-gray-50 transition-colors"
+            className="flex items-center justify-between w-full border border-gray-200 rounded-md px-4 py-2 hover:bg-gray-50 transition-colors"
           >
-            <span className="text-gray-900 font-medium">Start Consultation</span>
-            <MessageCircle className="w-6 h-6 text-gray-600" />
+            <span className="text-gray-900 font-medium text-sm">Start Consultation</span>
+            <MessageCircle className="w-5 h-5 text-gray-600" />
           </button>
           <button
             onClick={() => navigate('/dietchart-generator')}
-            className="flex items-center justify-between w-full border border-gray-200 rounded-xl px-6 py-4 hover:bg-gray-50 transition-colors"
+            className="flex items-center justify-between w-full border border-gray-200 rounded-md px-4 py-2 hover:bg-gray-50 transition-colors"
           >
-            <span className="text-gray-900 font-medium">Create Diet Chart</span>
-            <FileText className="w-6 h-6 text-gray-600" />
+            <span className="text-gray-900 font-medium text-sm">Create Diet Chart</span>
+            <FileText className="w-5 h-5 text-gray-600" />
           </button>
         </div>
       </div>

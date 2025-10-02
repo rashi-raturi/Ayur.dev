@@ -4,66 +4,6 @@ import PropTypes from 'prop-types';
 const DietChartDetails = ({ chart, isOpen, onClose, onEdit }) => {
   if (!isOpen || !chart) return null;
 
-  const nutritionData = [
-    { name: 'Calories', current: 323, target: 2000, percentage: 16, color: 'bg-gray-900' },
-    { name: 'Protein', current: 14, target: 46, unit: 'g', percentage: 30, color: 'bg-gray-900' },
-    { name: 'Carbs', current: 64.6, target: 130, unit: 'g', percentage: 50, color: 'bg-gray-900' },
-    { name: 'Fat', current: 1.3, target: 65, unit: 'g', percentage: 2, color: 'bg-gray-900' },
-    { name: 'Fiber', current: 4.8, target: 25, unit: 'g', percentage: 19, color: 'bg-gray-900' },
-    { name: 'Calcium', current: 141, target: 1000, unit: 'mg', percentage: 14, color: 'bg-gray-900' },
-  ];
-
-  const mealPlan = [
-    {
-      name: 'Breakfast',
-      calories: 105,
-      items: [
-        {
-          name: 'Moong Dal (cooked)',
-          quantity: '100g',
-          calories: 105,
-          description: 'Light, easily digestible lentil, excellent for all constitutions',
-          effects: ['Balances all doshas']
-        }
-      ]
-    },
-    {
-      name: 'Mid-Morning',
-      calories: 0,
-      items: []
-    },
-    {
-      name: 'Lunch',
-      calories: 195,
-      items: [
-        {
-          name: 'Basmati Rice (cooked)',
-          quantity: '150g',
-          calories: 195,
-          description: 'Aromatic long-grain rice, cooling and easy to digest',
-          effects: ['Balances Pitta', 'Increases Kapha']
-        }
-      ]
-    },
-    {
-      name: 'Evening Snack',
-      calories: 0,
-      items: []
-    },
-    {
-      name: 'Dinner',
-      calories: 23,
-      items: [
-        {
-          name: 'Spinach (cooked)',
-          quantity: '100g',
-          calories: 23,
-          description: 'Iron-rich leafy green, excellent for blood building',
-          effects: ['Reduces Pitta', 'Increases Vata', 'Balances Kapha']
-        }
-      ]
-    }
-  ];
 
   const getStatusColor = (status) => {
     switch (status) {

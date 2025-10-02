@@ -130,7 +130,16 @@ const bookAppointment = async (req, res) => {
 
     try {
 
-        const { userId, docId, slotDate, slotTime } = req.body
+        const { 
+            userId, 
+            docId, 
+            slotDate, 
+            slotTime, 
+            appointmentType = 'consultation',
+            locationType = 'clinic',
+            duration = 45
+        } = req.body
+        
         const docData = await doctorModel.findById(docId).select("-password")
 
         if (!docData.available) {
@@ -155,7 +164,12 @@ const bookAppointment = async (req, res) => {
             amount: docData.fees,
             slotTime,
             slotDate,
-            date: Date.now()
+            date: Date.now(),
+            duration,
+            status: 'scheduled',
+            appointmentType,
+            locationType,
+            paymentMethod: 'online' // Default, can be updated later
         }
 
         const newAppointment = new appointmentModel(appointmentData)
@@ -184,7 +198,7 @@ const bookAppointment = async (req, res) => {
 const cancelAppointment = async (req, res) => {
     try {
 
-        const { userId, appointmentId } = req.body
+        const { userId, appointmentId, reason } = req.body
         const appointmentData = await appointmentModel.findById(appointmentId)
 
         // verify appointment user 
@@ -192,7 +206,13 @@ const cancelAppointment = async (req, res) => {
             return res.json({ success: false, message: 'Unauthorized action' })
         }
 
-        await appointmentModel.findByIdAndUpdate(appointmentId, { cancelled: true })
+        await appointmentModel.findByIdAndUpdate(appointmentId, { 
+            cancelled: true,
+            status: 'cancelled',
+            cancellationReason: reason || 'Cancelled by patient',
+            cancelledBy: 'patient',
+            cancelledAt: new Date()
+        })
 
         // Remove appointment from doctor's slotsBooked array
         const { docId } = appointmentData

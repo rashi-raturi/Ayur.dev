@@ -8,9 +8,9 @@ import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 
 const Prescriptions = () => {
-  const { dToken, backendUrl } = useContext(DoctorContext);
+  const { dToken, backendUrl, prescriptions: contextPrescriptions, getDoctorPrescriptions, patients: contextPatients, getPatients: getContextPatients } = useContext(DoctorContext);
   
-  const [prescriptions, setPrescriptions] = useState([]);
+  const [prescriptions, setPrescriptions] = useState(contextPrescriptions || []);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('saved'); // 'saved' or 'create'
@@ -48,53 +48,22 @@ const Prescriptions = () => {
   const [prescriptionToDelete, setPrescriptionToDelete] = useState(null);
   const [openStatusDropdownId, setOpenStatusDropdownId] = useState(null);
 
+  // Fetch prescriptions with caching
   useEffect(() => {
-    // Fetch prescriptions from API
     const fetchPrescriptions = async () => {
       try {
-        console.log('Fetching prescriptions...', { backendUrl, dToken: !!dToken });
-        const { data } = await axios.get(`${backendUrl}/api/doctor/prescriptions`, {
-          headers: { dToken }
-        });
-        console.log('Prescriptions API response:', data);
-        if (data.success) {
-          setPrescriptions(data.prescriptions);
-        } else {
-          console.error('API returned success: false', data.message);
-          toast.error('Failed to load prescriptions: ' + (data.message || 'Unknown error'));
+        // Use cached data from context if available
+        if (contextPrescriptions && contextPrescriptions.length > 0) {
+          setPrescriptions(contextPrescriptions);
+          setLoading(false);
+          return;
         }
+
+        setLoading(true);
+        await getDoctorPrescriptions();
+        setLoading(false);
       } catch (error) {
-        console.error('Error fetching prescriptions:', error);
-        console.error('Error details:', {
-          message: error.message,
-          response: error.response?.data,
-          status: error.response?.status
-        });
-        
-        // Show error to user
-        toast.error('Error loading prescriptions: ' + (error.response?.data?.message || error.message));
-        
-        // Only use mock data if no backend connection
-        if (!backendUrl || error.response?.status === 404) {
-          const mockData = [
-            {
-              id: 'RX001',
-              patientName: 'Rajesh Kumar',
-              date: '2024-01-15',
-              status: 'Completed',
-              medications: [{name: 'Triphala', dosage: '3g', frequency: 'Twice daily'}],
-              chiefComplaint: 'Chronic digestive issues, acid reflux, and mild anxiety',
-              diagnosis: 'Pitta-Vata imbalance with Mandagni (weak digestive fire)',
-              doctorInfo: { name: 'Dr. Ayurvedic Sharma', registrationNumber: 'AYU12345', speciality: 'Ayurveda' },
-              patientInfo: { name: 'Rajesh Kumar', age: 45, gender: 'Male', contactNumber: '+91 9876543210', constitution: 'Pitta-Vata' },
-              dietaryRecommendations: 'Avoid spicy and acidic foods. Include cooling foods like cucumber, coconut water.',
-              lifestyleAdvice: 'Practice pranayama daily for 15 minutes. Oil massage twice weekly.',
-              followUpDate: '2024-02-15'
-            }
-          ];
-          setPrescriptions(mockData);
-        }
-      } finally {
+        toast.error('Error loading prescriptions');
         setLoading(false);
       }
     };
@@ -105,7 +74,14 @@ const Prescriptions = () => {
       console.error('Missing dToken or backendUrl', { dToken: !!dToken, backendUrl });
       setLoading(false);
     }
-  }, [backendUrl, dToken]);
+  }, [dToken, backendUrl, getDoctorPrescriptions, contextPrescriptions]);
+
+  // Update local state when context prescriptions change
+  useEffect(() => {
+    if (contextPrescriptions && contextPrescriptions.length > 0) {
+      setPrescriptions(contextPrescriptions);
+    }
+  }, [contextPrescriptions]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -119,54 +95,24 @@ const Prescriptions = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [openStatusDropdownId]);
 
-  // Fetch patients when form is opened
+  // Fetch patients when form is opened - use cached data from context
   const fetchPatients = useCallback(async () => {
     try {
-      const { data } = await axios.get(`${backendUrl}/api/doctor/patients`, {
-        headers: { dToken }
-      });
-      if (data.success) {
-        setPatients(data.patients);
+      // Use cached data if available
+      if (contextPatients && contextPatients.length > 0) {
+        setPatients(contextPatients);
+        return;
+      }
+
+      // Otherwise fetch from API through context
+      const fetchedPatients = await getContextPatients();
+      if (fetchedPatients && fetchedPatients.length > 0) {
+        setPatients(fetchedPatients);
       }
     } catch (error) {
       console.error('Error fetching patients:', error);
-      // Fallback to mock data
-      setPatients([
-        {
-          id: 'P001',
-          name: 'Rajesh Kumar',
-          age: 45,
-          gender: 'Male',
-          phone: '+91 98765 43210',
-          email: 'rajesh.kumar@email.com'
-        },
-        {
-          id: 'P002',
-          name: 'Priya Sharma',
-          age: 32,
-          gender: 'Female',
-          phone: '+91 87654 32109',
-          email: 'priya.sharma@email.com'
-        },
-        {
-          id: 'P003',
-          name: 'Amit Singh',
-          age: 38,
-          gender: 'Male',
-          phone: '+91 76543 21098',
-          email: 'amit.singh@email.com'
-        },
-        {
-          id: 'P004',
-          name: 'Sunita Patel',
-          age: 29,
-          gender: 'Female',
-          phone: '+91 65432 10987',
-          email: 'sunita.patel@email.com'
-        }
-      ]);
     }
-  }, [backendUrl, dToken]);
+  }, [contextPatients, getContextPatients]);
 
   useEffect(() => {
     if (activeTab === 'create') {
@@ -277,15 +223,12 @@ const Prescriptions = () => {
       const { data } = await axios[method](apiUrl, prescriptionData, { headers: { dToken } });
 
       if (data.success) {
+        // Force refresh prescriptions from server to update cache
+        await getDoctorPrescriptions(true);
+        
         if (editingPrescription) {
-          // Update existing prescription in the list
-          setPrescriptions(prev => prev.map(p => 
-            p.id === editingPrescription.id ? { ...p, ...data.prescription } : p
-          ));
           toast.success('Prescription updated successfully!');
         } else {
-          // Add new prescription to the list
-          setPrescriptions(prev => [data.prescription, ...prev]);
           toast.success('Prescription created successfully!');
         }
         
@@ -365,8 +308,8 @@ const Prescriptions = () => {
       });
 
       if (data.success) {
-        // Remove from local state
-        setPrescriptions(prev => prev.filter(p => p.id !== prescriptionToDelete.id));
+        // Force refresh prescriptions from server to update cache
+        await getDoctorPrescriptions(true);
         toast.success('Prescription deleted successfully!');
       } else {
         toast.error(data.message || 'Failed to delete prescription');
@@ -396,10 +339,8 @@ const Prescriptions = () => {
       );
 
       if (data.success) {
-        // Update local state
-        setPrescriptions(prev => prev.map(p => 
-          p.id === prescriptionId ? { ...p, status: newStatus } : p
-        ));
+        // Force refresh prescriptions from server to update cache
+        await getDoctorPrescriptions(true);
         toast.success('Status updated successfully!');
       } else {
         toast.error(data.message || 'Failed to update status');
@@ -427,10 +368,8 @@ const Prescriptions = () => {
       toast.dismiss(loadingToast);
 
       if (data.success) {
-        // Update local state with emailedAt timestamp
-        setPrescriptions(prev => prev.map(p => 
-          p.id === prescription.id ? { ...p, emailedAt: data.emailedAt } : p
-        ));
+        // Force refresh prescriptions from server to update cache
+        await getDoctorPrescriptions(true);
         toast.success('Prescription emailed successfully!');
       } else {
         toast.error(data.message || 'Failed to send email');

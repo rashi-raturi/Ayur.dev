@@ -10,10 +10,22 @@ const AppContextProvider = (props) => {
 
     const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
-    // Function to format the date eg. ( 20_01_2000 => 20 Jan 2000 )
+    // Function to format the date eg. ( 20_01_2000 => Jan 20, 2000 ) or ( 2025-10-03 => Oct 3, 2025 )
     const slotDateFormat = (slotDate) => {
+        if (!slotDate) return 'undefined'
+        
+        // Handle YYYY-MM-DD format
+        if (slotDate.includes('-')) {
+            const dateArray = slotDate.split('-')
+            const year = dateArray[0]
+            const month = Number(dateArray[1]) - 1 // Month index (0-11)
+            const day = Number(dateArray[2])
+            return months[month] + " " + day + ", " + year
+        }
+        
+        // Handle DD_MM_YYYY format
         const dateArray = slotDate.split('_')
-        return dateArray[0] + " " + months[Number(dateArray[1])] + " " + dateArray[2]
+        return months[Number(dateArray[1])] + " " + dateArray[0] + ", " + dateArray[2]
     }
 
     // Function to calculate the age eg. ( 20_01_2000 => 24 )

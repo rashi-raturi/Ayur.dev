@@ -1,5 +1,6 @@
 import express from "express"
 import cors from 'cors'
+import compression from 'compression'
 import 'dotenv/config'
 import path from 'path'
 import connectDB from "./config/mongodb.js"
@@ -15,6 +16,17 @@ connectDB()
 connectCloudinary()
 
 // middlewares
+// Compression middleware (should be early in the chain)
+app.use(compression({
+  filter: (req, res) => {
+    if (req.headers['x-no-compression']) {
+      return false;
+    }
+    return compression.filter(req, res);
+  },
+  level: 6 // Compression level (0-9), 6 is a good balance between speed and compression
+}));
+
 // JSON body parsing and CORS
 app.use(express.json());
 app.use(cors());

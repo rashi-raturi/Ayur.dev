@@ -1,4 +1,5 @@
 import { useState, useEffect, useContext, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import { DoctorContext } from '../../context/DoctorContext';
 import { toast } from 'react-toastify';
 import axios from 'axios';
@@ -6,9 +7,10 @@ import { Search, Plus, Eye, Edit2, Calendar, User, Stethoscope, Activity, CheckC
 import PrescriptionPreview from '../../components/PrescriptionPreview';
 
 const PatientManagement = () => {
-  const { dToken, backendUrl } = useContext(DoctorContext);
+  const { dToken, backendUrl, patients: contextPatients, getPatients } = useContext(DoctorContext);
+  const location = useLocation();
   
-  const [patients, setPatients] = useState([]);
+  const [patients, setPatients] = useState(contextPatients || []);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [selectedPatient, setSelectedPatient] = useState(null);
@@ -32,7 +34,8 @@ const PatientManagement = () => {
     dob: '',
     constitution: '',
     condition: '',
-    foodAllergies: ''
+    foodAllergies: '',
+    notes: ''
   });
   const [addPatientLoading, setAddPatientLoading] = useState(false);
   
@@ -44,6 +47,11 @@ const PatientManagement = () => {
   const [uploadingPrescription, setUploadingPrescription] = useState(false);
   const [prescriptionsLoading, setPrescriptionsLoading] = useState(false);
   
+  // Cache for prescriptions by patient ID
+  const [prescriptionsCache, setPrescriptionsCache] = useState({});
+  const [prescriptionsCacheTime, setPrescriptionsCacheTime] = useState({});
+  const PRESCRIPTIONS_CACHE_DURATION = 60000; // 1 minute
+  
   // State for editable badges
   const [symptomStatuses, setSymptomStatuses] = useState({});
   const [medicationStatuses, setMedicationStatuses] = useState({});
@@ -52,17 +60,12 @@ const PatientManagement = () => {
   const [previewPrescription, setPreviewPrescription] = useState(null);
   const [showPrescriptionPreview, setShowPrescriptionPreview] = useState(false);
 
-  const fetchPatients = useCallback(async () => {
+  const fetchPatients = useCallback(async (force = false) => {
     try {
       setLoading(true);
-      const { data } = await axios.get(`${backendUrl}/api/doctor/patients`, {
-        headers: { dToken }
-      });
-
-      if (data.success) {
-        setPatients(data.patients);
-      } else {
-        toast.error(data.message || 'Failed to fetch patients');
+      const fetchedPatients = await getPatients(force);
+      if (fetchedPatients) {
+        setPatients(fetchedPatients);
       }
     } catch (error) {
       console.error('Error fetching patients:', error);
@@ -70,11 +73,66 @@ const PatientManagement = () => {
     } finally {
       setLoading(false);
     }
-  }, [dToken, backendUrl]);
+  }, [getPatients]);
 
   useEffect(() => {
-    fetchPatients();
-  }, [fetchPatients]);
+    // Use cached data from context if available
+    if (contextPatients && contextPatients.length > 0) {
+      setPatients(contextPatients);
+      setLoading(false);
+      // Optionally fetch fresh data in background if cache is old
+      // This ensures UI is instant but data stays fresh
+    } else {
+      fetchPatients();
+    }
+  }, [contextPatients]);
+  
+  // Initial load
+  useEffect(() => {
+    if (!contextPatients || contextPatients.length === 0) {
+      fetchPatients();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Check if we should open the add patient form from navigation state
+  useEffect(() => {
+    if (location.state?.openAddPatientForm) {
+      // Scroll to top for better UX
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      
+      // Small delay for smooth transition after page load
+      const timer = setTimeout(() => {
+        setIsEditMode(false);
+        setEditingPatient(null);
+        setAddPatientData({
+          name: '',
+          email: '',
+          phone: '',
+          address: {
+            line1: '',
+            line2: '',
+            city: '',
+            state: '',
+            pincode: '',
+            country: 'India'
+          },
+          gender: '',
+          dob: '',
+          constitution: '',
+          condition: '',
+          foodAllergies: '',
+          notes: ''
+        });
+        setShowAddPatientModal(true);
+      }, 200);
+      
+      // Clear the navigation state to prevent reopening on refresh
+      window.history.replaceState({}, document.title);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [location]);
 
   const filteredPatients = patients.filter(patient =>
     patient.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -117,11 +175,20 @@ const PatientManagement = () => {
     fetchPrescriptions(patient.id); // Fetch prescriptions when opening modal
   };
 
-  // Fetch prescriptions for a patient
-  const fetchPrescriptions = useCallback(async (patientId) => {
+  // Fetch prescriptions for a patient with caching
+  const fetchPrescriptions = useCallback(async (patientId, force = false) => {
     if (!patientId) return;
     
-    console.log('Frontend: Fetching prescriptions for patientId:', patientId);
+    // Check cache unless force refresh
+    const now = Date.now();
+    const cacheTime = prescriptionsCacheTime[patientId];
+    const cachedData = prescriptionsCache[patientId];
+    
+    if (!force && cachedData && cacheTime && (now - cacheTime) < PRESCRIPTIONS_CACHE_DURATION) {
+      setPrescriptions(cachedData);
+      return;
+    }
+  
     
     try {
       setPrescriptionsLoading(true);
@@ -131,7 +198,9 @@ const PatientManagement = () => {
 
       if (data.success) {
         setPrescriptions(data.prescriptions);
-        console.log('Frontend: Received prescriptions:', data.prescriptions.length);
+        // Update cache
+        setPrescriptionsCache(prev => ({ ...prev, [patientId]: data.prescriptions }));
+        setPrescriptionsCacheTime(prev => ({ ...prev, [patientId]: now }));
       } else {
         toast.error(data.message || 'Failed to fetch prescriptions');
       }
@@ -146,7 +215,7 @@ const PatientManagement = () => {
     } finally {
       setPrescriptionsLoading(false);
     }
-  }, [dToken, backendUrl]);
+  }, [dToken, backendUrl, prescriptionsCache, prescriptionsCacheTime, PRESCRIPTIONS_CACHE_DURATION]);
 
   // Upload prescription for a patient
   const uploadPrescription = async (patientId, file) => {
@@ -170,7 +239,7 @@ const PatientManagement = () => {
 
       if (data.success) {
         toast.success('Prescription uploaded successfully');
-        fetchPrescriptions(patientId); // Refresh prescriptions list
+        fetchPrescriptions(patientId, true); // Force refresh prescriptions list
       } else {
         toast.error(data.message || 'Failed to upload prescription');
       }
@@ -183,13 +252,11 @@ const PatientManagement = () => {
   };
 
   const handleEditPatient = (patient) => {
-    console.log('Editing patient:', patient);
     setEditingPatient(patient);
     setIsEditMode(true);
     
     // Pre-fill the form with patient data
     const dobValue = patient.dob ? new Date(patient.dob).toISOString().split('T')[0] : '';
-    console.log('Patient DOB:', patient.dob, 'Formatted:', dobValue);
     
     setAddPatientData({
       name: patient.name || '',
@@ -207,7 +274,8 @@ const PatientManagement = () => {
       dob: dobValue,
       constitution: patient.constitution || '',
       condition: patient.condition || '',
-      foodAllergies: patient.foodAllergies || ''
+      foodAllergies: patient.foodAllergies || '',
+      notes: patient.notes || ''
     });
     
     setShowAddPatientModal(true);
@@ -220,7 +288,8 @@ const PatientManagement = () => {
     try {
       // Validate required fields
       if (!addPatientData.name || !addPatientData.email || !addPatientData.dob || 
-          !addPatientData.gender || addPatientData.gender === 'Not Selected') {
+          !addPatientData.gender || addPatientData.gender === 'Not Selected' ||
+          !addPatientData.phone || !addPatientData.condition || !addPatientData.foodAllergies) {
         toast.error('Please fill in all required fields');
         setAddPatientLoading(false);
         return;
@@ -228,7 +297,6 @@ const PatientManagement = () => {
 
       // Validate patient ID in edit mode
       if (isEditMode) {
-        console.log('Edit mode - editingPatient:', editingPatient);
         if (!editingPatient || !editingPatient._id) {
           console.error('Missing patient ID in edit mode:', { editingPatient, hasId: !!editingPatient?._id });
           toast.error('Invalid patient data. Please try again.');
@@ -247,18 +315,11 @@ const PatientManagement = () => {
       formData.append('constitution', addPatientData.constitution || '');
       formData.append('condition', addPatientData.condition || '');
       formData.append('foodAllergies', addPatientData.foodAllergies || '');
+      formData.append('notes', addPatientData.notes || '');
 
       let data;
       if (isEditMode && editingPatient) {
-        // Edit existing patient
-        console.log('Updating patient with ID:', editingPatient._id);
-        console.log('Update data:', {
-          name: addPatientData.name,
-          email: addPatientData.email,
-          phone: addPatientData.phone,
-          gender: addPatientData.gender,
-          dob: addPatientData.dob
-        });
+
         const response = await axios.put(`${backendUrl}/api/doctor/patient/${editingPatient._id}`, formData, {
           headers: { 
             dToken,
@@ -266,7 +327,6 @@ const PatientManagement = () => {
           }
         });
         data = response.data;
-        console.log('Update response:', data);
       } else {
         // Add new patient
         const response = await axios.post(`${backendUrl}/api/doctor/add-patient`, formData, {
@@ -299,9 +359,10 @@ const PatientManagement = () => {
           dob: '',
           constitution: '',
           condition: '',
-          foodAllergies: ''
+          foodAllergies: '',
+          notes: ''
         });
-        fetchPatients(); // Refresh patient list
+        fetchPatients(true); // Force refresh patient list
       } else {
         toast.error(data.message || (isEditMode ? 'Failed to update patient' : 'Failed to add patient'));
       }
@@ -1174,8 +1235,31 @@ const PatientManagement = () => {
             <p className="text-gray-600 mt-1 text-sm">Manage your patient records and appointments</p>
           </div>
           <button
-            onClick={() => setShowAddPatientModal(true)}
-            className="flex items-center gap-2 bg-black text-white px-4 py-2 rounded-md hover:bg-gray-800 transition-colors font-medium text-sm"
+            onClick={() => {
+              setIsEditMode(false);
+              setEditingPatient(null);
+              setAddPatientData({
+                name: '',
+                email: '',
+                phone: '',
+                address: {
+                  line1: '',
+                  line2: '',
+                  city: '',
+                  state: '',
+                  pincode: '',
+                  country: 'India'
+                },
+                gender: '',
+                dob: '',
+                constitution: '',
+                condition: '',
+                foodAllergies: '',
+                notes: ''
+              });
+              setShowAddPatientModal(true);
+            }}
+            className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors font-medium text-sm shadow-sm"
           >
             <Plus className="w-4 h-4" />
             Add Patient
@@ -1324,8 +1408,8 @@ const PatientManagement = () => {
 
       {/* Add Patient Modal */}
       {showAddPatientModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-fadeIn">
+          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto animate-slideUp">
             <form onSubmit={handleAddPatient}>
               {/* Modal Header */}
               <div className="p-6 border-b border-gray-200">
@@ -1369,11 +1453,16 @@ const PatientManagement = () => {
               {/* Modal Content */}
               <div className="p-6">
               <div className="space-y-4">
+                {/* Personal Details Section Header */}
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Personal Details</h3>
+                </div>
+
                 {/* Name and Email Row */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Full Name
+                      Full Name <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
@@ -1385,7 +1474,9 @@ const PatientManagement = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Email <span className="text-red-500">*</span>
+                    </label>
                     <input
                       type="email"
                       value={addPatientData.email}
@@ -1400,17 +1491,22 @@ const PatientManagement = () => {
                 {/* Contact Number, Gender, and Date of Birth Row */}
                 <div className="grid grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Contact Number</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Contact Number <span className="text-red-500">*</span>
+                    </label>
                     <input
                       type="tel"
                       value={addPatientData.phone}
                       onChange={(e) => setAddPatientData({...addPatientData, phone: e.target.value})}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
                       placeholder="+91 XXXXX XXXXX"
+                      required
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Gender</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Gender <span className="text-red-500">*</span>
+                    </label>
                     <select
                       value={addPatientData.gender}
                       onChange={(e) => setAddPatientData({...addPatientData, gender: e.target.value})}
@@ -1425,7 +1521,7 @@ const PatientManagement = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Date of Birth
+                      Date of Birth <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="date"
@@ -1440,6 +1536,11 @@ const PatientManagement = () => {
                 {/* Divider after Gender/DOB/Contact */}
                 <div className="pt-4">
                   <div className="border-t border-gray-200 mb-4"></div>
+                </div>
+
+                {/* Medical Information Section Header */}
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Medical Information</h3>
                 </div>
 
                 {/* Constitution and Condition Row */}
@@ -1465,7 +1566,7 @@ const PatientManagement = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Current Condition
+                      Current Condition <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
@@ -1473,6 +1574,7 @@ const PatientManagement = () => {
                       onChange={(e) => setAddPatientData({...addPatientData, condition: e.target.value})}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
                       placeholder="e.g., Arthritis, Digestive issues"
+                      required
                     />
                   </div>
                 </div>
@@ -1480,12 +1582,27 @@ const PatientManagement = () => {
                 {/* Food Allergies & Restrictions */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Food Allergies & Restrictions
+                    Food Allergies & Restrictions <span className="text-red-500">*</span>
                   </label>
                   <textarea
                     value={addPatientData.foodAllergies}
                     onChange={(e) => setAddPatientData({...addPatientData, foodAllergies: e.target.value})}
-                    placeholder="e.g., Dairy allergy, Gluten sensitivity, Vegetarian"
+                    placeholder="e.g., Dairy allergy, Gluten sensitivity, Vegetarian, None"
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm resize-none"
+                    required
+                  />
+                </div>
+
+                {/* Notes Field */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Notes
+                  </label>
+                  <textarea
+                    value={addPatientData.notes || ''}
+                    onChange={(e) => setAddPatientData({...addPatientData, notes: e.target.value})}
+                    placeholder="Additional notes or observations about the patient"
                     rows={3}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm resize-none"
                   />
@@ -1493,8 +1610,8 @@ const PatientManagement = () => {
 
                 {/* Address Section Divider */}
                 <div className="pt-4">
-                  <h2 className="text-base font-medium text-gray-900 mb-4">Address Information (Optional)</h2>
                   <div className="border-t border-gray-200 mb-4"></div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Address Information (Optional)</h3>
                 </div>
 
                 {/* Address Line 1 */}

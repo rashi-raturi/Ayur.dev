@@ -51,8 +51,14 @@ const appointmentsAdmin = async (req, res) => {
 const appointmentCancel = async (req, res) => {
     try {
 
-        const { appointmentId } = req.body
-        await appointmentModel.findByIdAndUpdate(appointmentId, { cancelled: true })
+        const { appointmentId, reason } = req.body
+        await appointmentModel.findByIdAndUpdate(appointmentId, { 
+            cancelled: true,
+            status: 'cancelled',
+            cancellationReason: reason || 'Cancelled by admin',
+            cancelledBy: 'admin',
+            cancelledAt: new Date()
+        })
 
         res.json({ success: true, message: 'Appointment Cancelled' })
 

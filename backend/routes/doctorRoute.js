@@ -1,5 +1,5 @@
 import express from 'express';
-import { loginDoctor, appointmentsDoctor, appointmentCancel, doctorList, changeAvailablity, appointmentComplete, doctorDashboard, doctorProfile, updateDoctorProfile, getPatients, addPatientByDoctor, updatePatientByDoctor, emailPrescription } from '../controllers/doctorController.js';
+import { loginDoctor, appointmentsDoctor, appointmentCancel, undoCancellation, confirmAppointment, startAppointment, doctorList, changeAvailablity, appointmentComplete, createAppointmentByDoctor, updateAppointmentByDoctor, doctorDashboard, doctorProfile, updateDoctorProfile, getPatients, addPatientByDoctor, updatePatientByDoctor, emailPrescription, getFoodDatabase, createDietChart, getDietChartsByPatient, getDietChartsByDoctor, getDietChartById, updateDietChart, deleteDietChart, generateAIDietChart, linkDietChartToPrescription } from '../controllers/doctorController.js';
 import authDoctor from '../middleware/authDoctor.js';
 import upload from '../middleware/multer.js';
 import { listDoctorPrescriptions, uploadDoctorPrescription, generatePatientSummary, createPrescription, listAllDoctorPrescriptions, updatePrescription, deletePrescription } from '../controllers/prescriptionController.js';
@@ -8,6 +8,11 @@ const doctorRouter = express.Router();
 
 doctorRouter.post("/login", loginDoctor)
 doctorRouter.post("/cancel-appointment", authDoctor, appointmentCancel)
+doctorRouter.put("/undo-cancellation/:appointmentId", authDoctor, undoCancellation)
+doctorRouter.post("/confirm-appointment", authDoctor, confirmAppointment)
+doctorRouter.post("/start-appointment", authDoctor, startAppointment)
+doctorRouter.post("/create-appointment", authDoctor, createAppointmentByDoctor)
+doctorRouter.put("/update-appointment/:appointmentId", authDoctor, updateAppointmentByDoctor)
 doctorRouter.get("/appointments", authDoctor, appointmentsDoctor)
 doctorRouter.get("/patients", authDoctor, getPatients)
 doctorRouter.get("/list", doctorList)
@@ -16,6 +21,19 @@ doctorRouter.post("/complete-appointment", authDoctor, appointmentComplete)
 doctorRouter.get("/dashboard", authDoctor, doctorDashboard)
 doctorRouter.get("/profile", authDoctor, doctorProfile)
 doctorRouter.post("/update-profile", authDoctor, updateDoctorProfile)
+
+// Food database
+doctorRouter.get("/foods", authDoctor, getFoodDatabase)
+
+// Diet Chart management
+doctorRouter.post("/diet-chart/create", authDoctor, createDietChart)
+doctorRouter.post("/diet-chart/generate-ai", authDoctor, generateAIDietChart)
+doctorRouter.get("/diet-charts", authDoctor, getDietChartsByDoctor)
+doctorRouter.get("/diet-chart/:chartId", authDoctor, getDietChartById)
+doctorRouter.get("/diet-charts/patient/:patientId", authDoctor, getDietChartsByPatient)
+doctorRouter.put("/diet-chart/:chartId", authDoctor, updateDietChart)
+doctorRouter.delete("/diet-chart/:chartId", authDoctor, deleteDietChart)
+doctorRouter.post("/diet-chart/link-prescription", authDoctor, linkDietChartToPrescription)
 
 // Patient management by doctor
 doctorRouter.post("/add-patient", authDoctor, upload.single('image'), addPatientByDoctor)
