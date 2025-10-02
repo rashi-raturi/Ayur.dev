@@ -1,16 +1,31 @@
 import { useContext } from 'react'
 import { assets } from '../assets/assets'
-import { NavLink } from 'react-router-dom'
+import { NavLink, useNavigate } from 'react-router-dom'
 import { DoctorContext } from '../context/DoctorContext'
 import { AdminContext } from '../context/AdminContext'
 import { SidebarContext } from '../context/SidebarContext'
-import { LayoutDashboard, Users, Calendar, FileText, ClipboardList, User, X, Menu } from 'lucide-react';
+import { LayoutDashboard, Users, Calendar, FileText, ClipboardList, User, X, Menu, LogOut } from 'lucide-react'
+import { toast } from 'react-toastify'
 
 const Sidebar = () => {
 
-  const { dToken } = useContext(DoctorContext)
-  const { aToken } = useContext(AdminContext)
+  const { dToken, setDToken } = useContext(DoctorContext)
+  const { aToken, setAToken } = useContext(AdminContext)
   const { isSidebarOpen, setIsSidebarOpen } = useContext(SidebarContext)
+  const navigate = useNavigate()
+
+  const handleLogout = () => {
+    if (dToken) {
+      setDToken('')
+      localStorage.removeItem('dToken')
+      toast.success('Logged out successfully')
+    } else if (aToken) {
+      setAToken('')
+      localStorage.removeItem('aToken')
+      toast.success('Logged out successfully')
+    }
+    navigate('/login')
+  }
 
   return (
     <>
@@ -166,6 +181,17 @@ const Sidebar = () => {
             </>
           )}
         </nav>
+
+        {/* Logout Button - Fixed at bottom */}
+        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200 bg-gray-50">
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors text-sm text-red-600 hover:bg-red-50 w-full"
+          >
+            <LogOut className="w-4 h-4" />
+            <span>Logout</span>
+          </button>
+        </div>
       </div>
     </>
   )
