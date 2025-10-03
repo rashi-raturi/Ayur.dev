@@ -208,9 +208,9 @@ const Login = () => {
           {/* Signup Link */}
           <div className="text-center pt-6 border-t border-gray-100 mt-6">
             <p className="text-sm text-gray-600">
-              Don't have an account?{' '}
+              Don't have an account?{" "}
               <button
-                onClick={() => navigate('/signup')}
+                onClick={() => navigate("/signup")}
                 className="text-gray-900 font-medium hover:underline transition-all"
               >
                 Create Doctor Account

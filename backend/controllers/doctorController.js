@@ -36,27 +36,31 @@ const signupDoctor = async (req, res) => {
       about,
       address,
       registrationNumber,
-      phone
+      phone,
     } = req.body;
 
     // Validate required fields
     if (!name || !email || !password || !speciality || !registrationNumber) {
       return res.json({
         success: false,
-        message: "Name, email, password, speciality, and registration number are required"
+        message:
+          "Name, email, password, speciality, and registration number are required",
       });
     }
 
     // Validate email
     if (!validator.isEmail(email)) {
-      return res.json({ success: false, message: "Please enter a valid email" });
+      return res.json({
+        success: false,
+        message: "Please enter a valid email",
+      });
     }
 
     // Validate password
     if (password.length < 6) {
       return res.json({
         success: false,
-        message: "Password must be at least 6 characters"
+        message: "Password must be at least 6 characters",
       });
     }
 
@@ -65,7 +69,7 @@ const signupDoctor = async (req, res) => {
     if (existingDoctor) {
       return res.json({
         success: false,
-        message: "Doctor with this email already exists"
+        message: "Doctor with this email already exists",
       });
     }
 
@@ -74,7 +78,7 @@ const signupDoctor = async (req, res) => {
     if (existingRegNumber) {
       return res.json({
         success: false,
-        message: "Doctor with this registration number already exists"
+        message: "Doctor with this registration number already exists",
       });
     }
 
@@ -86,13 +90,15 @@ const signupDoctor = async (req, res) => {
     let imageUrl = "";
     if (req.file) {
       const imageUpload = await cloudinary.uploader.upload(req.file.path, {
-        resource_type: "image"
+        resource_type: "image",
       });
       imageUrl = imageUpload.secure_url;
     }
 
     // Create address object
-    const addressObj = address ? { line1: address, line2: "" } : { line1: "", line2: "" };
+    const addressObj = address
+      ? { line1: address, line2: "" }
+      : { line1: "", line2: "" };
 
     // Create new doctor
     const doctorData = {
@@ -108,7 +114,7 @@ const signupDoctor = async (req, res) => {
       registrationNumber,
       phone,
       fees: 50, // Default fee
-      available: true
+      available: true,
     };
 
     const newDoctor = new doctorModel(doctorData);
@@ -116,19 +122,19 @@ const signupDoctor = async (req, res) => {
 
     res.json({
       success: true,
-      message: "Doctor account created successfully! Please login with your credentials.",
+      message:
+        "Doctor account created successfully! Please login with your credentials.",
       doctor: {
         id: savedDoctor._id,
         name: savedDoctor.name,
-        email: savedDoctor.email
-      }
+        email: savedDoctor.email,
+      },
     });
-
   } catch (error) {
     console.error("Doctor signup error:", error);
     res.json({
       success: false,
-      message: "Registration failed. Please try again."
+      message: "Registration failed. Please try again.",
     });
   }
 };
@@ -137,15 +143,6 @@ const signupDoctor = async (req, res) => {
 const loginDoctor = async (req, res) => {
   try {
     const { email, password } = req.body;
-
-    // Temporary test mode for AI testing with valid ObjectId
-    if (email === "test@ai.doctor" && password === "test123") {
-      const token = jwt.sign(
-        { id: "507f1f77bcf86cd799439011" },
-        process.env.JWT_SECRET || "test_secret"
-      );
-      return res.json({ success: true, token });
-    }
 
     const user = await doctorModel.findOne({ email });
 

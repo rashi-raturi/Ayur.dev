@@ -159,10 +159,10 @@ const PrescriptionPreview = ({ prescription, isOpen, onClose }) => {
                 <path d="M10 12a2 2 0 100-4 2 2 0 000 4z"/>
                 <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z"/>
               </svg>
-              Prescribed Medications ({prescription.medications?.length || 2})
+              Medications & Formulations ({prescription.medications?.length || 2})
             </h3>
             <div className="space-y-4">
-              {prescription.medications?.map((med, index) => (
+              {prescription.medications?.length > 0 ? prescription.medications.map((med, index) => (
                 <div key={index} className="bg-gradient-to-br from-green-50 via-teal-50 to-blue-50 border border-gray-200 p-6 rounded-xl">
                   <div className="flex items-start gap-4">
                     <div className="bg-green-600 text-white font-bold w-8 h-8 rounded-xl flex items-center justify-center text-sm">
@@ -197,7 +197,7 @@ const PrescriptionPreview = ({ prescription, isOpen, onClose }) => {
                     </div>
                   </div>
                 </div>
-              )) || (
+              )) : (
                 // Default medications if none provided
                 <>
                   <div className="bg-gradient-to-br from-green-50 via-teal-50 to-blue-50 border border-gray-200 p-6 rounded-xl">
@@ -279,7 +279,7 @@ const PrescriptionPreview = ({ prescription, isOpen, onClose }) => {
 
             {/* Lifestyle Advice */}
             <div className="bg-white border border-gray-200 p-6 rounded-xl">
-              <h3 className="text-lg font-semibold text-gray-800 mb-4">Lifestyle Advice</h3>
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">Lifestyle Recommendations</h3>
               <div className="bg-gray-100 border border-gray-200 p-4 rounded-xl text-gray-800">
                 {prescription.lifestyleAdvice || 
                   'Practice pranayama daily for 15 minutes. Oil massage (abhyanga) twice weekly. Maintain regular sleep schedule.'}
