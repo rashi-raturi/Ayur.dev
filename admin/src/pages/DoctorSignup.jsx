@@ -19,6 +19,7 @@ const DoctorSignup = () => {
     image: null,
     speciality: '',
     degree: '',
+    customDegree: '',
     experience: '',
     about: '',
     address: '',
@@ -124,6 +125,10 @@ const DoctorSignup = () => {
       toast.error('Degree is required')
       return false
     }
+    if (formData.degree === 'Other' && !formData.customDegree.trim()) {
+      toast.error('Please specify your degree')
+      return false
+    }
     if (!formData.experience) {
       toast.error('Experience is required')
       return false
@@ -173,8 +178,14 @@ const DoctorSignup = () => {
       
       // Append all form fields
       Object.keys(formData).forEach(key => {
-        if (key !== 'confirmPassword') {
-          formDataToSend.append(key, formData[key])
+        if (key !== 'confirmPassword' && key !== 'customDegree') {
+          if (key === 'degree') {
+            // Use custom degree if "Other" is selected
+            const degreeValue = formData.degree === 'Other' ? formData.customDegree : formData.degree
+            formDataToSend.append(key, degreeValue)
+          } else {
+            formDataToSend.append(key, formData[key])
+          }
         }
       })
 
@@ -205,7 +216,7 @@ const DoctorSignup = () => {
         <div className='text-center mb-8'>
           <div className='flex justify-center mb-4'>
             <div className='w-16 h-16 bg-gray-900 rounded-2xl flex items-center justify-center shadow-lg'>
-              <img src='/logo.png' alt='AyurVed Pro' className='w-10 h-10 object-contain' />
+              <img src='/favicon1.png' alt='AyurVed Pro' className='w-12 h-12 object-contain' />
             </div>
           </div>
           <h1 className='text-3xl font-bold text-gray-900 mb-2'>Join ayur.dev</h1>
@@ -416,6 +427,24 @@ const DoctorSignup = () => {
                     </select>
                   </div>
                 </div>
+
+                {/* Custom Degree Input - Show when "Other" is selected */}
+                {formData.degree === 'Other' && (
+                  <div>
+                    <label className='block text-sm font-medium text-gray-900 mb-2'>
+                      Please specify your degree *
+                    </label>
+                    <input
+                      type='text'
+                      name='customDegree'
+                      value={formData.customDegree}
+                      onChange={handleInputChange}
+                      className='w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all'
+                      placeholder='Enter your degree (e.g., BHMS, BNYS, etc.)'
+                      required
+                    />
+                  </div>
+                )}
 
                 <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
                   {/* Experience */}
