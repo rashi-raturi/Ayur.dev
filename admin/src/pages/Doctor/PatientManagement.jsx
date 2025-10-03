@@ -32,6 +32,9 @@ const PatientManagement = () => {
     },
     gender: '',
     dob: '',
+    height: { feet: 0, inches: 0 },
+    weight: 0,
+    bowel_movements: '',
     constitution: '',
     condition: '',
     foodAllergies: '',
@@ -122,7 +125,13 @@ const PatientManagement = () => {
           constitution: '',
           condition: '',
           foodAllergies: '',
-          notes: ''
+          notes: '',
+          height: {
+            feet: 0,
+            inches: 0
+          },
+          weight: 0,
+          bowel_movements: ''
         });
         setShowAddPatientModal(true);
       }, 200);
@@ -275,7 +284,13 @@ const PatientManagement = () => {
       constitution: patient.constitution || '',
       condition: patient.condition || '',
       foodAllergies: patient.foodAllergies || '',
-      notes: patient.notes || ''
+      notes: patient.notes || '',
+      height: {
+        feet: patient.height?.feet || 0,
+        inches: patient.height?.inches || 0
+      },
+      weight: patient.weight || 0,
+      bowel_movements: patient.bowel_movements || ''
     });
     
     setShowAddPatientModal(true);
@@ -316,6 +331,9 @@ const PatientManagement = () => {
       formData.append('condition', addPatientData.condition || '');
       formData.append('foodAllergies', addPatientData.foodAllergies || '');
       formData.append('notes', addPatientData.notes || '');
+      formData.append('height', JSON.stringify(addPatientData.height));
+      formData.append('weight', addPatientData.weight || 0);
+      formData.append('bowel_movements', addPatientData.bowel_movements || '');
 
       let data;
       if (isEditMode && editingPatient) {
@@ -360,7 +378,13 @@ const PatientManagement = () => {
           constitution: '',
           condition: '',
           foodAllergies: '',
-          notes: ''
+          notes: '',
+          height: {
+            feet: 0,
+            inches: 0
+          },
+          weight: 0,
+          bowel_movements: ''
         });
         fetchPatients(true); // Force refresh patient list
       } else {
@@ -1255,7 +1279,13 @@ const PatientManagement = () => {
                 constitution: '',
                 condition: '',
                 foodAllergies: '',
-                notes: ''
+                notes: '',
+                height: {
+                  feet: 0,
+                  inches: 0
+                },
+                weight: 0,
+                bowel_movements: ''
               });
               setShowAddPatientModal(true);
             }}
@@ -1592,6 +1622,83 @@ const PatientManagement = () => {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm resize-none"
                     required
                   />
+                </div>
+
+                {/* Health Metrics Row */}
+                <div className="grid grid-cols-3 gap-4">
+                  {/* Height */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Height
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">Feet</label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="8"
+                          value={addPatientData.height?.feet || 0}
+                          onChange={(e) => setAddPatientData({
+                            ...addPatientData,
+                            height: { ...(addPatientData.height || { feet: 0, inches: 0 }), feet: parseInt(e.target.value) || 0 }
+                          })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+                          placeholder="0"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">Inches</label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="11"
+                          value={addPatientData.height?.inches || 0}
+                          onChange={(e) => setAddPatientData({
+                            ...addPatientData,
+                            height: { ...(addPatientData.height || { feet: 0, inches: 0 }), inches: parseInt(e.target.value) || 0 }
+                          })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+                          placeholder="0"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Weight */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Weight (kg)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.1"
+                      value={addPatientData.weight}
+                      onChange={(e) => setAddPatientData({...addPatientData, weight: parseFloat(e.target.value) || 0})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+                      placeholder="e.g., 70.5"
+                    />
+                  </div>
+
+                  {/* Bowel Movements */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Bowel Movements
+                    </label>
+                    <select
+                      value={addPatientData.bowel_movements}
+                      onChange={(e) => setAddPatientData({...addPatientData, bowel_movements: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+                    >
+                      <option value="">Select Pattern</option>
+                      <option value="Regular">Regular</option>
+                      <option value="Irregular">Irregular</option>
+                      <option value="Constipation">Constipation</option>
+                      <option value="Loose">Loose</option>
+                      <option value="Diarrhea">Diarrhea</option>
+                    </select>
+                  </div>
                 </div>
 
                 {/* Notes Field */}

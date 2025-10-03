@@ -4,6 +4,7 @@ import { toast } from 'react-toastify';
 import { DoctorContext } from '../../context/DoctorContext';
 import CustomGoalsModal from '../../components/CustomGoalsModal';
 import ConfirmDialog from '../../components/ConfirmDialog';
+import AILoadingModal from '../../components/AILoadingModal';
 import axios from 'axios';
 
 const DietChartGenerator = () => {
@@ -19,6 +20,7 @@ const DietChartGenerator = () => {
   const [loadingPatient, setLoadingPatient] = useState(false);
   const [savedDietCharts, setSavedDietCharts] = useState([]);
   const [loadingCharts, setLoadingCharts] = useState(false);
+  const [currentChartId, setCurrentChartId] = useState(null); // Track current chart ID for PDF download
   
   // Food database state (fetched from backend)
   const [foodDatabase, setFoodDatabase] = useState([]);
@@ -51,6 +53,7 @@ const DietChartGenerator = () => {
   
   // AI Auto-Fill State
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+  const [isDownloadingPDF, setIsDownloadingPDF] = useState(false);
   
   // Confirmation Dialog State
   const [confirmDialog, setConfirmDialog] = useState({
@@ -71,42 +74,45 @@ const DietChartGenerator = () => {
     patientName: '',
     age: '',
     gender: '',
+    height: { feet: 0, inches: 0 },
+    weight: 0,
+    bowel_movements: '',
     constitution: '',
     primaryHealthCondition: '',
     currentSymptoms: '',
     foodAllergies: '',
     healthGoals: [],
     
-    // Custom Nutrition Goals
+    // Custom Nutrition Goals (default to 0 - AI will calculate if not set)
     customNutritionGoals: {
       macronutrients: {
-        calories: 2000,
-        protein: 50,
-        carbs: 250,
-        fat: 65,
-        fiber: 25
+        calories: 0,
+        protein: 0,
+        carbs: 0,
+        fat: 0,
+        fiber: 0
       },
       vitamins: {
-        vitamin_a: 700,
-        vitamin_b1: 1.1,
-        vitamin_b2: 1.1,
-        vitamin_b3: 14,
-        vitamin_b6: 1.3,
-        vitamin_b12: 2.4,
-        vitamin_c: 75,
-        vitamin_d: 15,
-        vitamin_e: 15,
-        vitamin_k: 90,
-        folate: 400
+        vitamin_a: 0,
+        vitamin_b1: 0,
+        vitamin_b2: 0,
+        vitamin_b3: 0,
+        vitamin_b6: 0,
+        vitamin_b12: 0,
+        vitamin_c: 0,
+        vitamin_d: 0,
+        vitamin_e: 0,
+        vitamin_k: 0,
+        folate: 0
       },
       minerals: {
-        calcium: 1000,
-        iron: 10,
-        magnesium: 310,
-        phosphorus: 700,
-        potassium: 2600,
-        sodium: 1500,
-        zinc: 8
+        calcium: 0,
+        iron: 0,
+        magnesium: 0,
+        phosphorus: 0,
+        potassium: 0,
+        sodium: 0,
+        zinc: 0
       }
     },
     
@@ -332,6 +338,9 @@ const DietChartGenerator = () => {
           patientName: patient.name,
           age: age.toString(),
           gender: patient.gender === 'Not Selected' ? '' : patient.gender,
+          height: patient.height || { feet: 0, inches: 0 },
+          weight: patient.weight || 0,
+          bowel_movements: patient.bowel_movements || '',
           constitution: patient.constitution || '',
           foodAllergies: patient.foodAllergies || '',
           primaryHealthCondition: latestPrescription?.diagnosis || '',
@@ -580,6 +589,9 @@ const DietChartGenerator = () => {
       if (data.success) {
         toast.success('Diet chart saved successfully!');
         
+        // Store the chart ID for PDF download
+        setCurrentChartId(data.dietChart._id || data.dietChart.id);
+        
         // Clear cache to force refresh
         localStorage.removeItem('saved_diet_charts');
         localStorage.removeItem('saved_diet_charts_timestamp');
@@ -592,6 +604,7 @@ const DietChartGenerator = () => {
         
         // Reset form for new chart
         setCurrentStep(1);
+        setCurrentChartId(null); // Reset chart ID
         setFormData({
           patientId: '',
           patientName: '',
@@ -661,21 +674,16 @@ const DietChartGenerator = () => {
         return;
       }
 
-      // Get RAG model URL from environment variable
-      const ragModelUrl = import.meta.env.VITE_RAG_URL;
-      if (!ragModelUrl) {
-        toast.error('RAG model URL is not configured. Please set VITE_RAG_URL in your .env file');
-        return;
-      }
-
       setIsGeneratingAI(true);
-      toast.info('🤖 AI is generating your personalized diet chart...');
 
       // Prepare patient details
       const patientDetails = {
         patientName: formData.patientName,
         age: formData.age,
         gender: formData.gender,
+        height: formData.height,
+        weight: formData.weight,
+        bowel_movements: formData.bowel_movements,
         constitution: formData.constitution,
         primaryHealthCondition: formData.primaryHealthCondition,
         currentSymptoms: formData.currentSymptoms,
@@ -683,13 +691,12 @@ const DietChartGenerator = () => {
         healthGoals: formData.healthGoals
       };
 
-      // Call backend AI generation endpoint
+      // Call backend AI generation endpoint (no custom goals - let AI calculate)
       const { data } = await axios.post(
         backendUrl + '/api/doctor/diet-chart/generate-ai',
         {
           patientDetails,
-          customNutritionGoals: formData.customNutritionGoals,
-          ragModelUrl: ragModelUrl
+          customNutritionGoals: null // Let AI calculate goals based on patient profile
         },
         { headers: { dToken } }
       );
@@ -704,9 +711,37 @@ const DietChartGenerator = () => {
 
         toast.success('✨ AI has successfully generated your diet chart!');
         
-        // Show explanation if provided
-        if (data.explanation) {
-          toast.info(`AI Insight: ${data.explanation}`, { autoClose: 8000 });
+        // Show supplement recommendations if provided
+        if (data.considerations && data.considerations.length > 0) {
+          const supplements = data.considerations.filter(c => 
+            c.toLowerCase().includes('churna') || 
+            c.toLowerCase().includes('triphala') || 
+            c.toLowerCase().includes('ashwagandha') ||
+            c.toLowerCase().includes('chyawanprash') ||
+            c.toLowerCase().includes('shatavari') ||
+            c.toLowerCase().includes('brahmi') ||
+            c.toLowerCase().includes('guduchi') ||
+            c.includes('-') // Supplement format has dashes
+          );
+          
+          if (supplements.length > 0) {
+            // Show supplement recommendations in a styled toast
+            const supplementMessage = (
+              <div className="text-sm">
+                <p className="font-semibold mb-2">🌿 Recommended Ayurvedic Supplements:</p>
+                <ul className="space-y-1 text-xs">
+                  {supplements.map((supp, idx) => (
+                    <li key={idx} className="pl-2">• {supp}</li>
+                  ))}
+                </ul>
+              </div>
+            );
+            
+            toast.info(supplementMessage, { 
+              autoClose: 15000,
+              style: { minWidth: '400px' }
+            });
+          }
         }
 
         // Move to Step 3 to review
@@ -716,9 +751,113 @@ const DietChartGenerator = () => {
       }
     } catch (error) {
       console.error('Error generating AI diet chart:', error);
-      toast.error('Failed to generate AI diet chart. Please check your RAG model connection and try again.');
+      toast.error('Failed to generate AI diet chart. Please try again.');
     } finally {
       setIsGeneratingAI(false);
+    }
+  };
+
+  const handleDownloadPDF = async (savedChart = null) => {
+    try {
+      setIsDownloadingPDF(true);
+
+      let chartId = currentChartId;
+      let patientName = formData.patientName;
+
+      // If downloading from a saved chart, use that chart's data
+      if (savedChart) {
+        chartId = savedChart._id || savedChart.id;
+        const populatedPatient = savedChart.patient_id || {};
+        const patientSnapshot = savedChart.patient_snapshot || {};
+        const patientDetails = savedChart.patientDetails || {};
+        patientName = populatedPatient.name || patientDetails.patientName || savedChart.patientName || 'Patient';
+      }
+
+      // If chart hasn't been saved yet, save it first
+      if (!chartId) {
+        // Validate required fields
+        if (!formData.patientId || !formData.patientName) {
+          toast.error('Patient information is required');
+          setIsDownloadingPDF(false);
+          return;
+        }
+
+        toast.info('Saving diet chart...');
+
+        // Prepare the data for backend
+        const dietChartData = {
+          patientId: formData.patientId,
+          patientDetails: {
+            patientName: formData.patientName,
+            age: formData.age,
+            gender: formData.gender,
+            constitution: formData.constitution,
+            primaryHealthCondition: formData.primaryHealthCondition,
+            currentSymptoms: formData.currentSymptoms,
+            foodAllergies: formData.foodAllergies,
+            healthGoals: formData.healthGoals
+          },
+          customNutritionGoals: formData.customNutritionGoals,
+          weeklyMealPlan: formData.weeklyMealPlan,
+          prescriptionId: formData.prescriptionId || null,
+          specialInstructions: formData.specialInstructions || '',
+          dietaryRestrictions: formData.dietaryRestrictions || [],
+          startDate: new Date(),
+          endDate: null
+        };
+
+        // Save to backend
+        const { data } = await axios.post(
+          backendUrl + '/api/doctor/diet-chart/create', 
+          dietChartData, 
+          { headers: { dToken } }
+        );
+
+        if (data.success) {
+          chartId = data.dietChart._id || data.dietChart.id;
+          setCurrentChartId(chartId);
+          toast.success('Diet chart saved successfully!');
+          
+          // Clear cache to force refresh
+          localStorage.removeItem('saved_diet_charts');
+          localStorage.removeItem('saved_diet_charts_timestamp');
+          
+          // Refresh the saved charts list
+          await fetchSavedDietCharts();
+        } else {
+          toast.error(data.message || 'Failed to save diet chart');
+          setIsDownloadingPDF(false);
+          return;
+        }
+      }
+
+      // Now generate and download the PDF
+      toast.info('Generating PDF...');
+      
+      const response = await axios.get(
+        `${backendUrl}/api/doctor/diet-chart/${chartId}/pdf`,
+        {
+          headers: { dToken },
+          responseType: 'blob'
+        }
+      );
+
+      // Create a download link
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `diet_chart_${patientName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      toast.success('✅ PDF downloaded successfully!');
+    } catch (error) {
+      console.error('Error downloading PDF:', error);
+      toast.error('Failed to download PDF. Please try again.');
+    } finally {
+      setIsDownloadingPDF(false);
     }
   };
 
@@ -1275,43 +1414,48 @@ const DietChartGenerator = () => {
 
     // Calculate daily averages and percentages
     const dailyAverages = {
-      calories: Math.round(totals.calories / 7),
-      protein: Math.round(totals.protein / 7),
-      carbs: Math.round(totals.carbs / 7),
-      fat: Math.round(totals.fat / 7),
-      fiber: Math.round(totals.fiber / 7),
+      calories: parseFloat((totals.calories / 7).toFixed(1)),
+      protein: parseFloat((totals.protein / 7).toFixed(1)),
+      carbs: parseFloat((totals.carbs / 7).toFixed(1)),
+      fat: parseFloat((totals.fat / 7).toFixed(1)),
+      fiber: parseFloat((totals.fiber / 7).toFixed(1)),
       vitamins: {},
       minerals: {}
     };
 
     // Calculate vitamin averages
     Object.keys(totals.vitamins).forEach(key => {
-      dailyAverages.vitamins[key] = parseFloat((totals.vitamins[key] / 7).toFixed(1));
+      dailyAverages.vitamins[key] = parseFloat((totals.vitamins[key] / 7).toFixed(2));
     });
 
     // Calculate mineral averages
     Object.keys(totals.minerals).forEach(key => {
-      dailyAverages.minerals[key] = parseFloat((totals.minerals[key] / 7).toFixed(1));
+      dailyAverages.minerals[key] = parseFloat((totals.minerals[key] / 7).toFixed(2));
     });
 
-    // Calculate percentages
+    // Calculate percentages (don't cap at 100 to show actual values, but handle 0 goals)
     const percentages = {
-      calories: Math.min(100, Math.round((dailyAverages.calories / dailyRecommended.calories) * 100)),
-      protein: Math.min(100, Math.round((dailyAverages.protein / dailyRecommended.protein) * 100)),
-      carbs: Math.min(100, Math.round((dailyAverages.carbs / dailyRecommended.carbs) * 100)),
-      fat: Math.min(100, Math.round((dailyAverages.fat / dailyRecommended.fat) * 100)),
+      calories: dailyRecommended.calories > 0 ? Math.round((dailyAverages.calories / dailyRecommended.calories) * 100) : 0,
+      protein: dailyRecommended.protein > 0 ? Math.round((dailyAverages.protein / dailyRecommended.protein) * 100) : 0,
+      carbs: dailyRecommended.carbs > 0 ? Math.round((dailyAverages.carbs / dailyRecommended.carbs) * 100) : 0,
+      fat: dailyRecommended.fat > 0 ? Math.round((dailyAverages.fat / dailyRecommended.fat) * 100) : 0,
+      fiber: dailyRecommended.fiber > 0 ? Math.round((dailyAverages.fiber / dailyRecommended.fiber) * 100) : 0,
       vitamins: {},
       minerals: {}
     };
 
-    // Calculate vitamin percentages
+    // Calculate vitamin percentages (handle 0 goals)
     Object.keys(dailyRecommended.vitamins).forEach(key => {
-      percentages.vitamins[key] = Math.min(100, Math.round((dailyAverages.vitamins[key] / dailyRecommended.vitamins[key]) * 100));
+      const avg = dailyAverages.vitamins[key] || 0;
+      const rec = dailyRecommended.vitamins[key];
+      percentages.vitamins[key] = rec > 0 ? Math.round((avg / rec) * 100) : 0;
     });
 
-    // Calculate mineral percentages
+    // Calculate mineral percentages (handle 0 goals)
     Object.keys(dailyRecommended.minerals).forEach(key => {
-      percentages.minerals[key] = Math.min(100, Math.round((dailyAverages.minerals[key] / dailyRecommended.minerals[key]) * 100));
+      const avg = dailyAverages.minerals[key] || 0;
+      const rec = dailyRecommended.minerals[key];
+      percentages.minerals[key] = rec > 0 ? Math.round((avg / rec) * 100) : 0;
     });
 
     return {
@@ -1456,27 +1600,57 @@ const DietChartGenerator = () => {
                                   const amount = food.amount || (food.serving_size?.amount) || 100;
                                   const foodName = food.name || 'Unknown Food';
                                   
-                                  // Extract categories - handle both array and single category
-                                  let categories = [];
-                                  if (Array.isArray(food.categories)) {
-                                    categories = food.categories;
-                                  } else if (food.category) {
-                                    categories = [food.category.charAt(0).toUpperCase() + food.category.slice(1)];
+                                  // Extract Ayurvedic properties
+                                  const rasa = food.rasa || [];
+                                  const virya = food.virya || '';
+                                  const doshaEffects = food.dosha_effects || {};
+                                  
+                                  // Determine primary dosha effect
+                                  let primaryDoshaEffect = '';
+                                  if (doshaEffects.vata) {
+                                    primaryDoshaEffect = doshaEffects.vata === 'increases' ? 'Increases Vata' : 'Balances Vata';
+                                  } else if (doshaEffects.pitta) {
+                                    primaryDoshaEffect = doshaEffects.pitta === 'increases' ? 'Increases Pitta' : 'Balances Pitta';
+                                  } else if (doshaEffects.kapha) {
+                                    primaryDoshaEffect = doshaEffects.kapha === 'increases' ? 'Increases Kapha' : 'Balances Kapha';
                                   }
                                   
                                   return (
                                   <div key={index}>
                                     <h4 className="font-medium text-gray-900 text-sm">{foodName}</h4>
                                     <p className="text-xs text-gray-600 mb-1">{amount}{servingUnit} • {Math.round(calories)} cal</p>
-                                    {categories.length > 0 && (
-                                      <div className="flex flex-wrap gap-1">
-                                        {categories.slice(0, 2).map((cat, catIndex) => (
-                                          <span key={catIndex} className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded">
-                                            {cat}
-                                          </span>
-                                        ))}
-                                      </div>
-                                    )}
+                                    
+                                    {/* Ayurvedic Properties Badges */}
+                                    <div className="flex flex-wrap gap-1">
+                                      {/* Rasa Badge */}
+                                      {rasa.length > 0 && (
+                                        <span className="text-xs text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
+                                          {Array.isArray(rasa) ? rasa[0] : rasa}
+                                        </span>
+                                      )}
+                                      
+                                      {/* Virya Badge */}
+                                      {virya && (
+                                        <span className={`text-xs px-2 py-0.5 rounded border ${
+                                          virya.toLowerCase().includes('hot') || virya.toLowerCase().includes('ushna')
+                                            ? 'text-red-700 bg-red-50 border-red-200'
+                                            : 'text-blue-700 bg-blue-50 border-blue-200'
+                                        }`}>
+                                          {virya}
+                                        </span>
+                                      )}
+                                      
+                                      {/* Dosha Effect Badge */}
+                                      {primaryDoshaEffect && (
+                                        <span className={`text-xs px-2 py-0.5 rounded border ${
+                                          primaryDoshaEffect.includes('Balances')
+                                            ? 'text-green-700 bg-green-50 border-green-200'
+                                            : 'text-orange-700 bg-orange-50 border-orange-200'
+                                        }`}>
+                                          {primaryDoshaEffect}
+                                        </span>
+                                      )}
+                                    </div>
                                   </div>
                                   );
                                 }).filter(Boolean)}
@@ -1659,6 +1833,88 @@ const DietChartGenerator = () => {
                             selectedPatientId ? 'bg-gray-50 cursor-not-allowed' : 'bg-white'
                           }`}
                         />
+                      </div>
+                    </div>
+
+                    {/* Height, Weight, and Bowel Movements */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                      {/* Height */}
+                      <div className="md:col-span-1">
+                        <label className="block text-sm font-medium text-gray-900 mb-2">
+                          Height
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <input
+                              type="number"
+                              value={formData.height.feet || ''}
+                              onChange={(e) => handleInputChange('height', { ...formData.height, feet: parseInt(e.target.value) || 0 })}
+                              placeholder="Feet"
+                              readOnly={!!selectedPatientId}
+                              min="0"
+                              max="8"
+                              className={`w-full px-3 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm ${
+                                selectedPatientId ? 'bg-gray-50 cursor-not-allowed' : 'bg-white'
+                              }`}
+                            />
+                            <span className="text-xs text-gray-500 mt-1 block">ft</span>
+                          </div>
+                          <div>
+                            <input
+                              type="number"
+                              value={formData.height.inches || ''}
+                              onChange={(e) => handleInputChange('height', { ...formData.height, inches: parseInt(e.target.value) || 0 })}
+                              placeholder="Inches"
+                              readOnly={!!selectedPatientId}
+                              min="0"
+                              max="11"
+                              className={`w-full px-3 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm ${
+                                selectedPatientId ? 'bg-gray-50 cursor-not-allowed' : 'bg-white'
+                              }`}
+                            />
+                            <span className="text-xs text-gray-500 mt-1 block">in</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Weight */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-900 mb-2">
+                          Weight (kg)
+                        </label>
+                        <input
+                          type="number"
+                          value={formData.weight || ''}
+                          onChange={(e) => handleInputChange('weight', parseFloat(e.target.value) || 0)}
+                          placeholder="Weight in kg"
+                          readOnly={!!selectedPatientId}
+                          min="0"
+                          step="0.1"
+                          className={`w-full px-3 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm ${
+                            selectedPatientId ? 'bg-gray-50 cursor-not-allowed' : 'bg-white'
+                          }`}
+                        />
+                      </div>
+
+                      {/* Bowel Movements */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-900 mb-2">
+                          Bowel Movements
+                        </label>
+                        <select
+                          value={formData.bowel_movements}
+                          onChange={(e) => handleInputChange('bowel_movements', e.target.value)}
+                          disabled={!!selectedPatientId}
+                          className={`w-full px-3 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm ${
+                            selectedPatientId ? 'bg-gray-50 cursor-not-allowed' : 'bg-white'
+                          }`}
+                        >
+                          <option value="">Select...</option>
+                          <option value="Regular">Regular</option>
+                          <option value="Irregular">Irregular</option>
+                          <option value="Constipation">Constipation</option>
+                          <option value="Loose">Loose/Diarrhea</option>
+                        </select>
                       </div>
                     </div>
 
@@ -2248,11 +2504,36 @@ const DietChartGenerator = () => {
                     
                     return (
                       <div className="mb-8 bg-gradient-to-br from-gray-50 to-white rounded-2xl p-8 border border-gray-100 shadow-sm">
-                        <div className="flex items-center gap-3 mb-8">
-                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg">
-                            <UtensilsCrossed className="w-5 h-5 text-white" />
+                        <div className="flex items-center justify-between mb-8">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg">
+                              <UtensilsCrossed className="w-5 h-5 text-white" />
+                            </div>
+                            <h2 className="text-2xl font-bold text-gray-900">Weekly Nutritional Overview</h2>
                           </div>
-                          <h2 className="text-2xl font-bold text-gray-900">Weekly Nutritional Overview</h2>
+                          <button
+                            onClick={handleDownloadPDF}
+                            disabled={isDownloadingPDF}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-md ${
+                              isDownloadingPDF
+                                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                : 'bg-green-600 text-white hover:bg-green-700'
+                            }`}
+                          >
+                            {isDownloadingPDF ? (
+                              <>
+                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                Generating PDF...
+                              </>
+                            ) : (
+                              <>
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                                Download PDF
+                              </>
+                            )}
+                          </button>
                         </div>
 
                         {/* Macronutrients Section */}
@@ -2269,7 +2550,7 @@ const DietChartGenerator = () => {
                                     stroke="#f97316"
                                     strokeWidth="10"
                                     fill="none"
-                                    strokeDasharray={`${nutrition.percentages.calories * 3.14} ${100 * 3.14}`}
+                                    strokeDasharray={`${Math.min(nutrition.percentages.calories, 100) * 3.14} ${100 * 3.14}`}
                                     strokeLinecap="round"
                                   />
                                 </svg>
@@ -2293,7 +2574,7 @@ const DietChartGenerator = () => {
                                     stroke="#f97316"
                                     strokeWidth="10"
                                     fill="none"
-                                    strokeDasharray={`${nutrition.percentages.protein * 3.14} ${100 * 3.14}`}
+                                    strokeDasharray={`${Math.min(nutrition.percentages.protein, 100) * 3.14} ${100 * 3.14}`}
                                     strokeLinecap="round"
                                   />
                                 </svg>
@@ -2317,7 +2598,7 @@ const DietChartGenerator = () => {
                                     stroke="#f97316"
                                     strokeWidth="10"
                                     fill="none"
-                                    strokeDasharray={`${nutrition.percentages.carbs * 3.14} ${100 * 3.14}`}
+                                    strokeDasharray={`${Math.min(nutrition.percentages.carbs, 100) * 3.14} ${100 * 3.14}`}
                                     strokeLinecap="round"
                                   />
                                 </svg>
@@ -2341,7 +2622,7 @@ const DietChartGenerator = () => {
                                     stroke="#f97316"
                                     strokeWidth="10"
                                     fill="none"
-                                    strokeDasharray={`${nutrition.percentages.fat * 3.14} ${100 * 3.14}`}
+                                    strokeDasharray={`${Math.min(nutrition.percentages.fat, 100) * 3.14} ${100 * 3.14}`}
                                     strokeLinecap="round"
                                   />
                                 </svg>
@@ -2371,7 +2652,7 @@ const DietChartGenerator = () => {
                                     stroke={nutrition.percentages.vitamins.vitamin_a === 100 ? "#22c55e" : "#f97316"}
                                     strokeWidth="8"
                                     fill="none"
-                                    strokeDasharray={`${nutrition.percentages.vitamins.vitamin_a * 2.26} ${100 * 2.26}`}
+                                    strokeDasharray={`${Math.min(nutrition.percentages.vitamins.vitamin_a, 100) * 2.26} ${100 * 2.26}`}
                                     strokeLinecap="round"
                                   />
                                 </svg>
@@ -2393,7 +2674,7 @@ const DietChartGenerator = () => {
                                     stroke={nutrition.percentages.vitamins.vitamin_b1 === 100 ? "#22c55e" : "#f97316"}
                                     strokeWidth="8"
                                     fill="none"
-                                    strokeDasharray={`${nutrition.percentages.vitamins.vitamin_b1 * 2.26} ${100 * 2.26}`}
+                                    strokeDasharray={`${Math.min(nutrition.percentages.vitamins.vitamin_b1, 100) * 2.26} ${100 * 2.26}`}
                                     strokeLinecap="round"
                                   />
                                 </svg>
@@ -2415,7 +2696,7 @@ const DietChartGenerator = () => {
                                     stroke={nutrition.percentages.vitamins.vitamin_b2 === 100 ? "#22c55e" : "#f97316"}
                                     strokeWidth="8"
                                     fill="none"
-                                    strokeDasharray={`${nutrition.percentages.vitamins.vitamin_b2 * 2.26} ${100 * 2.26}`}
+                                    strokeDasharray={`${Math.min(nutrition.percentages.vitamins.vitamin_b2, 100) * 2.26} ${100 * 2.26}`}
                                     strokeLinecap="round"
                                   />
                                 </svg>
@@ -2437,7 +2718,7 @@ const DietChartGenerator = () => {
                                     stroke={nutrition.percentages.vitamins.vitamin_b6 === 100 ? "#22c55e" : "#f97316"}
                                     strokeWidth="8"
                                     fill="none"
-                                    strokeDasharray={`${nutrition.percentages.vitamins.vitamin_b6 * 2.26} ${100 * 2.26}`}
+                                    strokeDasharray={`${Math.min(nutrition.percentages.vitamins.vitamin_b6, 100) * 2.26} ${100 * 2.26}`}
                                     strokeLinecap="round"
                                   />
                                 </svg>
@@ -2459,7 +2740,7 @@ const DietChartGenerator = () => {
                                     stroke={nutrition.percentages.vitamins.vitamin_b12 === 100 ? "#22c55e" : "#f97316"}
                                     strokeWidth="8"
                                     fill="none"
-                                    strokeDasharray={`${nutrition.percentages.vitamins.vitamin_b12 * 2.26} ${100 * 2.26}`}
+                                    strokeDasharray={`${Math.min(nutrition.percentages.vitamins.vitamin_b12, 100) * 2.26} ${100 * 2.26}`}
                                     strokeLinecap="round"
                                   />
                                 </svg>
@@ -2481,7 +2762,7 @@ const DietChartGenerator = () => {
                                     stroke={nutrition.percentages.vitamins.vitamin_c === 100 ? "#22c55e" : "#f97316"}
                                     strokeWidth="8"
                                     fill="none"
-                                    strokeDasharray={`${nutrition.percentages.vitamins.vitamin_c * 2.26} ${100 * 2.26}`}
+                                    strokeDasharray={`${Math.min(nutrition.percentages.vitamins.vitamin_c, 100) * 2.26} ${100 * 2.26}`}
                                     strokeLinecap="round"
                                   />
                                 </svg>
@@ -2503,7 +2784,7 @@ const DietChartGenerator = () => {
                                     stroke={nutrition.percentages.vitamins.vitamin_d === 100 ? "#22c55e" : "#f97316"}
                                     strokeWidth="8"
                                     fill="none"
-                                    strokeDasharray={`${nutrition.percentages.vitamins.vitamin_d * 2.26} ${100 * 2.26}`}
+                                    strokeDasharray={`${Math.min(nutrition.percentages.vitamins.vitamin_d, 100) * 2.26} ${100 * 2.26}`}
                                     strokeLinecap="round"
                                   />
                                 </svg>
@@ -2525,7 +2806,7 @@ const DietChartGenerator = () => {
                                     stroke={nutrition.percentages.vitamins.vitamin_e === 100 ? "#22c55e" : "#f97316"}
                                     strokeWidth="8"
                                     fill="none"
-                                    strokeDasharray={`${nutrition.percentages.vitamins.vitamin_e * 2.26} ${100 * 2.26}`}
+                                    strokeDasharray={`${Math.min(nutrition.percentages.vitamins.vitamin_e, 100) * 2.26} ${100 * 2.26}`}
                                     strokeLinecap="round"
                                   />
                                 </svg>
@@ -2547,7 +2828,7 @@ const DietChartGenerator = () => {
                                     stroke={nutrition.percentages.vitamins.folate === 100 ? "#22c55e" : "#f97316"}
                                     strokeWidth="8"
                                     fill="none"
-                                    strokeDasharray={`${nutrition.percentages.vitamins.folate * 2.26} ${100 * 2.26}`}
+                                    strokeDasharray={`${Math.min(nutrition.percentages.vitamins.folate, 100) * 2.26} ${100 * 2.26}`}
                                     strokeLinecap="round"
                                   />
                                 </svg>
@@ -2575,7 +2856,7 @@ const DietChartGenerator = () => {
                                     stroke={nutrition.percentages.minerals.calcium === 100 ? "#22c55e" : "#f97316"}
                                     strokeWidth="8"
                                     fill="none"
-                                    strokeDasharray={`${nutrition.percentages.minerals.calcium * 2.26} ${100 * 2.26}`}
+                                    strokeDasharray={`${Math.min(nutrition.percentages.minerals.calcium, 100) * 2.26} ${100 * 2.26}`}
                                     strokeLinecap="round"
                                   />
                                 </svg>
@@ -2597,7 +2878,7 @@ const DietChartGenerator = () => {
                                     stroke={nutrition.percentages.minerals.iron === 100 ? "#22c55e" : "#f97316"}
                                     strokeWidth="8"
                                     fill="none"
-                                    strokeDasharray={`${nutrition.percentages.minerals.iron * 2.26} ${100 * 2.26}`}
+                                    strokeDasharray={`${Math.min(nutrition.percentages.minerals.iron, 100) * 2.26} ${100 * 2.26}`}
                                     strokeLinecap="round"
                                   />
                                 </svg>
@@ -2619,7 +2900,7 @@ const DietChartGenerator = () => {
                                     stroke={nutrition.percentages.minerals.magnesium === 100 ? "#22c55e" : "#f97316"}
                                     strokeWidth="8"
                                     fill="none"
-                                    strokeDasharray={`${nutrition.percentages.minerals.magnesium * 2.26} ${100 * 2.26}`}
+                                    strokeDasharray={`${Math.min(nutrition.percentages.minerals.magnesium, 100) * 2.26} ${100 * 2.26}`}
                                     strokeLinecap="round"
                                   />
                                 </svg>
@@ -2641,7 +2922,7 @@ const DietChartGenerator = () => {
                                     stroke={nutrition.percentages.minerals.phosphorus === 100 ? "#22c55e" : "#f97316"}
                                     strokeWidth="8"
                                     fill="none"
-                                    strokeDasharray={`${nutrition.percentages.minerals.phosphorus * 2.26} ${100 * 2.26}`}
+                                    strokeDasharray={`${Math.min(nutrition.percentages.minerals.phosphorus, 100) * 2.26} ${100 * 2.26}`}
                                     strokeLinecap="round"
                                   />
                                 </svg>
@@ -2663,7 +2944,7 @@ const DietChartGenerator = () => {
                                     stroke={nutrition.percentages.minerals.potassium === 100 ? "#22c55e" : "#f97316"}
                                     strokeWidth="8"
                                     fill="none"
-                                    strokeDasharray={`${nutrition.percentages.minerals.potassium * 2.26} ${100 * 2.26}`}
+                                    strokeDasharray={`${Math.min(nutrition.percentages.minerals.potassium, 100) * 2.26} ${100 * 2.26}`}
                                     strokeLinecap="round"
                                   />
                                 </svg>
@@ -2685,7 +2966,7 @@ const DietChartGenerator = () => {
                                     stroke={nutrition.percentages.minerals.zinc === 100 ? "#22c55e" : "#f97316"}
                                     strokeWidth="8"
                                     fill="none"
-                                    strokeDasharray={`${nutrition.percentages.minerals.zinc * 2.26} ${100 * 2.26}`}
+                                    strokeDasharray={`${Math.min(nutrition.percentages.minerals.zinc, 100) * 2.26} ${100 * 2.26}`}
                                     strokeLinecap="round"
                                   />
                                 </svg>
@@ -2705,34 +2986,8 @@ const DietChartGenerator = () => {
                   {/* Weekly Meal Calendar */}
                   {renderWeeklyMealCalendar(formData.weeklyMealPlan)}
 
-                  {/* Action Buttons */}
-                  <div className="flex items-center justify-center gap-4 pt-6 border-t border-gray-200">
-                    <button className="flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                      </svg>
-                      Download Weekly PDF
-                    </button>
-                    <button className="flex items-center gap-2 px-6 py-3 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-                      </svg>
-                      Share Calendar
-                    </button>
-                    <button 
-                      onClick={handleSave}
-                      className="flex items-center gap-2 px-6 py-3 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
-                    >
-                      <Calendar className="w-5 h-5" />
-                      Save to Records
-                    </button>
-                  </div>
-
-                  {/* Disclaimer */}
-                  <p className="text-center text-sm text-gray-500 mt-6">
-                    This 7-day meal plan is personalized based on Ayurvedic principles and individual constitution. 
-                    Rotate and adjust meals as needed. Consult with your healthcare provider before making significant dietary changes.
-                  </p>
+                  
+                  
                 </div>
               )}
             </div>
@@ -3231,6 +3486,31 @@ const DietChartGenerator = () => {
                           Edit Chart
                         </button>
                         <button
+                          onClick={async () => {
+                            await handleDownloadPDF(selectedChart);
+                          }}
+                          disabled={isDownloadingPDF}
+                          className={`px-4 py-2 rounded-lg text-sm flex items-center gap-2 transition-colors ${
+                            isDownloadingPDF
+                              ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                              : 'bg-green-600 text-white hover:bg-green-700'
+                          }`}
+                        >
+                          {isDownloadingPDF ? (
+                            <>
+                              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                              Generating...
+                            </>
+                          ) : (
+                            <>
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
+                              Download PDF
+                            </>
+                          )}
+                        </button>
+                        <button
                           onClick={() => {
                             setConfirmDialog({
                               isOpen: true,
@@ -3271,7 +3551,7 @@ const DietChartGenerator = () => {
                                   stroke="#f97316"
                                   strokeWidth="10"
                                   fill="none"
-                                  strokeDasharray={`${nutrition.percentages.calories * 3.14} ${100 * 3.14}`}
+                                  strokeDasharray={`${Math.min(nutrition.percentages.calories, 100) * 3.14} ${100 * 3.14}`}
                                   strokeLinecap="round"
                                 />
                               </svg>
@@ -3295,7 +3575,7 @@ const DietChartGenerator = () => {
                                   stroke="#f97316"
                                   strokeWidth="10"
                                   fill="none"
-                                  strokeDasharray={`${nutrition.percentages.protein * 3.14} ${100 * 3.14}`}
+                                  strokeDasharray={`${Math.min(nutrition.percentages.protein, 100) * 3.14} ${100 * 3.14}`}
                                   strokeLinecap="round"
                                 />
                               </svg>
@@ -3319,7 +3599,7 @@ const DietChartGenerator = () => {
                                   stroke="#f97316"
                                   strokeWidth="10"
                                   fill="none"
-                                  strokeDasharray={`${nutrition.percentages.carbs * 3.14} ${100 * 3.14}`}
+                                  strokeDasharray={`${Math.min(nutrition.percentages.carbs, 100) * 3.14} ${100 * 3.14}`}
                                   strokeLinecap="round"
                                 />
                               </svg>
@@ -3343,7 +3623,7 @@ const DietChartGenerator = () => {
                                   stroke="#f97316"
                                   strokeWidth="10"
                                   fill="none"
-                                  strokeDasharray={`${nutrition.percentages.fat * 3.14} ${100 * 3.14}`}
+                                  strokeDasharray={`${Math.min(nutrition.percentages.fat, 100) * 3.14} ${100 * 3.14}`}
                                   strokeLinecap="round"
                                 />
                               </svg>
@@ -3420,20 +3700,8 @@ const DietChartGenerator = () => {
                     {/* Weekly Meal Calendar - Same as Step 3 */}
                     {renderWeeklyMealCalendar(mealPlan)}
 
-                    {/* Action Buttons - Same as Step 3 */}
+                    {/* Action Buttons */}
                     <div className="flex items-center justify-center gap-4 pt-6 border-t border-gray-200">
-                      <button className="flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                        </svg>
-                        Download Weekly PDF
-                      </button>
-                      <button className="flex items-center gap-2 px-6 py-3 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-                        </svg>
-                        Share Calendar
-                      </button>
                       <button 
                         onClick={() => {
                           if (window.confirm(`Are you sure you want to delete the diet chart for ${patientName}? This action cannot be undone.`)) {
@@ -3447,11 +3715,6 @@ const DietChartGenerator = () => {
                       </button>
                     </div>
 
-                    {/* Disclaimer - Same as Step 3 */}
-                    <p className="text-center text-sm text-gray-500 mt-6">
-                      This 7-day meal plan is personalized based on Ayurvedic principles and individual constitution. 
-                      Rotate and adjust meals as needed. Consult with your healthcare provider before making significant dietary changes.
-                    </p>
                   </div>
                   );
                 })()}
@@ -3758,22 +4021,76 @@ const DietChartGenerator = () => {
                               {food.name_hindi && (
                                 <span className="text-sm text-gray-500">({food.name_hindi})</span>
                               )}
-                              {/* Diet Type Badge */}
-                              {(() => {
-                                const dietType = getDietType(food);
-                                const badges = {
-                                  'Veg': { bg: 'bg-green-100', text: 'text-green-700', border: 'border-green-300', icon: '🌱', label: 'Veg' },
-                                  'Veg+Egg': { bg: 'bg-yellow-100', text: 'text-yellow-700', border: 'border-yellow-300', icon: '🥚', label: 'Veg+Egg' },
-                                  'Non-Veg': { bg: 'bg-red-100', text: 'text-red-700', border: 'border-red-300', icon: '🍗', label: 'Non-Veg' }
-                                };
-                                const badge = badges[dietType];
-                                return (
-                                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 ${badge.bg} ${badge.text} border ${badge.border} text-xs font-medium rounded-full`}>
-                                    <span>{badge.icon}</span>
-                                    <span>{badge.label}</span>
-                                  </span>
-                                );
-                              })()}
+                              {/* Ayurvedic Properties Badges */}
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {(() => {
+                                  const rasa = food.ayurvedic_properties?.rasa;
+                                  const virya = food.ayurvedic_properties?.virya;
+                                  const doshaEffects = food.ayurvedic_properties?.dosha_effects;
+                                  
+                                  return (
+                                    <>
+                                      {/* Rasa (Taste) Badge */}
+                                      {rasa && Array.isArray(rasa) && rasa.length > 0 && (
+                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-50 text-purple-700 border border-purple-200 text-xs font-medium rounded-full">
+                                          <span>👅</span>
+                                          <span>{rasa.slice(0, 2).join(', ')}</span>
+                                        </span>
+                                      )}
+                                      
+                                      {/* Virya (Energy) Badge */}
+                                      {virya && (
+                                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 ${
+                                          virya.toLowerCase() === 'hot' || virya.toLowerCase() === 'heating' 
+                                            ? 'bg-orange-50 text-orange-700 border-orange-200' 
+                                            : 'bg-blue-50 text-blue-700 border-blue-200'
+                                        } border text-xs font-medium rounded-full`}>
+                                          <span>{virya.toLowerCase() === 'hot' || virya.toLowerCase() === 'heating' ? '🔥' : '❄️'}</span>
+                                          <span>{virya}</span>
+                                        </span>
+                                      )}
+                                      
+                                      {/* Dosha Effect Badge */}
+                                      {doshaEffects && Object.keys(doshaEffects).length > 0 && (
+                                        <>
+                                          {Object.entries(doshaEffects).map(([dosha, effect]) => {
+                                            if (!effect) return null;
+                                            const effectLower = effect.toLowerCase();
+                                            let icon = '⚖️';
+                                            let bgColor = 'bg-gray-50';
+                                            let textColor = 'text-gray-700';
+                                            let borderColor = 'border-gray-200';
+                                            
+                                            if (effectLower.includes('increase') || effectLower.includes('aggravate')) {
+                                              icon = '↑';
+                                              bgColor = 'bg-red-50';
+                                              textColor = 'text-red-700';
+                                              borderColor = 'border-red-200';
+                                            } else if (effectLower.includes('decrease') || effectLower.includes('pacif')) {
+                                              icon = '↓';
+                                              bgColor = 'bg-green-50';
+                                              textColor = 'text-green-700';
+                                              borderColor = 'border-green-200';
+                                            } else if (effectLower.includes('balance') || effectLower.includes('neutral')) {
+                                              icon = '⚖️';
+                                              bgColor = 'bg-indigo-50';
+                                              textColor = 'text-indigo-700';
+                                              borderColor = 'border-indigo-200';
+                                            }
+                                            
+                                            return (
+                                              <span key={dosha} className={`inline-flex items-center gap-1 px-2 py-0.5 ${bgColor} ${textColor} border ${borderColor} text-xs font-medium rounded-full`}>
+                                                <span>{icon}</span>
+                                                <span>{dosha.charAt(0).toUpperCase() + dosha.slice(1)}</span>
+                                              </span>
+                                            );
+                                          })}
+                                        </>
+                                      )}
+                                    </>
+                                  );
+                                })()}
+                              </div>
                             </div>
                             <p className="text-sm text-gray-600 mb-3 line-clamp-2">{food.description}</p>
                             
@@ -3953,6 +4270,12 @@ const DietChartGenerator = () => {
           }));
           toast.success('Custom nutrition goals saved!');
         }}
+      />
+
+      {/* AI Loading Modal */}
+      <AILoadingModal 
+        isOpen={isGeneratingAI}
+        message="AI is generating your personalized diet chart..."
       />
 
       {/* Confirmation Dialog */}

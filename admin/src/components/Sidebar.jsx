@@ -44,8 +44,8 @@ const Sidebar = () => {
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gray-900 rounded-xl flex items-center justify-center">
-              <img src={assets.logo} alt="Logo" className="w-6 h-6 brightness-0 invert" />
+            <div className="w-15 h-15 flex items-center justify-center">
+              <img src={assets.admin_logo} alt="Logo" className="w-12 h-12 rounded-xl brightness-100" />
             </div>
             <div>
               <h1 className="text-base font-semibold text-gray-900">ayur.dev</h1>

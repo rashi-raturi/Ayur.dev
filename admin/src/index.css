@@ -55,3 +55,16 @@
 .animate-slideUp {
     animation: slideUp 0.3s ease-out;
 }
+
+/* Animation delays for staggered effects */
+.delay-100 {
+    animation-delay: 0.1s;
+}
+
+.delay-200 {
+    animation-delay: 0.2s;
+}
+
+.delay-400 {
+    animation-delay: 0.4s;
+}

@@ -26,6 +26,9 @@ const Prescriptions = () => {
     gender: '',
     contactNumber: '',
     constitution: '',
+    height: { feet: 0, inches: 0 },
+    weight: 0,
+    bowel_movements: '',
     chiefComplaint: '',
     diagnosis: '',
     medications: [],
@@ -133,7 +136,10 @@ const Prescriptions = () => {
       patientName: patient.name,
       age: patient.age.toString(),
       gender: patient.gender,
-      contactNumber: patient.phone
+      contactNumber: patient.phone,
+      height: patient.height || { feet: 0, inches: 0 },
+      weight: patient.weight || 0,
+      bowel_movements: patient.bowel_movements || ''
     }));
     setPatientSearchTerm(patient.name);
     setShowPatientDropdown(false);
@@ -558,6 +564,9 @@ const Prescriptions = () => {
                 gender: '',
                 contactNumber: '',
                 constitution: '',
+                height: { feet: 0, inches: 0 },
+                weight: 0,
+                bowel_movements: '',
                 chiefComplaint: '',
                 diagnosis: '',
                 medications: [],
@@ -678,6 +687,57 @@ const Prescriptions = () => {
                 <option value="Vata-Kapha">Vata-Kapha</option>
                 <option value="Tridosha">Tridosha</option>
               </select>
+            </div>
+
+            {/* Health Metrics Row */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Height</label>
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="number"
+                        value={formData.height.feet}
+                        readOnly
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-600 outline-none text-sm"
+                      />
+                      <span className="text-xs text-gray-500">ft</span>
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="number"
+                        value={formData.height.inches}
+                        readOnly
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-600 outline-none text-sm"
+                      />
+                      <span className="text-xs text-gray-500">in</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Weight (kg)</label>
+                <input
+                  type="number"
+                  value={formData.weight}
+                  readOnly
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-600 outline-none text-sm"
+                  placeholder="Auto-filled"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Bowel Movements</label>
+                <input
+                  type="text"
+                  value={formData.bowel_movements}
+                  readOnly
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-600 outline-none text-sm"
+                  placeholder="Auto-filled"
+                />
+              </div>
             </div>
           </div>
 

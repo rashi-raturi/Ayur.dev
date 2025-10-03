@@ -8,6 +8,8 @@ import userModel from "../models/userModel.js";
 import prescriptionModel from "../models/prescriptionModel.js";
 import foodModel from "../models/foodModel.js";
 import dietChartModel from "../models/dietChartModel.js";
+import { queryRelevantFoods } from "../services/vectorService.js";
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import transporter from "../config/nodemailer.js";
 import { generatePrescriptionPDF } from "../utils/pdfGenerator.js";
 import { getPrescriptionEmailTemplate } from "../utils/emailTemplate.js";
@@ -445,7 +447,7 @@ const addPatientByDoctor = async (req, res) => {
         console.log('req.doctorId:', req.doctorId);
         console.log('req.headers:', req.headers);
         
-        const { name, email, password, phone, address, gender, dob, constitution, condition, foodAllergies, notes } = req.body;
+        const { name, email, password, phone, address, gender, dob, constitution, condition, foodAllergies, notes, height, weight, bowel_movements } = req.body;
         const docId = req.doctorId; // Get from req instead of req.body
         const imageFile = req.file;
 
@@ -505,6 +507,20 @@ const addPatientByDoctor = async (req, res) => {
             }
         }
 
+        // Parse height if provided as string
+        let parsedHeight = { feet: 0, inches: 0 };
+        if (height) {
+            if (typeof height === 'string') {
+                try {
+                    parsedHeight = JSON.parse(height);
+                } catch {
+                    parsedHeight = { feet: 0, inches: 0 };
+                }
+            } else {
+                parsedHeight = height;
+            }
+        }
+
         const patientData = {
             name,
             email,
@@ -518,6 +534,9 @@ const addPatientByDoctor = async (req, res) => {
             condition: condition || '',
             foodAllergies: foodAllergies || '',
             notes: notes || '',
+            height: parsedHeight,
+            weight: weight ? parseFloat(weight) : 0,
+            bowel_movements: bowel_movements || '',
             doctor: docId // Associate patient with the doctor who added them
         };
 
@@ -586,6 +605,20 @@ const updatePatientByDoctor = async (req, res) => {
             } catch {
                 // Keep as is if parsing fails
             }
+        }
+
+        // Parse height if provided as string
+        if (updates.height && typeof updates.height === 'string') {
+            try {
+                updates.height = JSON.parse(updates.height);
+            } catch {
+                // Keep as is if parsing fails
+            }
+        }
+
+        // Parse weight if provided
+        if (updates.weight) {
+            updates.weight = parseFloat(updates.weight);
         }
 
         // Parse date if provided
@@ -658,6 +691,9 @@ const getPatients = async (req, res) => {
                 condition: patient.condition || '',
                 foodAllergies: patient.foodAllergies || '',
                 notes: patient.notes || '',
+                height: patient.height || { feet: 0, inches: 0 },
+                weight: patient.weight || 0,
+                bowel_movements: patient.bowel_movements || '',
                 address: patient.address || {
                     line1: '',
                     line2: '',
@@ -1285,13 +1321,12 @@ const deleteDietChart = async (req, res) => {
     }
 };
 
-// API to generate AI diet chart using RAG model
+// API to generate AI diet chart using Vector DB + Gemini
 const generateAIDietChart = async (req, res) => {
     try {
         const { 
             patientDetails,
-            customNutritionGoals,
-            ragModelUrl 
+            customNutritionGoals
         } = req.body;
 
         console.log('AI Diet Chart Generation requested');
@@ -1299,136 +1334,66 @@ const generateAIDietChart = async (req, res) => {
         console.log('Custom Goals:', customNutritionGoals);
 
         // Validate required fields
-        if (!patientDetails || !ragModelUrl) {
+        if (!patientDetails) {
             return res.json({ 
                 success: false, 
-                message: 'Patient details and RAG model URL are required' 
+                message: 'Patient details are required' 
             });
         }
 
-        // Get all foods from database for AI context
-        const allFoods = await foodModel.find({}).select('-__v').lean();
+        // Initialize Gemini
+        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
+
+        console.log('Querying vector database for relevant foods...');
         
-        console.log(`Retrieved ${allFoods.length} foods from database for AI context`);
+        // Query vector database for top 500 most relevant foods for maximum variety
+        const relevantFoods = await queryRelevantFoods(patientDetails, 500);
+        
+        console.log(`Retrieved ${relevantFoods.length} relevant foods from vector DB`);
 
-        // Prepare comprehensive context for RAG model
-        const contextPayload = {
-            patient_info: {
-                name: patientDetails.patientName,
-                age: patientDetails.age,
-                gender: patientDetails.gender,
-                constitution: patientDetails.constitution,
-                primary_health_condition: patientDetails.primaryHealthCondition,
-                current_symptoms: patientDetails.currentSymptoms,
-                food_allergies: patientDetails.foodAllergies,
-                health_goals: patientDetails.healthGoals || []
-            },
-            custom_nutrition_goals: customNutritionGoals || null,
-            available_foods: allFoods.map(food => ({
-                id: food._id.toString(),
-                name: food.name,
-                category: food.category,
-                macronutrients: food.macronutrients,
-                vitamins: food.vitamins || {},
-                minerals: food.minerals || {},
-                rasa: food.rasa,
-                virya: food.virya,
-                vipaka: food.vipaka,
-                dosha_effects: food.dosha_effects,
-                health_benefits: food.health_benefits,
-                diet_type: food.diet_type,
-                seasonal_availability: food.seasonal_availability
-            })),
-            requirements: {
-                generate_custom_goals: !customNutritionGoals,
-                create_7_day_meal_plan: true,
-                meals_per_day: ['Breakfast', 'Lunch', 'Snacks', 'Dinner'],
-                consider_ayurvedic_principles: true,
-                balance_doshas: true
-            }
-        };
-
-        // Ensure the URL ends with /generate
-        const generateUrl = ragModelUrl.endsWith('/generate') 
-            ? ragModelUrl 
-            : `${ragModelUrl}/generate`;
-            
-        console.log('Sending request to RAG model:', generateUrl);
-
-        // Call RAG model API
-        const ragResponse = await fetch(generateUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(contextPayload)
-        });
-
-        if (!ragResponse.ok) {
-            throw new Error(`RAG model responded with status: ${ragResponse.status}`);
+        // Generate custom nutrition goals if not provided or if all values are 0
+        let nutritionGoals = customNutritionGoals;
+        
+        // Check if goals are all 0 (default) - if so, let AI calculate them
+        const hasManualGoals = nutritionGoals && 
+            nutritionGoals.macronutrients && 
+            (nutritionGoals.macronutrients.calories > 0 || 
+             nutritionGoals.macronutrients.protein > 0 ||
+             nutritionGoals.macronutrients.carbs > 0);
+        
+        if (!hasManualGoals) {
+            console.log('No manual goals set (all 0). AI will calculate nutrition goals based on patient data...');
+        } else {
+            console.log('Using manual nutrition goals provided by doctor');
         }
 
-        const aiResult = await ragResponse.json();
-        
-        console.log('AI Model Response received');
+        // Build the AI prompt (no food data, foods are already in vector DB context)
+        const prompt = buildGeminiDietPrompt(patientDetails, nutritionGoals, relevantFoods);
 
-        // Transform AI response to match frontend format
-        const transformedResponse = {
+        console.log('Calling Gemini AI...');
+
+        // Call Gemini API
+        const result = await model.generateContent(prompt);
+        const aiResponse = result.response.text();
+
+        console.log('AI Response received, parsing...');
+        console.log('='.repeat(80));
+        console.log('AI GENERATED DIET CHART RESPONSE:');
+        console.log('='.repeat(80));
+        console.log(aiResponse);
+        console.log('='.repeat(80));
+
+        // Parse the AI response
+        const parsedResponse = parseAIDietResponse(aiResponse, relevantFoods, nutritionGoals);
+        
+        res.json({
             success: true,
-            customNutritionGoals: aiResult.custom_nutrition_goals || customNutritionGoals,
-            weeklyMealPlan: {},
-            explanation: aiResult.explanation || '',
-            considerations: aiResult.considerations || []
-        };
-
-        // Transform weekly meal plan
-        const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-        const meals = ['Breakfast', 'Lunch', 'Snacks', 'Dinner'];
-
-        days.forEach(day => {
-            transformedResponse.weeklyMealPlan[day] = {};
-            meals.forEach(meal => {
-                const aiMealData = aiResult.weekly_meal_plan?.[day]?.[meal] || [];
-                transformedResponse.weeklyMealPlan[day][meal] = aiMealData.map(item => {
-                    // Find full food details from database
-                    const foodDetails = allFoods.find(f => f._id.toString() === item.food_id);
-                    
-                    if (!foodDetails) {
-                        console.warn(`Food not found: ${item.food_id}`);
-                        return null;
-                    }
-
-                    // Calculate nutrition based on serving size
-                    const servingRatio = item.amount / 100;
-                    const calculatedNutrition = {
-                        calories: Math.round(foodDetails.macronutrients.calories_kcal * servingRatio),
-                        protein: Math.round(foodDetails.macronutrients.proteins_g * servingRatio * 10) / 10,
-                        carbs: Math.round(foodDetails.macronutrients.carbohydrates_g * servingRatio * 10) / 10,
-                        fat: Math.round(foodDetails.macronutrients.fats_g * servingRatio * 10) / 10,
-                        fiber: Math.round(foodDetails.macronutrients.fiber_g * servingRatio * 10) / 10
-                    };
-
-                    return {
-                        _id: foodDetails._id.toString(),
-                        food_id: foodDetails._id.toString(),
-                        name: foodDetails.name,
-                        category: foodDetails.category,
-                        amount: item.amount,
-                        serving_unit: item.serving_unit || 'g',
-                        nutrition: calculatedNutrition,
-                        calculated_nutrition: calculatedNutrition,
-                        vitamins: foodDetails.vitamins || {},
-                        minerals: foodDetails.minerals || {},
-                        rasa: foodDetails.rasa,
-                        virya: foodDetails.virya,
-                        vipaka: foodDetails.vipaka,
-                        dosha_effects: foodDetails.dosha_effects
-                    };
-                }).filter(item => item !== null);
-            });
+            customNutritionGoals: parsedResponse.nutritionGoals || nutritionGoals,
+            weeklyMealPlan: parsedResponse.weeklyMealPlan,
+            explanation: parsedResponse.explanation,
+            considerations: parsedResponse.considerations
         });
-
-        res.json(transformedResponse);
 
     } catch (error) {
         console.log('Error generating AI diet chart:', error);
@@ -1438,6 +1403,543 @@ const generateAIDietChart = async (req, res) => {
         });
     }
 };
+
+// Helper function to build Gemini diet prompt
+function buildGeminiDietPrompt(patientDetails, nutritionGoals, relevantFoods) {
+    // Check if manual goals are provided
+    const hasManualGoals = nutritionGoals && 
+        nutritionGoals.macronutrients && 
+        nutritionGoals.macronutrients.calories > 0;
+    
+    // Create simplified food list for context with better categorization
+    const foodList = relevantFoods.slice(0, 150).map(f => 
+        `${f.name} (${f.category}): ${f.macronutrients?.calories_kcal || 0} kcal, ${f.macronutrients?.proteins_g || 0}g protein, ${f.macronutrients?.carbohydrates_g || 0}g carbs, ${f.macronutrients?.fats_g || 0}g fat, ${f.macronutrients?.fiber_g || 0}g fiber`
+    ).join('\n');
+
+    return `Create a personalized 7-day Ayurvedic diet chart for the following patient:
+
+PATIENT PROFILE:
+- Name: ${patientDetails.patientName}
+- Age: ${patientDetails.age} years, Gender: ${patientDetails.gender}
+- Constitution (Prakriti): ${patientDetails.constitution}
+- Height: ${patientDetails.height?.feet || 0}ft ${patientDetails.height?.inches || 0}in
+- Weight: ${patientDetails.weight || 0}kg
+- BMI: ${patientDetails.bmi || 'Not calculated'}
+- Bowel Movements: ${patientDetails.bowel_movements || 'Normal'}
+- Health Condition: ${patientDetails.primaryHealthCondition || 'General wellness'}
+- Current Symptoms: ${patientDetails.currentSymptoms || 'None'}
+- **CRITICAL - FOOD ALLERGIES/RESTRICTIONS: ${patientDetails.foodAllergies || 'None'}**
+  ${patientDetails.foodAllergies ? `**YOU MUST COMPLETELY AVOID ALL FOODS CONTAINING: ${patientDetails.foodAllergies}**` : ''}
+
+${hasManualGoals ? `
+DAILY NUTRITION TARGETS (STRICT LIMITS - NEVER EXCEED 100%):
+**CRITICAL: These are MAXIMUM limits set by the doctor. Stay BELOW these values, ideally at 90-98%. DO NOT GO BELOW 90%**
+
+HARD LIMITS (DO NOT EXCEED UNDER ANY CIRCUMSTANCE):
+- Calories: MAXIMUM ${nutritionGoals.macronutrients.calories} kcal (Target: ${Math.round(nutritionGoals.macronutrients.calories * 0.90)}-${Math.round(nutritionGoals.macronutrients.calories * 0.98)} kcal)
+- Protein: MAXIMUM ${nutritionGoals.macronutrients.protein}g (Target: ${Math.round(nutritionGoals.macronutrients.protein * 0.90)}-${Math.round(nutritionGoals.macronutrients.protein * 0.98)}g)
+- Carbohydrates: MAXIMUM ${nutritionGoals.macronutrients.carbs}g (Target: ${Math.round(nutritionGoals.macronutrients.carbs * 0.90)}-${Math.round(nutritionGoals.macronutrients.carbs * 0.98)}g)
+- Fat: MAXIMUM ${nutritionGoals.macronutrients.fat}g (Target: ${Math.round(nutritionGoals.macronutrients.fat * 0.90)}-${Math.round(nutritionGoals.macronutrients.fat * 0.98)}g)
+- Fiber: MAXIMUM ${nutritionGoals.macronutrients.fiber}g (Target: ${Math.round(nutritionGoals.macronutrients.fiber * 0.90)}-${Math.round(nutritionGoals.macronutrients.fiber * 0.98)}g)
+- Vitamins & Minerals: MAXIMUM ${nutritionGoals.vitamins.vitamin_c}mg Vitamin C, ${nutritionGoals.vitamins.vitamin_d}mcg Vitamin D, ${nutritionGoals.vitamins.vitamin_a}mcg Vitamin A, ${nutritionGoals.minerals.calcium}mg Calcium, ${nutritionGoals.minerals.iron}mg Iron, ${nutritionGoals.minerals.potassium}mg Potassium
+  (Target 90-98% for ALL vitamins and minerals - DO NOT exceed 100%)
+
+**ADJUSTMENT STRATEGY:** If you're approaching limits, REDUCE portion sizes rather than removing foods to maintain variety.
+` : `
+TASK - CALCULATE NUTRITION GOALS:
+**FIRST, you MUST calculate personalized daily nutrition targets based on the patient's profile:**
+
+1. **Base Calorie Calculation:**
+   - Start with base: 2000 kcal (female) or 2200 kcal (male)
+   - Age adjustment: If age > 50, reduce by 200 kcal; if age < 25, add 200 kcal
+   - BMI adjustment:
+     * BMI < 18.5 (underweight): Add 300 kcal
+     * BMI 25-30 (overweight): Reduce by 200 kcal
+     * BMI ≥ 30 (obese): Reduce by 400 kcal
+   - Constitution adjustment:
+     * Vata: No change
+     * Pitta: Add 100 kcal
+     * Kapha: Reduce by 200 kcal
+   - Bowel movement adjustment:
+     * Constipation/Irregular: May need more fiber
+     * Normal: No change
+
+2. **Macronutrient Calculation:**
+   - Protein: Base 50g, add 5g for Vata/Kapha, add 10g for Pitta
+   - Fat: Base 65g, add 10g for Vata, reduce 5g for Pitta, reduce 10g for Kapha
+   - Fiber: Base 25g, add 5g for Vata, add 10g for Kapha, add 10g for constipation
+   - Carbs: Calculate from remaining calories: (Total Calories - (Protein × 4) - (Fat × 9)) ÷ 4
+
+3. **Vitamins (Daily Recommended Intake):**
+   - Vitamin A: 700 mcg (female) or 900 mcg (male)
+   - Vitamin B1 (Thiamine): 1.1 mg
+   - Vitamin B2 (Riboflavin): 1.1 mg
+   - Vitamin B3 (Niacin): 14 mg
+   - Vitamin B6: 1.3 mg
+   - Vitamin B12: 2.4 mcg
+   - Vitamin C: 75 mg (female) or 90 mg (male)
+   - Vitamin D: 15 mcg
+   - Vitamin E: 15 mg
+   - Vitamin K: 90 mcg
+   - Folate: 400 mcg
+
+4. **Minerals (Daily Recommended Intake):**
+   - Calcium: 1000 mg
+   - Iron: 18 mg (female) or 10 mg (male)
+   - Magnesium: 310 mg (female) or 400 mg (male)
+   - Phosphorus: 700 mg
+   - Potassium: 2600 mg
+   - Sodium: 1500 mg
+   - Zinc: 8 mg (female) or 11 mg (male)
+
+**YOU MUST show your calculated nutrition goals at the beginning of your response in this EXACT format:**
+
+CALCULATED NUTRITION GOALS:
+- Calories: XXXX kcal
+- Protein: XXg
+- Carbohydrates: XXXg
+- Fat: XXg
+- Fiber: XXg
+- Vitamin A: XXX mcg
+- Vitamin B1: X.X mg
+- Vitamin B2: X.X mg
+- Vitamin B3: XX mg
+- Vitamin B6: X.X mg
+- Vitamin B12: X.X mcg
+- Vitamin C: XX mg
+- Vitamin D: XX mcg
+- Vitamin E: XX mg
+- Vitamin K: XX mcg
+- Folate: XXX mcg
+- Calcium: XXXX mg
+- Iron: XX mg
+- Magnesium: XXX mg
+- Phosphorus: XXX mg
+- Potassium: XXXX mg
+- Sodium: XXXX mg
+- Zinc: XX mg
+
+Then create the meal plan targeting 90-98% of these calculated values (NEVER exceed 100%).
+`}
+
+CRITICAL: If any nutrient falls short (below 90%), you MUST recommend specific Ayurvedic supplements to compensate.
+
+TOP 500 RECOMMENDED FOODS FOR THIS PATIENT (Already filtered to exclude allergens):
+${foodList}
+
+**ABSOLUTE FOOD RESTRICTIONS - VIOLATION WILL HARM PATIENT:**
+${patientDetails.foodAllergies ? `
+DO NOT INCLUDE ANY OF THESE ITEMS OR INGREDIENTS: ${patientDetails.foodAllergies}
+CROSS-CHECK EVERY FOOD ITEM BEFORE INCLUDING IT IN THE MEAL PLAN.
+If you're unsure whether a food contains an allergen, DO NOT include it.
+Example: If patient is allergic to "dairy" or is "lactose intolerent", exclude Milk, Paneer, Ghee, Butter, Yogurt, Cheese, etc.
+Example: If patient is allergic to "nuts", exclude Almonds, Cashews, Walnuts, Peanuts, etc.
+Example: If patient is allergic to "gluten", exclude Wheat, Barley, Rye, and all wheat-based products.
+` : 'No food restrictions'}
+
+CRITICAL INSTRUCTIONS - MUST FOLLOW EXACTLY:
+1. ${!hasManualGoals ? '**FIRST: Calculate and display nutrition goals in the EXACT format shown below**' : 'Use the provided nutrition targets'}
+2. **FORMAT RULE: All food items for a meal MUST be on ONE line, separated by commas - NO bullet points, NO separate lines per food**
+3. Create a complete 7-day meal plan (Monday-Sunday)
+4. Each day MUST have ALL 4 meals: Breakfast, Lunch, Snacks, Dinner
+5. EVERY meal slot MUST contain 2-4 food items (NO empty meals, NO single food meals)
+6. **USE EXACT FOOD NAMES from the list above - DO NOT paraphrase or modify names**
+7. Each food item must specify amount in grams/ml (e.g., "Brown Rice (150g)", "Milk (200ml)")
+8. **LIMIT LIQUIDS: Maximum ONE liquid per meal (Water, Milk, Tea, etc.) - NOT 2 or 3 liquids**
+9. MAXIMIZE VARIETY: Use each food item maximum 2-3 times across the entire week
+10. NEVER repeat the same food in the same day
+11. Daily totals MUST achieve 90-98% of ALL nutrition targets
+12. **CRITICAL HARD LIMIT: NEVER EXCEED 100% of ANY nutrient. If approaching limit, REDUCE portion sizes immediately**
+13. Balance doshas according to patient's constitution: ${patientDetails.constitution}
+14. **CRITICAL FOOD RESTRICTIONS - ABSOLUTE REQUIREMENT:**
+    ${patientDetails.foodAllergies || 'None'}
+    **TRIPLE CHECK every food item against allergies before including it in the plan**
+15. **COOKING VARIETY: Use different cooking methods - NOT all boiled**
+16. **MANDATORY: Include Ayurvedic properties for EVERY food item in the format: FoodName (XXXg/ml) [Rasa: sweet|Virya: hot|Dosha: balances vata]**
+
+MEAL COMPOSITION GUIDELINES:
+- Breakfast: 30% of daily calories (2-4 items: 1 grain + 1 protein + 1 fruit/vegetable + optional liquid)
+- Lunch: 25% of daily calories (2-4 items: 1 grain + 1 protein + 1-2 vegetables)
+- Snacks: 10% of daily calories (2-3 items: 1-2 fruits/nuts + optional liquid)
+- Dinner: 35% of daily calories (2-4 items: 1 grain + 1 protein + 1-2 vegetables)
+
+**BALANCED VARIETY ACROSS WEEK:**
+- Fruits: 7-10 different fruits
+- Vegetables: 12-15 different vegetables
+- Grains: 5-7 different grains
+- Proteins: 5-7 different protein sources
+- Liquids: Maximum 1 per meal (not all meals need liquid)
+- Cooking Methods: Rotate between steamed, sautéed, grilled, roasted, raw, boiled
+
+OUTPUT FORMAT (EXACTLY AS SHOWN):
+${!hasManualGoals ? `
+CALCULATED NUTRITION GOALS:
+- Calories: XXXX kcal
+- Protein: XXg
+- Carbohydrates: XXXg
+- Fat: XXg
+- Fiber: XXg
+- Vitamin A: XXX mcg
+- Vitamin B1: X.X mg
+- Vitamin B2: X.X mg
+- Vitamin B3: XX mg
+- Vitamin B6: X.X mg
+- Vitamin B12: X.X mcg
+- Vitamin C: XX mg
+- Vitamin D: XX mcg
+- Vitamin E: XX mg
+- Vitamin K: XX mcg
+- Folate: XXX mcg
+- Calcium: XXXX mg
+- Iron: XX mg
+- Magnesium: XXX mg
+- Phosphorus: XXX mg
+- Potassium: XXXX mg
+- Sodium: XXXX mg
+- Zinc: XX mg
+
+` : ''}**CRITICAL OUTPUT FORMAT RULES:**
+1. NO MARKDOWN BULLETS (* or -) - Use plain text with double asterisks for days/meals only
+2. Each day starts with **DayName:** (e.g., **Monday:**)
+3. Each meal line starts with - **MealName:** (e.g., - **Breakfast:**)
+4. Food items on SAME LINE as meal, separated by commas
+5. DO NOT put each food on a new line with bullets
+
+**Monday:**
+- **Breakfast:** FoodName1 (XXXg/ml) [Rasa: sweet|Virya: hot|Dosha: balances vata], FoodName2 (XXg/ml) [Rasa: sweet|Virya: cold|Dosha: balances pitta], FoodName3 (XXg/ml) [Rasa: pungent|Virya: hot|Dosha: balances kapha]
+- **Lunch:** FoodName1 (XXXg/ml) [Properties], FoodName2 (XXXg/ml) [Properties], FoodName3 (XXXg/ml) [Properties]
+- **Snacks:** FoodName1 (XXg/ml) [Properties], FoodName2 (XXg/ml) [Properties]
+- **Dinner:** FoodName1 (XXXg/ml) [Properties], FoodName2 (XXg/ml) [Properties], FoodName3 (XXXg/ml) [Properties]
+
+**Tuesday:**
+- **Breakfast:** [Different foods, all on ONE line, comma-separated]
+- **Lunch:** [Different foods, all on ONE line, comma-separated]
+- **Snacks:** [Different foods, all on ONE line, comma-separated]
+- **Dinner:** [Different foods, all on ONE line, comma-separated]
+
+[Continue for all 7 days with SAME FORMAT]
+
+**WRONG FORMAT (DO NOT USE):**
+**Monday:**
+*   **Breakfast:**
+    *   FoodName1 (100g) [Properties]  ← WRONG - Don't put foods on separate lines
+    *   FoodName2 (50g) [Properties]   ← WRONG - Don't use nested bullets
+
+**CORRECT FORMAT (USE THIS):**
+**Monday:**
+- **Breakfast:** FoodName1 (100g) [Properties], FoodName2 (50g) [Properties], FoodName3 (150ml) [Properties]  ← CORRECT - All foods on one line
+
+After the meal plan, provide:
+- Brief explanation of dietary approach (2-3 sentences)
+- Ayurvedic Supplement Recommendations (if any nutrients are below 90% target)
+
+Generate the complete 7-day chart now:`;
+}
+
+// Helper function to parse Gemini AI diet response
+function parseAIDietResponse(aiResponse, foods, nutritionGoals) {
+    console.log('\n=== PARSING AI RESPONSE ===');
+    
+    // Extract calculated nutrition goals from AI response if present
+    let calculatedGoals = nutritionGoals; // Default to provided goals
+    const goalsSection = aiResponse.match(/CALCULATED NUTRITION GOALS:([\s\S]*?)(?:\*\*Monday|\*\*Explanation|$)/i);
+    
+    if (goalsSection) {
+        console.log('Found AI-calculated nutrition goals');
+        const goalsText = goalsSection[1];
+        
+        const extractValue = (pattern) => {
+            const match = goalsText.match(pattern);
+            return match ? parseFloat(match[1]) : 0;
+        };
+        
+        calculatedGoals = {
+            macronutrients: {
+                calories: extractValue(/Calories:\s*(\d+)/i),
+                protein: extractValue(/Protein:\s*(\d+)/i),
+                carbs: extractValue(/Carbohydrates:\s*(\d+)/i),
+                fat: extractValue(/Fat:\s*(\d+)/i),
+                fiber: extractValue(/Fiber:\s*(\d+)/i)
+            },
+            vitamins: {
+                vitamin_a: extractValue(/Vitamin A:\s*([\d.]+)/i),
+                vitamin_b1: extractValue(/Vitamin B1:\s*([\d.]+)/i),
+                vitamin_b2: extractValue(/Vitamin B2:\s*([\d.]+)/i),
+                vitamin_b3: extractValue(/Vitamin B3:\s*([\d.]+)/i),
+                vitamin_b6: extractValue(/Vitamin B6:\s*([\d.]+)/i),
+                vitamin_b12: extractValue(/Vitamin B12:\s*([\d.]+)/i),
+                vitamin_c: extractValue(/Vitamin C:\s*([\d.]+)/i),
+                vitamin_d: extractValue(/Vitamin D:\s*([\d.]+)/i),
+                vitamin_e: extractValue(/Vitamin E:\s*([\d.]+)/i),
+                vitamin_k: extractValue(/Vitamin K:\s*([\d.]+)/i),
+                folate: extractValue(/Folate:\s*([\d.]+)/i)
+            },
+            minerals: {
+                calcium: extractValue(/Calcium:\s*([\d.]+)/i),
+                iron: extractValue(/Iron:\s*([\d.]+)/i),
+                magnesium: extractValue(/Magnesium:\s*([\d.]+)/i),
+                phosphorus: extractValue(/Phosphorus:\s*([\d.]+)/i),
+                potassium: extractValue(/Potassium:\s*([\d.]+)/i),
+                sodium: extractValue(/Sodium:\s*([\d.]+)/i),
+                zinc: extractValue(/Zinc:\s*([\d.]+)/i)
+            }
+        };
+        
+        console.log('Extracted calculated goals:', calculatedGoals);
+    }
+    
+    const foodLookup = {};
+    for (const food of foods) {
+        const nameLower = food.name.toLowerCase().trim();
+        foodLookup[nameLower] = food;
+        
+        // Also create variations for matching (remove special chars, extra spaces)
+        const cleanName = nameLower.replace(/[(),-]/g, ' ').replace(/\s+/g, ' ').trim();
+        if (cleanName !== nameLower) {
+            foodLookup[cleanName] = food;
+        }
+    }
+
+    const weeklyPlan = {
+        "Mon": {"Breakfast": [], "Lunch": [], "Snacks": [], "Dinner": []},
+        "Tue": {"Breakfast": [], "Lunch": [], "Snacks": [], "Dinner": []},
+        "Wed": {"Breakfast": [], "Lunch": [], "Snacks": [], "Dinner": []},
+        "Thu": {"Breakfast": [], "Lunch": [], "Snacks": [], "Dinner": []},
+        "Fri": {"Breakfast": [], "Lunch": [], "Snacks": [], "Dinner": []},
+        "Sat": {"Breakfast": [], "Lunch": [], "Snacks": [], "Dinner": []},
+        "Sun": {"Breakfast": [], "Lunch": [], "Snacks": [], "Dinner": []}
+    };
+
+    const lines = aiResponse.split("\n");
+    let currentDay = null;
+    let currentMeal = null;
+    let explanationText = "";
+    let considerationsList = [];
+    let capturingExplanation = false;
+
+    const dayMapping = {
+        "monday": "Mon", "tuesday": "Tue", "wednesday": "Wed",
+        "thursday": "Thu", "friday": "Fri", "saturday": "Sat", "sunday": "Sun"
+    };
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const lineLower = line.toLowerCase().trim();
+        
+        // Detect day
+        for (const [dayKey, dayAbbr] of Object.entries(dayMapping)) {
+            if (lineLower.includes(dayKey) && (line.includes("**") || line.includes("#"))) {
+                currentDay = dayAbbr;
+                currentMeal = null;
+                console.log(`Found day: ${dayAbbr}`);
+                break;
+            }
+        }
+        
+        // Detect meal
+        if (currentDay) {
+            if (lineLower.includes("breakfast") && (line.includes("**") || line.includes("-"))) {
+                currentMeal = "Breakfast";
+                console.log(`  Found meal: Breakfast`);
+            }
+            else if (lineLower.includes("lunch") && (line.includes("**") || line.includes("-"))) {
+                currentMeal = "Lunch";
+                console.log(`  Found meal: Lunch`);
+            }
+            else if (lineLower.includes("snack") && (line.includes("**") || line.includes("-"))) {
+                currentMeal = "Snacks";
+                console.log(`  Found meal: Snacks`);
+            }
+            else if (lineLower.includes("dinner") && (line.includes("**") || line.includes("-"))) {
+                currentMeal = "Dinner";
+                console.log(`  Found meal: Dinner`);
+            }
+            
+            // Extract foods - improved regex to match various formats including Ayurvedic properties and liquids
+            if (currentMeal && line.includes(":")) {
+                // Track already added foods in this meal to prevent duplicates
+                const addedFoodIds = new Set();
+                
+                // Match patterns (support both g and ml):
+                // 1. FoodName (XXXg/ml) [Rasa: X|Virya: X|Dosha: X]
+                // 2. FoodName (XXXg/ml) - fallback without properties
+                
+                // Primary pattern with Ayurvedic properties (g or ml)
+                const ayurvedicMatches = [
+                    ...line.matchAll(/([A-Za-z\s\(\)]+?)\s*\((\d+)\s*(g|ml)\)\s*\[Rasa:\s*([^\|]+)\|Virya:\s*([^\|]+)\|Dosha:\s*([^\]]+)\]/gi),
+                    ...line.matchAll(/([A-Za-z\s\(\)]+?)\s*\((\d+)(g|ml)\)\s*\[Rasa:\s*([^\|]+)\|Virya:\s*([^\|]+)\|Dosha:\s*([^\]]+)\]/gi)
+                ];
+                
+                // Fallback pattern without properties (g or ml)
+                const basicMatches = [
+                    ...line.matchAll(/([A-Za-z\s\(\)]+?)\s*\((\d+)\s*(g|ml)\)/gi),
+                    ...line.matchAll(/([A-Za-z\s\(\)]+?)\s*-\s*(\d+)\s*(g|ml)/gi),
+                    ...line.matchAll(/([A-Za-z\s\(\)]+?)\s*:\s*(\d+)\s*(g|ml)/gi)
+                ];
+                
+                const foodMatches = ayurvedicMatches.length > 0 ? ayurvedicMatches : basicMatches;
+                const hasAyurvedicProps = ayurvedicMatches.length > 0;
+                
+                for (const match of foodMatches) {
+                    let foodName = match[1].trim();
+                    const amount = parseInt(match[2]);
+                    const unit = hasAyurvedicProps ? match[3] : match[3]; // g or ml
+                    
+                    // Extract Ayurvedic properties from AI response (if available)
+                    let aiRasa = hasAyurvedicProps && match[4] ? match[4].trim() : null;
+                    let aiVirya = hasAyurvedicProps && match[5] ? match[5].trim() : null;
+                    let aiDoshaEffect = hasAyurvedicProps && match[6] ? match[6].trim() : null;
+                    
+                    // Clean food name (preserve case for exact matching)
+                    foodName = foodName.replace(/^[-•*]\s*/, '').trim();
+                    
+                    // Try exact match only (case-insensitive)
+                    const foodNameLower = foodName.toLowerCase();
+                    let foodData = foodLookup[foodNameLower];
+                    
+                    // If not found, try with cleaned name (remove special chars)
+                    if (!foodData) {
+                        const cleanName = foodNameLower.replace(/[(),-]/g, ' ').replace(/\s+/g, ' ').trim();
+                        foodData = foodLookup[cleanName];
+                    }
+                    
+                    // No partial matching - only exact matches accepted
+                    
+                    if (foodData && amount > 0) {
+                        // Check if this food was already added to prevent duplicates
+                        const foodId = foodData._id || foodData.id;
+                        if (addedFoodIds.has(foodId?.toString())) {
+                            console.log(`  Skipping duplicate: ${foodData.name} in ${currentDay} ${currentMeal}`);
+                            continue;
+                        }
+                        addedFoodIds.add(foodId?.toString());
+                        
+                        const servingRatio = amount / 100;
+                        
+                        // Parse AI dosha effect format: "balances vata", "increases pitta", etc.
+                        let parsedDoshaEffects = {};
+                        if (aiDoshaEffect) {
+                            const doshaLower = aiDoshaEffect.toLowerCase();
+                            if (doshaLower.includes('vata')) {
+                                parsedDoshaEffects.vata = doshaLower.includes('increases') ? 'increases' : 'balances';
+                            } else if (doshaLower.includes('pitta')) {
+                                parsedDoshaEffects.pitta = doshaLower.includes('increases') ? 'increases' : 'balances';
+                            } else if (doshaLower.includes('kapha')) {
+                                parsedDoshaEffects.kapha = doshaLower.includes('increases') ? 'increases' : 'balances';
+                            }
+                        }
+                        
+                        // Calculate nutrition with vitamins and minerals
+                        const foodItem = {
+                            _id: foodData._id || foodData.id,
+                            food_id: foodData._id || foodData.id,
+                            name: foodData.name,
+                            category: foodData.category,
+                            amount: amount,
+                            serving_unit: unit || 'g', // Use extracted unit (g or ml)
+                            nutrition: {
+                                calories: Math.round((foodData.macronutrients?.calories_kcal || 0) * servingRatio),
+                                protein: Math.round((foodData.macronutrients?.proteins_g || 0) * servingRatio * 10) / 10,
+                                carbs: Math.round((foodData.macronutrients?.carbohydrates_g || 0) * servingRatio * 10) / 10,
+                                fat: Math.round((foodData.macronutrients?.fats_g || 0) * servingRatio * 10) / 10,
+                                fiber: Math.round((foodData.macronutrients?.fiber_g || 0) * servingRatio * 10) / 10
+                            },
+                            vitamins: {},
+                            minerals: {},
+                            // Use AI properties if available, otherwise fallback to database
+                            rasa: aiRasa ? [aiRasa] : (foodData.rasa || []),
+                            virya: aiVirya || foodData.virya || "",
+                            vipaka: foodData.vipaka || "",
+                            dosha_effects: Object.keys(parsedDoshaEffects).length > 0 ? parsedDoshaEffects : (foodData.dosha_effects || {})
+                        };
+                        
+                        // Calculate vitamins
+                        if (foodData.vitamins) {
+                            for (const [key, value] of Object.entries(foodData.vitamins)) {
+                                if (value && typeof value === 'number') {
+                                    foodItem.vitamins[key] = Math.round(value * servingRatio * 100) / 100;
+                                }
+                            }
+                        }
+                        
+                        // Calculate minerals
+                        if (foodData.minerals) {
+                            for (const [key, value] of Object.entries(foodData.minerals)) {
+                                if (value && typeof value === 'number') {
+                                    foodItem.minerals[key] = Math.round(value * servingRatio * 100) / 100;
+                                }
+                            }
+                        }
+                        
+                        weeklyPlan[currentDay][currentMeal].push(foodItem);
+                        console.log(`    Added: ${foodData.name} (${amount}${unit})${aiRasa ? ` [Rasa: ${aiRasa}|Virya: ${aiVirya}|Dosha: ${aiDoshaEffect}]` : ''}`);
+                    } else {
+                        console.log(`    ⚠️  Not found: "${foodName}" (${amount}${unit || 'g'})`);
+                    }
+                }
+            }
+        }
+        
+        // Capture explanation and supplement recommendations
+        if (lineLower.includes('explanation') || lineLower.includes('dietary approach')) {
+            capturingExplanation = true;
+        }
+        if (capturingExplanation && line.trim() && !line.includes('**') && !line.includes('#')) {
+            if (lineLower.includes('supplement') || lineLower.includes('consideration') || lineLower.includes('key point')) {
+                capturingExplanation = false;
+            } else {
+                explanationText += line.trim() + ' ';
+            }
+        }
+        
+        // Capture supplement recommendations
+        if ((lineLower.includes('supplement') || lineLower.includes('ayurvedic')) && 
+            (lineLower.includes('recommendation') || lineLower.includes('suggest'))) {
+            const nextLines = lines.slice(i + 1, i + 10);
+            for (const nextLine of nextLines) {
+                const trimmed = nextLine.trim().replace(/^[-•*]\s*/, '');
+                if (trimmed && !trimmed.includes('**') && !trimmed.includes('#') && trimmed.includes('-')) {
+                    // Parse supplement format: "Name - Dosage - Frequency - Reason"
+                    const parts = trimmed.split('-').map(p => p.trim());
+                    if (parts.length >= 3) {
+                        considerationsList.push(trimmed);
+                    }
+                }
+            }
+        }
+        
+        // Also capture regular considerations if no supplements
+        if ((lineLower.includes('consideration') || lineLower.includes('key point')) && 
+            line.trim() && !lineLower.includes('supplement')) {
+            const nextLines = lines.slice(i + 1, i + 5);
+            for (const nextLine of nextLines) {
+                const trimmed = nextLine.trim().replace(/^[-•*]\s*/, '');
+                if (trimmed && !trimmed.includes('**') && !trimmed.includes('#') && 
+                    !considerationsList.some(c => c.includes(trimmed))) {
+                    considerationsList.push(trimmed);
+                }
+            }
+        }
+    }
+
+    // Log summary
+    console.log('\n=== PARSING SUMMARY ===');
+    for (const [day, meals] of Object.entries(weeklyPlan)) {
+        const totalFoods = Object.values(meals).reduce((sum, meal) => sum + meal.length, 0);
+        console.log(`${day}: ${totalFoods} foods total`);
+    }
+
+    return {
+        nutritionGoals: calculatedGoals, // Return AI-calculated goals or provided goals
+        weeklyMealPlan: weeklyPlan,
+        explanation: explanationText.trim() || "This personalized Ayurvedic diet chart balances your dosha and supports your health goals.",
+        considerations: considerationsList.length > 0 ? considerationsList : [
+            "Eat at regular times",
+            "Stay well hydrated",
+            "Adjust portions based on hunger and activity"
+        ]
+    };
+}
 
 // API to link diet chart to prescription
 const linkDietChartToPrescription = async (req, res) => {
@@ -1477,6 +1979,69 @@ const linkDietChartToPrescription = async (req, res) => {
     }
 };
 
+// Generate PDF for diet chart
+const generateDietChartPDF = async (req, res) => {
+    try {
+        const { chartId } = req.params;
+        const doctorId = req.body.docId;
+
+        // Fetch the diet chart (no need to populate food_ref since foods are embedded)
+        const dietChart = await dietChartModel.findById(chartId)
+            .populate('patient_id');
+
+        if (!dietChart) {
+            return res.json({ success: false, message: 'Diet chart not found' });
+        }
+
+        // Verify doctor has access
+        if (dietChart.doctor_id.toString() !== doctorId) {
+            return res.json({ success: false, message: 'Unauthorized access' });
+        }
+
+        // Fetch doctor data
+        const doctorData = await doctorModel.findById(doctorId);
+
+        // Prepare data for PDF generation
+        const dietChartData = {
+            weeklyMealPlan: dietChart.weekly_meal_plan,
+            nutritionGoals: dietChart.custom_nutrition_goals
+        };
+
+        // Get patient data from both patient_id reference and patient_snapshot
+        const patientSnapshot = dietChart.patient_snapshot || {};
+        const patientData = {
+            _id: dietChart.patient_id._id,
+            name: dietChart.patient_id.name,
+            age: patientSnapshot.age || dietChart.patient_id.age,
+            gender: dietChart.patient_id.gender,
+            constitution: patientSnapshot.constitution || dietChart.patient_id.constitution,
+            bmi: dietChart.patient_id.bmi,
+            primaryHealthCondition: patientSnapshot.primary_health_condition || '',
+            currentSymptoms: patientSnapshot.current_symptoms || '',
+            foodAllergies: patientSnapshot.food_allergies || '',
+            healthGoals: patientSnapshot.health_goals || []
+        };
+
+        // Generate PDF
+        const { generateDietChartPDF: generatePDF } = await import("../utils/pdfGenerator.js");
+        const { filepath, filename } = await generatePDF(dietChartData, patientData, doctorData);
+
+        // Send file
+        res.download(filepath, filename, (err) => {
+            if (err) {
+                console.error('Error sending PDF:', err);
+                res.json({ success: false, message: 'Error downloading PDF' });
+            }
+            // Delete file after sending
+            fs.unlinkSync(filepath);
+        });
+
+    } catch (error) {
+        console.error('Error generating diet chart PDF:', error);
+        res.json({ success: false, message: error.message });
+    }
+};
+
 export {
     loginDoctor,
     appointmentsDoctor,
@@ -1505,5 +2070,6 @@ export {
     updateDietChart,
     deleteDietChart,
     generateAIDietChart,
-    linkDietChartToPrescription
+    linkDietChartToPrescription,
+    generateDietChartPDF
 }

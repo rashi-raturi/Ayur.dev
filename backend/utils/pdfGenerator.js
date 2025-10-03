@@ -2,6 +2,263 @@ import PDFDocument from 'pdfkit';
 import fs from 'fs';
 import path from 'path';
 
+export const generateDietChartPDF = async (dietChartData, patientData, doctorData) => {
+    return new Promise((resolve, reject) => {
+        try {
+            console.log('Starting PDF generation for diet chart');
+            
+            const { weeklyMealPlan, nutritionGoals } = dietChartData;
+            
+            // Create a document
+            const doc = new PDFDocument({ 
+                size: 'A4',
+                margins: { top: 30, bottom: 30, left: 30, right: 30 }
+            });
+
+            // Create uploads directory if it doesn't exist
+            const uploadsDir = path.join(process.cwd(), 'uploads', 'diet-charts');
+            if (!fs.existsSync(uploadsDir)) {
+                fs.mkdirSync(uploadsDir, { recursive: true });
+            }
+
+            // Generate filename
+            const filename = `diet_chart_${patientData.name.replace(/\s+/g, '_')}_${Date.now()}.pdf`;
+            const filepath = path.join(uploadsDir, filename);
+
+            // Pipe the PDF to a file
+            const stream = fs.createWriteStream(filepath);
+            doc.pipe(stream);
+
+            // Helper function to draw a line
+            const drawLine = (y, color = '#e5e7eb') => {
+                doc.strokeColor(color).lineWidth(1).moveTo(30, y).lineTo(565, y).stroke();
+            };
+
+            // Header with green background
+            doc.rect(0, 0, 595, 80).fill('#10b981');
+            
+            // Title
+            doc.fontSize(22).font('Helvetica-Bold').fillColor('#ffffff')
+               .text('AYURVEDIC DIET CHART', 30, 25, { align: 'center', width: 535 });
+            
+            doc.fontSize(9).font('Helvetica').fillColor('#d1fae5')
+               .text('7-Day Personalized Meal Plan', 30, 53, { align: 'center', width: 535 });
+
+            // Reset fill color
+            doc.fillColor('#000000');
+            let yPosition = 95;
+
+            // Patient Information Card
+            doc.roundedRect(30, yPosition, 535, 70, 5).fillAndStroke('#f9fafb', '#e5e7eb');
+            yPosition += 12;
+
+            doc.fontSize(11).font('Helvetica-Bold').fillColor('#1f2937')
+               .text('Patient Information', 40, yPosition);
+            yPosition += 15;
+
+            doc.fontSize(8).font('Helvetica').fillColor('#374151');
+            // Row 1
+            doc.text(`Name: ${patientData.name}`, 40, yPosition);
+            doc.text(`Age: ${patientData.age} years`, 200, yPosition);
+            doc.text(`Gender: ${patientData.gender}`, 350, yPosition);
+            yPosition += 12;
+            
+            // Row 2
+            doc.text(`Constitution: ${patientData.constitution || 'N/A'}`, 40, yPosition);
+            if (patientData.bmi) {
+                doc.text(`BMI: ${patientData.bmi}`, 200, yPosition);
+            }
+            doc.text(`Date: ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`, 350, yPosition);
+            yPosition += 12;
+            
+            // Row 3 - Health info if available
+            if (patientData.primaryHealthCondition) {
+                doc.fontSize(7).fillColor('#6b7280')
+                   .text(`Condition: ${patientData.primaryHealthCondition}`, 40, yPosition, { width: 525 });
+                yPosition += 10;
+            }
+            
+            yPosition += 20;
+
+            // Daily Nutritional Goals
+            doc.fontSize(11).font('Helvetica-Bold').fillColor('#1f2937')
+               .text('Daily Nutritional Goals', 30, yPosition);
+            yPosition += 15;
+
+            const goals = nutritionGoals?.macronutrients || {};
+            const macros = [
+                { label: 'Calories', value: `${goals.calories || 2000}`, unit: 'kcal', color: '#ef4444' },
+                { label: 'Protein', value: `${goals.protein || 50}`, unit: 'g', color: '#f59e0b' },
+                { label: 'Carbs', value: `${goals.carbs || 250}`, unit: 'g', color: '#10b981' },
+                { label: 'Fat', value: `${goals.fat || 65}`, unit: 'g', color: '#3b82f6' },
+                { label: 'Fiber', value: `${goals.fiber || 25}`, unit: 'g', color: '#8b5cf6' }
+            ];
+
+            let xPos = 30;
+            macros.forEach((macro) => {
+                doc.fontSize(7).font('Helvetica-Bold').fillColor(macro.color)
+                   .text(macro.label, xPos, yPosition);
+                doc.fontSize(9).font('Helvetica').fillColor('#374151')
+                   .text(`${macro.value} ${macro.unit}`, xPos, yPosition + 10);
+                xPos += 105;
+            });
+            yPosition += 35;
+
+            // Weekly Meal Plan - Loop through each day
+            const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+            const dayKeys = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+            const dayColors = ['#fef3c7', '#dbeafe', '#fce7f3', '#e0e7ff', '#d1fae5', '#fed7aa', '#ede9fe'];
+            
+            daysOfWeek.forEach((day, dayIndex) => {
+                // Check if we need a new page
+                if (yPosition > 700) {
+                    doc.addPage();
+                    yPosition = 30;
+                }
+
+                // Day header with colored background
+                doc.roundedRect(30, yPosition, 535, 22, 3).fillAndStroke(dayColors[dayIndex], '#d1d5db');
+                doc.fontSize(10).font('Helvetica-Bold').fillColor('#1f2937')
+                   .text(day.toUpperCase(), 40, yPosition + 6);
+                yPosition += 27;
+
+                const dayKey = dayKeys[dayIndex];
+                const dayMeals = weeklyMealPlan[dayKey];
+                if (!dayMeals) {
+                    yPosition += 10;
+                    return;
+                }
+
+                // Create 4-column layout for meals
+                const mealTypes = ['Breakfast', 'Lunch', 'Snacks', 'Dinner'];
+                const colWidth = 130;
+                const startX = 30;
+
+                mealTypes.forEach((mealType, mealIndex) => {
+                    const foods = dayMeals[mealType] || [];
+                    const xStart = startX + (mealIndex * colWidth);
+                    let mealY = yPosition;
+
+                    // Meal header
+                    doc.fontSize(8).font('Helvetica-Bold').fillColor('#374151')
+                       .text(mealType, xStart, mealY);
+                    mealY += 12;
+
+                    // Calculate meal calories
+                    let mealCalories = 0;
+                    foods.forEach(food => {
+                        const nutrition = food.calculated_nutrition || {};
+                        mealCalories += nutrition.calories || 0;
+                    });
+
+                    // Food items
+                    if (foods.length > 0) {
+                        foods.forEach((food, idx) => {
+                            if (!food.name) return;
+
+                            const nutrition = food.calculated_nutrition || {};
+                            const calories = Math.round(nutrition.calories || 0);
+                            const servingUnit = food.serving_unit || 'g';
+                            const amount = food.amount || 100;
+
+                            // Food name (truncate if too long)
+                            const foodName = food.name.length > 18 ? food.name.substring(0, 15) + '...' : food.name;
+                            doc.fontSize(7).font('Helvetica').fillColor('#1f2937')
+                               .text(foodName, xStart, mealY, { width: colWidth - 5 });
+                            mealY += 9;
+
+                            // Amount and calories
+                            doc.fontSize(6).fillColor('#6b7280')
+                               .text(`${amount}${servingUnit} • ${calories} cal`, xStart, mealY);
+                            mealY += 8;
+
+                            // Ayurvedic badges (simplified for PDF)
+                            if (food.ayurvedicProperties) {
+                                const props = food.ayurvedicProperties;
+                                let badges = [];
+                                
+                                if (props.rasa) badges.push(`R:${props.rasa}`);
+                                if (props.virya) badges.push(`V:${props.virya}`);
+                                if (props.doshaEffects && props.doshaEffects.length > 0) {
+                                    badges.push(`D:${props.doshaEffects[0].replace('balances ', '').replace('increases ', '+')}`);
+                                }
+
+                                if (badges.length > 0) {
+                                    doc.fontSize(5).fillColor('#9ca3af')
+                                       .text(badges.join(' | '), xStart, mealY, { width: colWidth - 5 });
+                                    mealY += 7;
+                                }
+                            }
+
+                            if (idx < foods.length - 1) mealY += 3;
+                        });
+                    } else {
+                        doc.fontSize(6).fillColor('#9ca3af').text('No items', xStart, mealY);
+                        mealY += 10;
+                    }
+
+                    // Meal total at bottom
+                    doc.fontSize(7).font('Helvetica-Bold').fillColor('#1f2937')
+                       .text(`Total: ${Math.round(mealCalories)} cal`, xStart, yPosition + 95);
+                });
+
+                yPosition += 115;
+                drawLine(yPosition, '#d1d5db');
+                yPosition += 10;
+            });
+
+            // Footer with doctor info
+            if (yPosition > 700) {
+                doc.addPage();
+                yPosition = 30;
+            }
+
+            yPosition += 10;
+            doc.fontSize(8).font('Helvetica-Bold').fillColor('#1f2937')
+               .text('Prescribed by:', 30, yPosition);
+            yPosition += 12;
+
+            doc.fontSize(9).font('Helvetica-Bold').fillColor('#059669')
+               .text(doctorData?.name || 'Dr. Unknown', 30, yPosition);
+            yPosition += 12;
+
+            if (doctorData?.speciality) {
+                doc.fontSize(7).font('Helvetica').fillColor('#6b7280')
+                   .text(doctorData.speciality, 30, yPosition);
+                yPosition += 10;
+            }
+
+            if (doctorData?.email) {
+                doc.fontSize(7).fillColor('#6b7280')
+                   .text(`Email: ${doctorData.email}`, 30, yPosition);
+            }
+
+            yPosition += 15;
+            doc.fontSize(6).font('Helvetica').fillColor('#9ca3af')
+               .text('This diet chart is personalized based on Ayurvedic principles. Consult your doctor before making dietary changes.', 
+                     30, yPosition, { width: 535, align: 'center' });
+
+            // Finalize the PDF
+            doc.end();
+
+            // Wait for the stream to finish
+            stream.on('finish', () => {
+                console.log('Diet chart PDF generated successfully:', filename);
+                resolve({ filepath, filename });
+            });
+
+            stream.on('error', (error) => {
+                console.error('PDF stream error:', error);
+                reject(error);
+            });
+
+        } catch (error) {
+            console.error('Diet chart PDF generation error:', error);
+            reject(error);
+        }
+    });
+};
+
 export const generatePrescriptionPDF = async (prescriptionData, doctorData) => {
     return new Promise((resolve, reject) => {
         try {

@@ -77,7 +77,8 @@ foodSchema.index({ 'ayurvedic_properties.best_for_doshas': 1 }); // For dosha-ba
 foodSchema.index({ food_id: 1 });
 foodSchema.index({ name: 1, 'serving_size.unit': 1 }); // Compound index for unique name + serving unit queries 
 
-// Explicitly specify 'food' as the collection name (singular) to match the actual collection in the database
-const foodModel = mongoose.models.food || mongoose.model("food", foodSchema, "food");
+
+const foodModel = mongoose.models.fooditems || mongoose.model("fooditems", foodSchema, "fooditems");
+//const foodModel = mongoose.models.fooditems || mongoose.model("food", foodSchema, "food");
 
 export default foodModel;

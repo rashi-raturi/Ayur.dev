@@ -23,6 +23,14 @@ const userSchema = new mongoose.Schema({
     // password: { type: String, required: true },
     password: { type: String },
     
+    // Health metrics
+    height: {
+        feet: { type: Number, default: 0 },
+        inches: { type: Number, default: 0 }
+    },
+    weight: { type: Number, default: 0 }, // Weight in kg
+    bowel_movements: { type: String, default: '' }, // e.g., "Regular", "Irregular", "Constipation", "Loose"
+    
     // Medical information
     constitution: { type: String, default: '' }, // Ayurvedic constitution (Vata, Pitta, Kapha, etc.)
     condition: { type: String, default: '' }, // Current medical condition

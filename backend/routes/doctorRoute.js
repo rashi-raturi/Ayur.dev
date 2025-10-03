@@ -1,5 +1,5 @@
 import express from 'express';
-import { loginDoctor, appointmentsDoctor, appointmentCancel, undoCancellation, confirmAppointment, startAppointment, doctorList, changeAvailablity, appointmentComplete, createAppointmentByDoctor, updateAppointmentByDoctor, doctorDashboard, doctorProfile, updateDoctorProfile, getPatients, addPatientByDoctor, updatePatientByDoctor, emailPrescription, getFoodDatabase, createDietChart, getDietChartsByPatient, getDietChartsByDoctor, getDietChartById, updateDietChart, deleteDietChart, generateAIDietChart, linkDietChartToPrescription } from '../controllers/doctorController.js';
+import { loginDoctor, appointmentsDoctor, appointmentCancel, undoCancellation, confirmAppointment, startAppointment, doctorList, changeAvailablity, appointmentComplete, createAppointmentByDoctor, updateAppointmentByDoctor, doctorDashboard, doctorProfile, updateDoctorProfile, getPatients, addPatientByDoctor, updatePatientByDoctor, emailPrescription, getFoodDatabase, createDietChart, getDietChartsByPatient, getDietChartsByDoctor, getDietChartById, updateDietChart, deleteDietChart, generateAIDietChart, linkDietChartToPrescription, generateDietChartPDF } from '../controllers/doctorController.js';
 import authDoctor from '../middleware/authDoctor.js';
 import upload from '../middleware/multer.js';
 import { listDoctorPrescriptions, uploadDoctorPrescription, generatePatientSummary, createPrescription, listAllDoctorPrescriptions, updatePrescription, deletePrescription } from '../controllers/prescriptionController.js';
@@ -30,6 +30,7 @@ doctorRouter.post("/diet-chart/create", authDoctor, createDietChart)
 doctorRouter.post("/diet-chart/generate-ai", authDoctor, generateAIDietChart)
 doctorRouter.get("/diet-charts", authDoctor, getDietChartsByDoctor)
 doctorRouter.get("/diet-chart/:chartId", authDoctor, getDietChartById)
+doctorRouter.get("/diet-chart/:chartId/pdf", authDoctor, generateDietChartPDF)
 doctorRouter.get("/diet-charts/patient/:patientId", authDoctor, getDietChartsByPatient)
 doctorRouter.put("/diet-chart/:chartId", authDoctor, updateDietChart)
 doctorRouter.delete("/diet-chart/:chartId", authDoctor, deleteDietChart)
