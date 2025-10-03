@@ -14,10 +14,10 @@ const stripeInstance = new stripe(process.env.STRIPE_SECRET_KEY)
 const registerUser = async (req, res) => {
 
     try {
-        const { name, email, password } = req.body;
+        const { name, email, password, gender, dob } = req.body;
 
         // checking for all data to register user
-        if (!name || !email || !password) {
+        if (!name || !email || !password || !gender || !dob) {
             return res.json({ success: false, message: 'Missing Details' })
         }
 
@@ -27,8 +27,14 @@ const registerUser = async (req, res) => {
         }
 
         // validating strong password
-        if (password.length < 8) {
-            return res.json({ success: false, message: "Please enter a strong password" })
+        if (password.length < 6) {
+            return res.json({ success: false, message: "Please enter a strong password (minimum 6 characters)" })
+        }
+
+        // Get the first available doctor as default
+        const defaultDoctor = await doctorModel.findOne({}).select('_id')
+        if (!defaultDoctor) {
+            return res.json({ success: false, message: "No doctors available in the system" })
         }
 
         // hashing user password
@@ -39,6 +45,9 @@ const registerUser = async (req, res) => {
             name,
             email,
             password: hashedPassword,
+            gender,
+            dob: new Date(dob),
+            doctor: defaultDoctor._id
         }
 
         const newUser = new userModel(userData)
