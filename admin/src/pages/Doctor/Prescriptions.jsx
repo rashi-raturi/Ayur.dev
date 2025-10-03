@@ -49,7 +49,7 @@ const Prescriptions = () => {
   const [openStatusDropdownId, setOpenStatusDropdownId] = useState(null);
 
   // Fetch prescriptions with caching
-  useEffect(() => {
+useEffect(() => {
     const fetchPrescriptions = async () => {
       try {
         // Use cached data from context if available
@@ -74,7 +74,8 @@ const Prescriptions = () => {
       console.error('Missing dToken or backendUrl', { dToken: !!dToken, backendUrl });
       setLoading(false);
     }
-  }, [dToken, backendUrl, getDoctorPrescriptions, contextPrescriptions]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dToken, backendUrl]); // Only run when auth changes, not when data changes
 
   // Update local state when context prescriptions change
   useEffect(() => {

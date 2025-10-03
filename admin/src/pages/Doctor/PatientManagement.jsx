@@ -80,12 +80,12 @@ const PatientManagement = () => {
     if (contextPatients && contextPatients.length > 0) {
       setPatients(contextPatients);
       setLoading(false);
-      // Optionally fetch fresh data in background if cache is old
-      // This ensures UI is instant but data stays fresh
     } else {
+      // Only fetch if we don't have cached data
       fetchPatients();
     }
-  }, [contextPatients]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty dependency array - run only once on mount
   
   // Initial load
   useEffect(() => {
