@@ -13,6 +13,7 @@ import AddDoctor from './pages/Admin/AddDoctor';
 import DoctorsList from './pages/Admin/DoctorsList';
 import DoctorProfileAdmin from './pages/Admin/DoctorProfileAdmin';
 import Login from './pages/Login';
+import DoctorSignup from './pages/DoctorSignup';
 import DoctorAppointments from './pages/Doctor/DoctorAppointments';
 import DoctorDashboard from './pages/Doctor/DoctorDashboard';
 import DoctorProfile from './pages/Doctor/DoctorProfile';
@@ -163,6 +164,7 @@ const AppContent = () => {
       ) : (
         <Routes>
           <Route path='/login' element={<Login />} />
+          <Route path='/signup' element={<DoctorSignup />} />
           <Route path='*' element={<Navigate to='/login' replace />} />
         </Routes>
       )}

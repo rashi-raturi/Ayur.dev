@@ -3,7 +3,7 @@ import React, { useContext, useState } from 'react'
 import { DoctorContext } from '../context/DoctorContext'
 import { AdminContext } from '../context/AdminContext'
 import { toast } from 'react-toastify'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { Eye, EyeOff } from 'lucide-react'
 
 const Login = () => {
@@ -201,6 +201,21 @@ const Login = () => {
             </div>
           </form>
         </div>
+
+        {/* Signup Link for Doctors */}
+        {state === 'Doctor' && (
+          <div className='text-center mt-6'>
+            <p className='text-sm text-gray-600'>
+              Don't have an account?{' '}
+              <Link
+                to='/signup'
+                className='text-gray-900 font-medium hover:underline transition-all'
+              >
+                Create doctor account
+              </Link>
+            </p>
+          </div>
+        )}
 
         {/* Footer */}
         <p className='text-center text-sm text-gray-500 mt-8'>
