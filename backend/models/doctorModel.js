@@ -21,6 +21,7 @@ const doctorSchema = new mongoose.Schema({
     available: { type: Boolean, default: true },
     fees: { type: Number },
     registrationNumber: { type: String, required: true, unique: true}, 
+    phone: { type: String },
     address: { type: addressSchema},
     slotsBooked: [{ type: mongoose.Schema.Types.ObjectId, ref: 'appointment' }]
 }, { timestamps: true });

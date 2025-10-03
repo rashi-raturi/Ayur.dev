@@ -215,8 +215,8 @@ const DoctorSignup = () => {
         {/* Logo & Header */}
         <div className='text-center mb-8'>
           <div className='flex justify-center mb-4'>
-            <div className='w-16 h-16 bg-gray-900 rounded-2xl flex items-center justify-center shadow-lg'>
-              <img src='/favicon1.png' alt='AyurVed Pro' className='w-12 h-12 object-contain' />
+            <div className='w-16 h-16 bg-white rounded-2xl flex items-center justify-center shadow-lg border border-gray-200'>
+              <img src='/src/assets/logo.png' alt='Ayur.dev' className='w-full h-full object-contain rounded-2xl' />
             </div>
           </div>
           <h1 className='text-3xl font-bold text-gray-900 mb-2'>Join ayur.dev</h1>

@@ -54,11 +54,11 @@ const Login = () => {
         {/* Logo & Header */}
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
-            <div className="w-16 h-16 bg-gray-900 rounded-2xl flex items-center justify-center shadow-lg">
+            <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center shadow-lg border border-gray-200">
               <img
-                src={assets.logo}
-                alt="AyurVed Pro"
-                className="w-10 h-10 object-contain"
+                src="/src/assets/logo.png"
+                alt="Ayur.dev"
+                className="w-full h-full object-contain rounded-2xl"
               />
             </div>
           </div>
@@ -92,21 +92,6 @@ const Login = () => {
               <p className="text-sm text-gray-500 mt-0.5">
                 Sign in to your practice dashboard
               </p>
-              <div className="mt-2 p-2 bg-blue-50 rounded-lg">
-                <p className="text-xs text-blue-600">
-                  <strong>For testing:</strong> Email: test@ai.doctor, Password: test123
-                </p>
-                <button 
-                  type="button"
-                  onClick={() => {
-                    localStorage.clear();
-                    toast.success("Cache cleared! Please refresh the page.");
-                  }}
-                  className="mt-1 text-xs text-red-600 underline"
-                >
-                  Clear Cache & Refresh
-                </button>
-              </div>
             </div>
           </div>
 
@@ -219,6 +204,19 @@ const Login = () => {
               )}
             </button>
           </form>
+
+          {/* Signup Link */}
+          <div className="text-center pt-6 border-t border-gray-100 mt-6">
+            <p className="text-sm text-gray-600">
+              Don't have an account?{' '}
+              <button
+                onClick={() => navigate('/signup')}
+                className="text-gray-900 font-medium hover:underline transition-all"
+              >
+                Create Doctor Account
+              </button>
+            </p>
+          </div>
         </div>
 
         {/* Footer */}

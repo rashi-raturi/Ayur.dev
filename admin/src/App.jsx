@@ -19,6 +19,7 @@ import DoctorProfile from "./pages/Doctor/DoctorProfile";
 import DietChartGenerator from "./pages/Doctor/DietChartGenerator";
 import PatientManagement from "./pages/Doctor/PatientManagement";
 import Prescriptions from "./pages/Doctor/Prescriptions";
+import DoctorSignup from "./pages/DoctorSignup";
 
 // Protected Route Component for Doctor Only
 const ProtectedRoute = ({ children }) => {
@@ -148,6 +149,7 @@ const AppContent = () => {
       ) : (
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<DoctorSignup />} />
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       )}
