@@ -6,8 +6,6 @@ import CustomGoalsModal from '../../components/CustomGoalsModal';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import AILoadingModal from '../../components/AILoadingModal';
 import axios from 'axios';
-import html2canvas from 'html2canvas';
-import { jsPDF } from 'jspdf';
 
 const DietChartGenerator = () => {
   const { dToken, backendUrl } = useContext(DoctorContext);
@@ -762,164 +760,102 @@ const DietChartGenerator = () => {
   const handleDownloadPDF = async (savedChart = null) => {
     try {
       setIsDownloadingPDF(true);
-      toast.info('Generating PDF from chart...');
 
-      // Determine which chart element to capture
-      let chartElement;
-      let patientName = 'Patient';
-      
+      let chartId = currentChartId;
+      let patientName = formData.patientName;
+
+      // If downloading from a saved chart, use that chart's data
       if (savedChart) {
-        // For saved chart preview - find the details view container
-        chartElement = document.querySelector('[data-chart-details]');
+        chartId = savedChart._id || savedChart.id;
         const populatedPatient = savedChart.patient_id || {};
         const patientSnapshot = savedChart.patient_snapshot || {};
         const patientDetails = savedChart.patientDetails || {};
         patientName = populatedPatient.name || patientDetails.patientName || savedChart.patientName || 'Patient';
-      } else {
-        // For step 3 - find the step 3 container
-        chartElement = document.querySelector('[data-step3-chart]');
-        patientName = formData.patientName || 'Patient';
       }
 
-      if (!chartElement) {
-        toast.error('Chart not found. Please ensure the chart is visible.');
-        setIsDownloadingPDF(false);
-        return;
-      }
-
-      // Find main UI elements to capture separately
-      const nutritionalOverview = chartElement.querySelector('.bg-gradient-to-br.from-gray-50.to-white');
-      const mealCalendar = chartElement.querySelector('[data-meal-calendar]');
-      const additionalSections = chartElement.querySelectorAll('.bg-white.rounded-2xl.border.border-gray-100.shadow-sm, .bg-white.rounded-xl.shadow-sm.border.border-gray-200');
-      
-      // Temporarily hide download buttons
-      const downloadButtons = chartElement.querySelectorAll('button');
-      const hiddenButtons = [];
-      downloadButtons.forEach(btn => {
-        if (btn.textContent.includes('Download PDF') || btn.textContent.includes('Generating')) {
-          btn.style.display = 'none';
-          hiddenButtons.push(btn);
+      // If chart hasn't been saved yet, save it first
+      if (!chartId) {
+        // Validate required fields
+        if (!formData.patientId || !formData.patientName) {
+          toast.error('Patient information is required');
+          setIsDownloadingPDF(false);
+          return;
         }
-      });
 
-      // Wait for buttons to hide
-      await new Promise(resolve => setTimeout(resolve, 100));
+        toast.info('Saving diet chart...');
 
-      // Create PDF
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pageWidth = 210; // A4 width
-      const pageHeight = 297; // A4 height
-      let isFirstPage = true;
+        // Prepare the data for backend
+        const dietChartData = {
+          patientId: formData.patientId,
+          patientDetails: {
+            patientName: formData.patientName,
+            age: formData.age,
+            gender: formData.gender,
+            constitution: formData.constitution,
+            primaryHealthCondition: formData.primaryHealthCondition,
+            currentSymptoms: formData.currentSymptoms,
+            foodAllergies: formData.foodAllergies,
+            healthGoals: formData.healthGoals
+          },
+          customNutritionGoals: formData.customNutritionGoals,
+          weeklyMealPlan: formData.weeklyMealPlan,
+          prescriptionId: formData.prescriptionId || null,
+          specialInstructions: formData.specialInstructions || '',
+          dietaryRestrictions: formData.dietaryRestrictions || [],
+          startDate: new Date(),
+          endDate: null
+        };
 
-      // Function to add element to new page
-      const addElementToNewPage = async (element, title) => {
-        if (!element) return;
-        
-        // Add new page for each element (except the first one)
-        if (!isFirstPage) {
-          pdf.addPage();
-        }
-        isFirstPage = false;
+        // Save to backend
+        const { data } = await axios.post(
+          backendUrl + '/api/doctor/diet-chart/create', 
+          dietChartData, 
+          { headers: { dToken } }
+        );
 
-        // Add title page header on first page only
-        if (pdf.internal.getNumberOfPages() === 1) {
-          pdf.setFontSize(20);
-          pdf.setFont('helvetica', 'bold');
-          pdf.text('Weekly Diet Chart', 105, 20, { align: 'center' });
+        if (data.success) {
+          chartId = data.dietChart._id || data.dietChart.id;
+          setCurrentChartId(chartId);
+          toast.success('Diet chart saved successfully!');
           
-          pdf.setFontSize(14);
-          pdf.setFont('helvetica', 'normal');
-          pdf.text(`Patient: ${patientName}`, 105, 30, { align: 'center' });
-          pdf.text(`Generated: ${new Date().toLocaleDateString()}`, 105, 38, { align: 'center' });
-        }
-
-        // Add element title if not the first page
-        let startY = 15;
-        if (pdf.internal.getNumberOfPages() > 1) {
-          pdf.setFontSize(18);
-          pdf.setFont('helvetica', 'bold');
-          pdf.text(title, 15, 20);
-          startY = 30;
+          // Clear cache to force refresh
+          localStorage.removeItem('saved_diet_charts');
+          localStorage.removeItem('saved_diet_charts_timestamp');
+          
+          // Refresh the saved charts list
+          await fetchSavedDietCharts();
         } else {
-          startY = 50; // Leave space for main title
+          toast.error(data.message || 'Failed to save diet chart');
+          setIsDownloadingPDF(false);
+          return;
         }
-
-        // Capture element with high quality
-        const canvas = await html2canvas(element, {
-          scale: 2,
-          useCORS: true,
-          logging: false,
-          backgroundColor: '#ffffff',
-          width: element.scrollWidth,
-          height: element.scrollHeight
-        });
-
-        // Calculate dimensions to fit page properly
-        const maxWidth = pageWidth - 20; // 10mm margin on each side
-        const maxHeight = pageHeight - startY - 10; // Leave space for title and bottom margin
-        
-        let imgWidth = maxWidth;
-        let imgHeight = (canvas.height * imgWidth) / canvas.width;
-        
-        // If height is too large, scale down to fit
-        if (imgHeight > maxHeight) {
-          imgHeight = maxHeight;
-          imgWidth = (canvas.width * imgHeight) / canvas.height;
-        }
-        
-        const imgData = canvas.toDataURL('image/png', 1.0);
-        
-        // Center the image horizontally
-        const xPosition = (pageWidth - imgWidth) / 2;
-        
-        pdf.addImage(imgData, 'PNG', xPosition, startY, imgWidth, imgHeight);
-      };
-
-      // Add nutritional overview (colorful charts and analytics)
-      if (nutritionalOverview) {
-        await addElementToNewPage(nutritionalOverview, 'Weekly Nutritional Overview');
       }
 
-      // Add meal calendar (colorful weekly view)
-      if (mealCalendar) {
-        await addElementToNewPage(mealCalendar, 'Weekly Meal Calendar');
-      }
-
-      // Add any additional chart sections found
-      for (let i = 0; i < additionalSections.length; i++) {
-        const section = additionalSections[i];
-        
-        // Skip if it's already captured (nutritional overview or meal calendar)
-        if (section === nutritionalOverview || section === mealCalendar) continue;
-        
-        // Skip very small sections (likely not main content)
-        if (section.offsetHeight < 100) continue;
-        
-        // Get section title from the element
-        const titleElement = section.querySelector('h1, h2, h3, .text-2xl, .text-xl, .text-lg, .font-bold, .font-semibold');
-        const sectionTitle = titleElement ? titleElement.textContent.trim() : `Chart Section ${i + 1}`;
-        
-        await addElementToNewPage(section, sectionTitle);
-      }
-
-      // If no specific sections found, capture the entire chart
-      if (!nutritionalOverview && !mealCalendar && additionalSections.length === 0) {
-        await addElementToNewPage(chartElement, 'Diet Chart');
-      }
-
-      // Restore hidden buttons
-      hiddenButtons.forEach(btn => {
-        btn.style.display = '';
-      });
-
-      // Save PDF
-      const fileName = `diet_chart_${patientName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
-      pdf.save(fileName);
+      // Now generate and download the PDF
+      toast.info('Generating PDF...');
       
+      const response = await axios.get(
+        `${backendUrl}/api/doctor/diet-chart/${chartId}/pdf`,
+        {
+          headers: { dToken },
+          responseType: 'blob'
+        }
+      );
+
+      // Create a download link
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `diet_chart_${patientName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
       toast.success('✅ PDF downloaded successfully!');
     } catch (error) {
-      console.error('Error generating PDF:', error);
-      toast.error('Failed to generate PDF. Please try again.');
+      console.error('Error downloading PDF:', error);
+      toast.error('Failed to download PDF. Please try again.');
     } finally {
       setIsDownloadingPDF(false);
     }
@@ -1551,7 +1487,7 @@ const DietChartGenerator = () => {
     }
 
     return (
-      <div data-meal-calendar className="mb-8">
+      <div className="mb-8">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
             <Calendar className="w-5 h-5 text-gray-700" />
@@ -2561,7 +2497,7 @@ const DietChartGenerator = () => {
               )}
 
               {currentStep === 3 && (
-                <div data-step3-chart>
+                <div>
                   {/* Weekly Nutritional Overview */}
                   {(() => {
                     const nutrition = calculateWeeklyNutrition(formData.weeklyMealPlan);
@@ -3492,7 +3428,7 @@ const DietChartGenerator = () => {
                   const nutrition = calculateWeeklyNutrition(mealPlan || {}, customGoals);
 
                   return (
-                  <div data-chart-details className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
                     {/* Header with Edit/Delete Actions */}
                     <div className="flex items-start justify-between mb-6 pb-6 border-b border-gray-200">
                       <div>

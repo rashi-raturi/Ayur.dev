@@ -1,5 +1,5 @@
 import express from 'express';
-import { loginDoctor, signupDoctor, appointmentsDoctor, appointmentCancel, undoCancellation, confirmAppointment, startAppointment, doctorList, changeAvailablity, appointmentComplete, createAppointmentByDoctor, updateAppointmentByDoctor, doctorDashboard, doctorProfile, updateDoctorProfile, getPatients, addPatientByDoctor, updatePatientByDoctor, emailPrescription, getFoodDatabase, createDietChart, getDietChartsByPatient, getDietChartsByDoctor, getDietChartById, updateDietChart, deleteDietChart, generateAIDietChart, linkDietChartToPrescription, generateDietChartPDF } from '../controllers/doctorController.js';
+import { loginDoctor, appointmentsDoctor, appointmentCancel, undoCancellation, confirmAppointment, startAppointment, doctorList, changeAvailablity, appointmentComplete, createAppointmentByDoctor, updateAppointmentByDoctor, doctorDashboard, doctorProfile, updateDoctorProfile, getPatients, addPatientByDoctor, updatePatientByDoctor, emailPrescription, getFoodDatabase, createDietChart, getDietChartsByPatient, getDietChartsByDoctor, getDietChartById, updateDietChart, deleteDietChart, generateAIDietChart, linkDietChartToPrescription, generateDietChartPDF } from '../controllers/doctorController.js';
 import authDoctor from '../middleware/authDoctor.js';
 import upload from '../middleware/multer.js';
 import { listDoctorPrescriptions, uploadDoctorPrescription, generatePatientSummary, createPrescription, listAllDoctorPrescriptions, updatePrescription, deletePrescription } from '../controllers/prescriptionController.js';
@@ -7,7 +7,6 @@ import { getPatientProfileById } from '../controllers/userController.js';
 const doctorRouter = express.Router();
 
 doctorRouter.post("/login", loginDoctor)
-doctorRouter.post("/signup", upload.single('image'), signupDoctor)
 doctorRouter.post("/cancel-appointment", authDoctor, appointmentCancel)
 doctorRouter.put("/undo-cancellation/:appointmentId", authDoctor, undoCancellation)
 doctorRouter.post("/confirm-appointment", authDoctor, confirmAppointment)
