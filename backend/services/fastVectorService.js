@@ -332,4 +332,7 @@ export async function clearEmbeddings() {
     }
 }
 
+// Export buildFastIndex for dynamic updates
+export { buildFastIndex };
+
 console.log('⚡ Fast Vector Service initialized - Lightning fast food search ready!');

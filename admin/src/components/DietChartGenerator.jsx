@@ -10,6 +10,9 @@ import {
   RefreshCw,
   FileText,
   Users,
+  Plus,
+  X,
+  Save,
 } from "lucide-react";
 import jsPDF from "jspdf";
 import { DoctorContext } from "../context/DoctorContext";
@@ -43,6 +46,50 @@ export default function DietChartGenerator() {
   const [loading, setLoading] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [showForm, setShowForm] = useState(true);
+
+  // Food addition modal state
+  const [showAddFoodModal, setShowAddFoodModal] = useState(false);
+  const [addingFood, setAddingFood] = useState(false);
+  const [newFoodData, setNewFoodData] = useState({
+    name: "",
+    name_hindi: "",
+    category: "",
+    diet_type: "vegetarian",
+    macronutrients: {
+      calories_kcal: 0,
+      proteins_g: 0,
+      carbohydrates_g: 0,
+      fats_g: 0,
+      fiber_g: 0,
+      sugar_g: 0,
+      sodium_mg: 0
+    },
+    ayurvedic_properties: {
+      rasa: ["sweet"],
+      virya: "neutral",
+      vipaka: "sweet",
+      dosha_effects: {
+        vata: "neutral",
+        pitta: "neutral",
+        kapha: "neutral"
+      },
+      karma: {
+        physical_actions: [],
+        mental_actions: []
+      }
+    },
+    vitamins: {},
+    minerals: {},
+    serving_size: {
+      amount: 100,
+      unit: "g"
+    },
+    seasonal_availability: [],
+    health_benefits: [],
+    preparation_methods: [],
+    storage_instructions: "",
+    common_combinations: []
+  });
 
   // Fetch patients on component mount
   useEffect(() => {
@@ -142,6 +189,99 @@ export default function DietChartGenerator() {
 
     existingCharts.unshift(newChart); // Add to beginning
     localStorage.setItem("dietCharts", JSON.stringify(existingCharts));
+  };
+
+  // Food Management Functions
+  const handleAddFood = async () => {
+    if (!newFoodData.name || !newFoodData.category) {
+      toast.error("Please fill in name and category fields");
+      return;
+    }
+
+    setAddingFood(true);
+    try {
+      const response = await fetch(`${backendUrl}/api/doctor/foods/add`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          dToken: dToken,
+        },
+        body: JSON.stringify(newFoodData),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast.success("✅ Food item added successfully! Vector embeddings updated for AI diet generation.");
+        setShowAddFoodModal(false);
+        // Reset form
+        setNewFoodData({
+          name: "",
+          name_hindi: "",
+          category: "",
+          diet_type: "vegetarian",
+          macronutrients: {
+            calories_kcal: 0,
+            proteins_g: 0,
+            carbohydrates_g: 0,
+            fats_g: 0,
+            fiber_g: 0,
+            sugar_g: 0,
+            sodium_mg: 0
+          },
+          ayurvedic_properties: {
+            rasa: ["sweet"],
+            virya: "neutral",
+            vipaka: "sweet",
+            dosha_effects: {
+              vata: "neutral",
+              pitta: "neutral",
+              kapha: "neutral"
+            },
+            karma: {
+              physical_actions: [],
+              mental_actions: []
+            }
+          },
+          vitamins: {},
+          minerals: {},
+          serving_size: {
+            amount: 100,
+            unit: "g"
+          },
+          seasonal_availability: [],
+          health_benefits: [],
+          preparation_methods: [],
+          storage_instructions: "",
+          common_combinations: []
+        });
+      } else {
+        toast.error(data.message || "Failed to add food item");
+      }
+    } catch (error) {
+      console.error("Error adding food:", error);
+      toast.error("Network error. Please try again.");
+    } finally {
+      setAddingFood(false);
+    }
+  };
+
+  const updateNewFoodField = (field, value) => {
+    if (field.includes('.')) {
+      const [parent, child] = field.split('.');
+      setNewFoodData(prev => ({
+        ...prev,
+        [parent]: {
+          ...prev[parent],
+          [child]: value
+        }
+      }));
+    } else {
+      setNewFoodData(prev => ({
+        ...prev,
+        [field]: value
+      }));
+    }
   };
 
   // Constitution options
@@ -521,8 +661,8 @@ export default function DietChartGenerator() {
             Create personalized Ayurvedic meal plans
           </p>
 
-          {/* Patient Auto-fill Button */}
-          <div className="mt-4">
+          {/* Action Buttons */}
+          <div className="mt-4 flex flex-wrap justify-center gap-3">
             <button
               onClick={() => setShowPatientSelector(true)}
               className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
@@ -530,12 +670,21 @@ export default function DietChartGenerator() {
               <Users className="w-4 h-4" />
               Auto-fill from Patient
             </button>
-            {selectedPatient && (
-              <p className="text-sm text-green-600 mt-2">
-                ✓ Loaded data for {selectedPatient.name}
-              </p>
-            )}
+            
+            <button
+              onClick={() => setShowAddFoodModal(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105"
+            >
+              <Plus className="w-4 h-4" />
+              Add Food Item
+            </button>
           </div>
+          
+          {selectedPatient && (
+            <p className="text-sm text-green-600 mt-2 text-center">
+              ✓ Loaded data for {selectedPatient.name}
+            </p>
+          )}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -1131,6 +1280,327 @@ export default function DietChartGenerator() {
                     <p className="text-sm">Try a different search term</p>
                   </div>
                 )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Food Item Modal */}
+      {showAddFoodModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center">
+                  <Plus className="w-5 h-5 text-emerald-600" />
+                </div>
+                <h2 className="text-xl font-semibold text-gray-900">Add New Food Item</h2>
+              </div>
+              <button
+                onClick={() => setShowAddFoodModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Basic Information */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-medium text-gray-900 border-b pb-2">Basic Information</h3>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Food Name *
+                    </label>
+                    <input
+                      type="text"
+                      value={newFoodData.name}
+                      onChange={(e) => updateNewFoodField('name', e.target.value)}
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                      placeholder="e.g., Brown Rice"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Hindi Name
+                    </label>
+                    <input
+                      type="text"
+                      value={newFoodData.name_hindi}
+                      onChange={(e) => updateNewFoodField('name_hindi', e.target.value)}
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                      placeholder="e.g., भूरा चावल"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Category *
+                    </label>
+                    <select
+                      value={newFoodData.category}
+                      onChange={(e) => updateNewFoodField('category', e.target.value)}
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    >
+                      <option value="">Select category</option>
+                      <option value="grains">Grains</option>
+                      <option value="vegetables">Vegetables</option>
+                      <option value="fruits">Fruits</option>
+                      <option value="proteins">Proteins</option>
+                      <option value="dairy">Dairy</option>
+                      <option value="nuts_seeds">Nuts & Seeds</option>
+                      <option value="spices">Spices</option>
+                      <option value="oils">Oils</option>
+                      <option value="beverages">Beverages</option>
+                      <option value="legumes">Legumes</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Diet Type
+                    </label>
+                    <select
+                      value={newFoodData.diet_type}
+                      onChange={(e) => updateNewFoodField('diet_type', e.target.value)}
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    >
+                      <option value="vegetarian">Vegetarian</option>
+                      <option value="vegan">Vegan</option>
+                      <option value="non-vegetarian">Non-Vegetarian</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Nutritional Information */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-medium text-gray-900 border-b pb-2">Nutritional Information (per 100g)</h3>
+                  
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Calories (kcal)
+                      </label>
+                      <input
+                        type="number"
+                        value={newFoodData.macronutrients.calories_kcal}
+                        onChange={(e) => updateNewFoodField('macronutrients.calories_kcal', parseFloat(e.target.value) || 0)}
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                        min="0"
+                        step="0.1"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Protein (g)
+                      </label>
+                      <input
+                        type="number"
+                        value={newFoodData.macronutrients.proteins_g}
+                        onChange={(e) => updateNewFoodField('macronutrients.proteins_g', parseFloat(e.target.value) || 0)}
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                        min="0"
+                        step="0.1"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Carbs (g)
+                      </label>
+                      <input
+                        type="number"
+                        value={newFoodData.macronutrients.carbohydrates_g}
+                        onChange={(e) => updateNewFoodField('macronutrients.carbohydrates_g', parseFloat(e.target.value) || 0)}
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                        min="0"
+                        step="0.1"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Fat (g)
+                      </label>
+                      <input
+                        type="number"
+                        value={newFoodData.macronutrients.fats_g}
+                        onChange={(e) => updateNewFoodField('macronutrients.fats_g', parseFloat(e.target.value) || 0)}
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                        min="0"
+                        step="0.1"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Fiber (g)
+                      </label>
+                      <input
+                        type="number"
+                        value={newFoodData.macronutrients.fiber_g}
+                        onChange={(e) => updateNewFoodField('macronutrients.fiber_g', parseFloat(e.target.value) || 0)}
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                        min="0"
+                        step="0.1"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Sugar (g)
+                      </label>
+                      <input
+                        type="number"
+                        value={newFoodData.macronutrients.sugar_g}
+                        onChange={(e) => updateNewFoodField('macronutrients.sugar_g', parseFloat(e.target.value) || 0)}
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                        min="0"
+                        step="0.1"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Ayurvedic Properties */}
+              <div className="mt-6 space-y-4">
+                <h3 className="text-lg font-medium text-gray-900 border-b pb-2">Ayurvedic Properties</h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Virya (Potency)
+                    </label>
+                    <select
+                      value={newFoodData.ayurvedic_properties.virya}
+                      onChange={(e) => updateNewFoodField('ayurvedic_properties.virya', e.target.value)}
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    >
+                      <option value="hot">Hot (Ushna)</option>
+                      <option value="cold">Cold (Sheeta)</option>
+                      <option value="neutral">Neutral</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Vipaka (Post-digestive effect)
+                    </label>
+                    <select
+                      value={newFoodData.ayurvedic_properties.vipaka}
+                      onChange={(e) => updateNewFoodField('ayurvedic_properties.vipaka', e.target.value)}
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    >
+                      <option value="sweet">Sweet (Madhura)</option>
+                      <option value="sour">Sour (Amla)</option>
+                      <option value="pungent">Pungent (Katu)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Serving Size
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        value={newFoodData.serving_size.amount}
+                        onChange={(e) => updateNewFoodField('serving_size.amount', parseFloat(e.target.value) || 100)}
+                        className="flex-1 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                        min="1"
+                      />
+                      <select
+                        value={newFoodData.serving_size.unit}
+                        onChange={(e) => updateNewFoodField('serving_size.unit', e.target.value)}
+                        className="w-20 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                      >
+                        <option value="g">g</option>
+                        <option value="ml">ml</option>
+                        <option value="cup">cup</option>
+                        <option value="piece">piece</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Dosha Effects */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Dosha Effects
+                  </label>
+                  <div className="grid grid-cols-3 gap-4">
+                    {['vata', 'pitta', 'kapha'].map((dosha) => (
+                      <div key={dosha}>
+                        <label className="block text-xs font-medium text-gray-600 mb-1 capitalize">
+                          {dosha}
+                        </label>
+                        <select
+                          value={newFoodData.ayurvedic_properties.dosha_effects[dosha]}
+                          onChange={(e) => updateNewFoodField(`ayurvedic_properties.dosha_effects.${dosha}`, e.target.value)}
+                          className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-sm"
+                        >
+                          <option value="increases">Increases</option>
+                          <option value="decreases">Decreases</option>
+                          <option value="neutral">Neutral</option>
+                        </select>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Health Benefits */}
+              <div className="mt-6">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Health Benefits (comma-separated)
+                </label>
+                <textarea
+                  value={newFoodData.health_benefits.join(', ')}
+                  onChange={(e) => updateNewFoodField('health_benefits', e.target.value.split(',').map(s => s.trim()).filter(s => s))}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  placeholder="e.g., Boosts immunity, Improves digestion, Anti-inflammatory"
+                  rows="2"
+                />
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 px-6 py-4 flex items-center justify-end gap-3">
+              <button
+                onClick={() => setShowAddFoodModal(false)}
+                className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAddFood}
+                disabled={addingFood || !newFoodData.name || !newFoodData.category}
+                className={`flex items-center gap-2 px-6 py-2 rounded-lg font-medium transition-all ${
+                  addingFood || !newFoodData.name || !newFoodData.category
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    : 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-md hover:shadow-lg transform hover:scale-105'
+                }`}
+              >
+                {addingFood ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Adding...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4" />
+                    Add Food Item
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>

@@ -2876,6 +2876,230 @@ const regeneratePatientAISummary = async (req, res) => {
   }
 };
 
+// Add new food item to database with vector embedding
+const addFoodItem = async (req, res) => {
+  try {
+    const {
+      name,
+      name_hindi,
+      category,
+      diet_type,
+      macronutrients,
+      ayurvedic_properties,
+      vitamins,
+      minerals,
+      serving_size,
+      seasonal_availability,
+      health_benefits,
+      preparation_methods,
+      storage_instructions,
+      common_combinations
+    } = req.body;
+
+    // Validate required fields
+    if (!name || !category || !macronutrients) {
+      return res.json({
+        success: false,
+        message: "Name, category, and macronutrients are required"
+      });
+    }
+
+    // Check if food already exists
+    const existingFood = await foodModel.findOne({ 
+      name: { $regex: new RegExp(`^${name.trim()}$`, 'i') }
+    });
+    
+    if (existingFood) {
+      return res.json({
+        success: false,
+        message: "A food item with this name already exists"
+      });
+    }
+
+    // Generate unique food_id
+    const lastFood = await foodModel.findOne({}, {}, { sort: { food_id: -1 } });
+    const nextFoodId = lastFood ? lastFood.food_id + 1 : 10001;
+
+    // Create food object
+    const newFood = new foodModel({
+      food_id: nextFoodId,
+      name: name.trim(),
+      name_hindi: name_hindi || '',
+      category: category.toLowerCase(),
+      diet_type: diet_type || 'vegetarian',
+      macronutrients: {
+        calories_kcal: macronutrients.calories_kcal || 0,
+        proteins_g: macronutrients.proteins_g || 0,
+        carbohydrates_g: macronutrients.carbohydrates_g || 0,
+        fats_g: macronutrients.fats_g || 0,
+        fiber_g: macronutrients.fiber_g || 0,
+        sugar_g: macronutrients.sugar_g || 0,
+        sodium_mg: macronutrients.sodium_mg || 0
+      },
+      ayurvedic_properties: {
+        rasa: ayurvedic_properties?.rasa || ['sweet'],
+        virya: ayurvedic_properties?.virya || 'neutral',
+        vipaka: ayurvedic_properties?.vipaka || 'sweet',
+        dosha_effects: {
+          vata: ayurvedic_properties?.dosha_effects?.vata || 'neutral',
+          pitta: ayurvedic_properties?.dosha_effects?.pitta || 'neutral',
+          kapha: ayurvedic_properties?.dosha_effects?.kapha || 'neutral'
+        },
+        karma: {
+          physical_actions: ayurvedic_properties?.karma?.physical_actions || [],
+          mental_actions: ayurvedic_properties?.karma?.mental_actions || []
+        }
+      },
+      vitamins: vitamins || {},
+      minerals: minerals || {},
+      serving_size: {
+        amount: serving_size?.amount || 100,
+        unit: serving_size?.unit || 'g'
+      },
+      seasonal_availability: seasonal_availability || [],
+      health_benefits: health_benefits || [],
+      preparation_methods: preparation_methods || [],
+      storage_instructions: storage_instructions || '',
+      common_combinations: common_combinations || [],
+      created_by_doctor: req.doctorId,
+      created_at: new Date(),
+      is_custom: true
+    });
+
+    // Save to database
+    const savedFood = await newFood.save();
+
+    // Update vector embeddings asynchronously
+    let vectorUpdateSuccess = false;
+    let vectorMessage = "";
+    
+    try {
+      const { buildFastIndex } = await import('../services/fastVectorService.js');
+      await buildFastIndex();
+      vectorUpdateSuccess = true;
+      vectorMessage = " and vector embeddings updated";
+      console.log(`✅ Vector embeddings updated for new food: ${name}`);
+    } catch (vectorError) {
+      console.error('Error updating vector embeddings:', vectorError);
+      vectorMessage = " (vector embeddings update failed)";
+      // Don't fail the request if vector update fails
+    }
+
+    // Clear food cache
+    foodCache.data = null;
+    foodCache.timestamp = null;
+
+    res.json({
+      success: true,
+      message: `Food item added successfully${vectorMessage}`,
+      food: savedFood,
+      foodId: savedFood._id,
+      vectorUpdateSuccess
+    });
+
+  } catch (error) {
+    console.error("Error adding food item:", error);
+    res.json({
+      success: false,
+      message: error.message || "Failed to add food item"
+    });
+  }
+};
+
+// Update existing food item
+const updateFoodItem = async (req, res) => {
+  try {
+    const { foodId } = req.params;
+    const updateData = req.body;
+
+    // Find and update food
+    const updatedFood = await foodModel.findByIdAndUpdate(
+      foodId,
+      {
+        ...updateData,
+        updated_at: new Date(),
+        updated_by_doctor: req.doctorId
+      },
+      { new: true }
+    );
+
+    if (!updatedFood) {
+      return res.json({
+        success: false,
+        message: "Food item not found"
+      });
+    }
+
+    // Update vector embeddings asynchronously
+    try {
+      const { buildFastIndex } = await import('../services/fastVectorService.js');
+      await buildFastIndex();
+      console.log(`✅ Vector embeddings updated for food: ${updatedFood.name}`);
+    } catch (vectorError) {
+      console.error('Error updating vector embeddings:', vectorError);
+    }
+
+    // Clear food cache
+    foodCache.data = null;
+    foodCache.timestamp = null;
+
+    res.json({
+      success: true,
+      message: "Food item updated successfully and vector embeddings updated",
+      food: updatedFood
+    });
+
+  } catch (error) {
+    console.error("Error updating food item:", error);
+    res.json({
+      success: false,
+      message: error.message || "Failed to update food item"
+    });
+  }
+};
+
+// Delete food item
+const deleteFoodItem = async (req, res) => {
+  try {
+    const { foodId } = req.params;
+
+    // Find and delete food
+    const deletedFood = await foodModel.findByIdAndDelete(foodId);
+
+    if (!deletedFood) {
+      return res.json({
+        success: false,
+        message: "Food item not found"
+      });
+    }
+
+    // Update vector embeddings asynchronously
+    try {
+      const { buildFastIndex } = await import('../services/fastVectorService.js');
+      await buildFastIndex();
+      console.log(`✅ Vector embeddings updated after deleting: ${deletedFood.name}`);
+    } catch (vectorError) {
+      console.error('Error updating vector embeddings:', vectorError);
+    }
+
+    // Clear food cache
+    foodCache.data = null;
+    foodCache.timestamp = null;
+
+    res.json({
+      success: true,
+      message: "Food item deleted successfully and vector embeddings updated"
+    });
+
+  } catch (error) {
+    console.error("Error deleting food item:", error);
+    res.json({
+      success: false,
+      message: error.message || "Failed to delete food item"
+    });
+  }
+};
+
 export {
   signupDoctor,
   loginDoctor,
@@ -2896,6 +3120,9 @@ export {
   updatePatientByDoctor,
   emailPrescription,
   getFoodDatabase,
+  addFoodItem,
+  updateFoodItem,
+  deleteFoodItem,
   clearFoodCache,
   createDietChart,
   getDietChartsByPatient,

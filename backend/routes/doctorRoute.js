@@ -21,6 +21,9 @@ import {
   updatePatientByDoctor,
   emailPrescription,
   getFoodDatabase,
+  addFoodItem,
+  updateFoodItem,
+  deleteFoodItem,
   createDietChart,
   getDietChartsByPatient,
   getDietChartsByDoctor,
@@ -76,6 +79,9 @@ doctorRouter.post("/update-profile", authDoctor, updateDoctorProfile);
 
 // Food database
 doctorRouter.get("/foods", authDoctor, getFoodDatabase);
+doctorRouter.post("/foods/add", authDoctor, addFoodItem);
+doctorRouter.put("/foods/:foodId", authDoctor, updateFoodItem);
+doctorRouter.delete("/foods/:foodId", authDoctor, deleteFoodItem);
 
 // Diet Chart management
 doctorRouter.post("/diet-chart/create", authDoctor, createDietChart);
