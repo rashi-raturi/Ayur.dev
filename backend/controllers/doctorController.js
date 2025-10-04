@@ -13,7 +13,6 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import transporter from "../config/nodemailer.js";
 import { generatePrescriptionPDF } from "../utils/pdfGenerator.js";
 import { getPrescriptionEmailTemplate } from "../utils/emailTemplate.js";
-import fs from "fs";
 
 // In-memory cache for food database
 let foodCache = {
@@ -21,6 +20,289 @@ let foodCache = {
   timestamp: null,
   version: "1.0.0", // Increment this when food DB is updated
   ttl: 30 * 24 * 60 * 60 * 1000, // 30 days in milliseconds (monthly cache)
+};
+
+// In-memory cache for doctor dashboards
+// Key structure: { doctorId: { data, timestamp } }
+let dashboardCache = {
+  ttl: 5 * 60 * 1000, // 5 minutes in milliseconds (dashboard updates frequently)
+  data: new Map(), // Use Map for better performance with many doctors
+};
+
+// Helper function to get cached dashboard data
+const getCachedDashboard = (doctorId) => {
+  const cached = dashboardCache.data.get(doctorId);
+  if (!cached) return null;
+  
+  const now = Date.now();
+  const age = now - cached.timestamp;
+  
+  if (age > dashboardCache.ttl) {
+    // Cache expired
+    dashboardCache.data.delete(doctorId);
+    return null;
+  }
+  
+  return cached.data;
+};
+
+// Helper function to set dashboard cache
+const setCachedDashboard = (doctorId, data) => {
+  dashboardCache.data.set(doctorId, {
+    data,
+    timestamp: Date.now()
+  });
+};
+
+// Helper function to clear dashboard cache for a doctor
+const clearDoctorDashboardCache = (doctorId) => {
+  if (doctorId) {
+    dashboardCache.data.delete(doctorId);
+    console.log(`Dashboard cache cleared for doctor: ${doctorId}`);
+  }
+};
+
+// In-memory cache for patient AI summaries
+// Key structure: { patientId: { content, timestamp, version } }
+let aiSummaryCache = {
+  ttl: 60 * 60 * 1000, // 1 hour in milliseconds
+  data: new Map(),
+};
+
+// Helper function to get cached AI summary
+const getCachedAISummary = (patientId, currentVersion) => {
+  const cached = aiSummaryCache.data.get(patientId);
+  if (!cached) return null;
+  
+  const now = Date.now();
+  const age = now - cached.timestamp;
+  
+  // Check if cache expired or version changed
+  if (age > aiSummaryCache.ttl || cached.version !== currentVersion) {
+    aiSummaryCache.data.delete(patientId);
+    return null;
+  }
+  
+  return cached.content;
+};
+
+// Helper function to set AI summary cache
+const setCachedAISummary = (patientId, content, version) => {
+  aiSummaryCache.data.set(patientId, {
+    content,
+    timestamp: Date.now(),
+    version
+  });
+};
+
+// Helper function to clear AI summary cache
+const clearAISummaryCache = (patientId) => {
+  if (patientId) {
+    aiSummaryCache.data.delete(patientId);
+    console.log(`AI summary cache cleared for patient: ${patientId}`);
+  }
+};
+
+// Function to generate AI summary for a patient
+const generatePatientAISummary = async (patientId) => {
+  try {
+    console.log(`Generating AI summary for patient: ${patientId}`);
+    
+    // Fetch patient data with populated prescriptions
+    const patient = await userModel.findById(patientId)
+      .populate({
+        path: 'prescriptions',
+        options: { sort: { createdAt: -1 }, limit: 10 } // Last 10 prescriptions
+      });
+    
+    if (!patient) {
+      throw new Error('Patient not found');
+    }
+    
+    // Calculate age
+    let age = 'N/A';
+    if (patient.dob) {
+      const birthDate = new Date(patient.dob);
+      const today = new Date();
+      age = today.getFullYear() - birthDate.getFullYear();
+      const monthDiff = today.getMonth() - birthDate.getMonth();
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+      }
+    }
+    
+    // Calculate BMI if height and weight available
+    let bmi = 'N/A';
+    if (patient.height && patient.weight && patient.height.feet > 0) {
+      const heightInMeters = ((patient.height.feet * 12) + (patient.height.inches || 0)) * 0.0254;
+      bmi = (patient.weight / (heightInMeters * heightInMeters)).toFixed(1);
+    }
+    
+    // Build prescription summary
+    const prescriptionSummaries = patient.prescriptions.slice(0, 5).map((rx, index) => {
+      if (!rx) return null;
+      
+      const date = rx.createdAt ? new Date(rx.createdAt).toLocaleDateString('en-US', { 
+        year: 'numeric', 
+        month: 'short', 
+        day: 'numeric' 
+      }) : 'Unknown date';
+      
+      const medications = rx.medications && rx.medications.length > 0
+        ? rx.medications.map(med => med.name).join(', ')
+        : 'No medications';
+      
+      return `${index + 1}. Date: ${date}
+   - Chief Complaint: ${rx.chiefComplaint || 'Not specified'}
+   - Diagnosis: ${rx.diagnosis || 'Not specified'}
+   - Medications: ${medications}
+   - Dietary Recommendations: ${rx.dietaryRecommendations ? (rx.dietaryRecommendations.substring(0, 100) + '...') : 'None'}`;
+    }).filter(Boolean).join('\n\n');
+    
+    // Build AI prompt
+    const prompt = `You are an Ayurvedic healthcare AI assistant. Generate a comprehensive, professional patient summary based on the following information.
+
+PATIENT INFORMATION:
+- Name: ${patient.name}
+- Age: ${age} years
+- Gender: ${patient.gender}
+- Constitution (Prakriti): ${patient.constitution || 'Not assessed'}
+- BMI: ${bmi}
+- Bowel Movements: ${patient.bowel_movements || 'Not recorded'}
+
+MEDICAL PROFILE:
+- Primary Condition: ${patient.condition || 'General wellness'}
+- Food Allergies: ${patient.foodAllergies || 'None reported'}
+- Current Medications: ${patient.medications && patient.medications.length > 0 ? patient.medications.join(', ') : 'None'}
+- Doctor's Notes: ${patient.notes || 'No additional notes'}
+
+PRESCRIPTION HISTORY (${patient.prescriptions.length} total prescriptions):
+${prescriptionSummaries || 'No prescriptions recorded yet'}
+
+INSTRUCTIONS:
+Generate a comprehensive patient summary in **Markdown format** with the following structure:
+
+## 🏥 Patient Overview
+[Brief 2-3 sentence overview of patient's health status and constitution]
+
+## 📊 Health Profile
+- **Constitution (Prakriti):** [Analysis based on constitution]
+- **Current Health Status:** [Assessment based on condition and symptoms]
+- **BMI Status:** [Interpretation of BMI with recommendations if needed]
+- **Digestive Health:** [Analysis based on bowel movements]
+
+## 🔍 Key Health Trends
+[Bullet points identifying patterns from prescription history]
+- Pattern 1
+- Pattern 2
+- Pattern 3
+
+## ⚠️ Risk Factors & Concerns
+[List any health concerns or risk factors based on the data]
+- Risk factor 1
+- Risk factor 2
+
+## 💊 Treatment Progress
+[Analysis of treatment history and progress over time]
+- What has been treated
+- Medications patterns
+- Treatment outcomes (if inferable)
+
+## 🥗 Dietary Considerations
+[Key dietary recommendations based on constitution, allergies, and prescriptions]
+- Recommendation 1
+- Recommendation 2
+- Recommendation 3
+
+## 📈 Recommendations for Continued Care
+[Forward-looking recommendations for the doctor]
+1. Recommendation 1
+2. Recommendation 2
+3. Recommendation 3
+
+## 🎯 Quick Reference
+- **Last Consultation:** ${patient.prescriptions.length > 0 && patient.prescriptions[0].createdAt ? new Date(patient.prescriptions[0].createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : 'No consultations yet'}
+- **Total Prescriptions:** ${patient.prescriptions.length}
+- **Active Concerns:** [List 2-3 key concerns]
+
+IMPORTANT:
+- Use professional medical language
+- Be specific and evidence-based using the data provided
+- Focus on Ayurvedic perspective when analyzing constitution
+- Keep the summary concise but comprehensive
+- Use bullet points and lists for easy scanning
+- If data is missing or insufficient, acknowledge it professionally
+- Do not make up information not provided in the data
+- Format response in clean Markdown with emojis for section headers
+
+Generate the summary now:`;
+
+    // Initialize Gemini AI
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
+    
+    console.log('Calling Gemini AI for patient summary...');
+    const result = await model.generateContent(prompt);
+    const aiResponse = result.response.text();
+    
+    console.log('AI summary generated successfully');
+    
+    // Extract metadata from the summary
+    const healthTrends = [];
+    const riskFactors = [];
+    const recommendations = [];
+    
+    // Simple extraction logic (can be improved)
+    const trendMatch = aiResponse.match(/## 🔍 Key Health Trends\n([\s\S]*?)##/);
+    if (trendMatch) {
+      const trends = trendMatch[1].match(/- (.*)/g);
+      if (trends) healthTrends.push(...trends.map(t => t.replace('- ', '').trim()));
+    }
+    
+    const riskMatch = aiResponse.match(/## ⚠️ Risk Factors & Concerns\n([\s\S]*?)##/);
+    if (riskMatch) {
+      const risks = riskMatch[1].match(/- (.*)/g);
+      if (risks) riskFactors.push(...risks.map(r => r.replace('- ', '').trim()));
+    }
+    
+    const recMatch = aiResponse.match(/## 📈 Recommendations for Continued Care\n([\s\S]*?)##/);
+    if (recMatch) {
+      const recs = recMatch[1].match(/\d+\. (.*)/g);
+      if (recs) recommendations.push(...recs.map(r => r.replace(/\d+\. /, '').trim()));
+    }
+    
+    // Update patient record with new summary
+    patient.aiSummary = {
+      content: aiResponse,
+      lastGenerated: new Date(),
+      prescriptionCount: patient.prescriptions.length,
+      version: (patient.aiSummary?.version || 0) + 1,
+      metadata: {
+        healthTrends: healthTrends.slice(0, 5),
+        riskFactors: riskFactors.slice(0, 5),
+        recommendations: recommendations.slice(0, 5),
+        treatmentProgress: 'Analysis based on ' + patient.prescriptions.length + ' prescriptions'
+      }
+    };
+    
+    await patient.save();
+    
+    // Cache the summary
+    setCachedAISummary(patientId, aiResponse, patient.aiSummary.version);
+    
+    console.log(`AI summary saved and cached for patient: ${patientId}`);
+    
+    return {
+      content: aiResponse,
+      metadata: patient.aiSummary.metadata,
+      lastGenerated: patient.aiSummary.lastGenerated,
+      version: patient.aiSummary.version
+    };
+    
+  } catch (error) {
+    console.error('Error generating AI summary:', error);
+    throw error;
+  }
 };
 
 // API for doctor signup
@@ -215,6 +497,9 @@ const appointmentCancel = async (req, res) => {
       cancelledAt: new Date(),
     });
 
+    // Clear dashboard cache since appointment status changed
+    clearDoctorDashboardCache(docId);
+
     return res.json({ success: true, message: "Appointment Cancelled" });
   } catch (error) {
     console.log(error);
@@ -270,6 +555,9 @@ const undoCancellation = async (req, res) => {
       `Appointment ${appointmentId} restored to status: ${restoredStatus}`
     );
 
+    // Clear dashboard cache since appointment status changed
+    clearDoctorDashboardCache(docId);
+
     return res.json({
       success: true,
       message: "Appointment restored successfully",
@@ -304,6 +592,9 @@ const confirmAppointment = async (req, res) => {
       payment: true,
     });
 
+    // Clear dashboard cache since payment/status changed
+    clearDoctorDashboardCache(docId);
+
     return res.json({ success: true, message: "Appointment Confirmed" });
   } catch (error) {
     console.log(error);
@@ -334,6 +625,9 @@ const startAppointment = async (req, res) => {
       status: "in-progress",
       startedAt: new Date(),
     });
+
+    // Clear dashboard cache since appointment status changed
+    clearDoctorDashboardCache(docId);
 
     return res.json({ success: true, message: "Appointment Started" });
   } catch (error) {
@@ -366,6 +660,9 @@ const appointmentComplete = async (req, res) => {
       status: "completed",
       completedAt: new Date(),
     });
+
+    // Clear dashboard cache since appointment completed (affects earnings)
+    clearDoctorDashboardCache(docId);
 
     return res.json({ success: true, message: "Appointment Completed" });
   } catch (error) {
@@ -453,6 +750,9 @@ const createAppointmentByDoctor = async (req, res) => {
 
     console.log("Updated doctor slotsBooked");
 
+    // Clear dashboard cache since new appointment created
+    clearDoctorDashboardCache(docId);
+
     res.json({
       success: true,
       message: "Appointment created successfully",
@@ -534,6 +834,19 @@ const doctorDashboard = async (req, res) => {
   try {
     const docId = req.doctorId;
 
+    // Check cache first
+    const cachedData = getCachedDashboard(docId);
+    if (cachedData) {
+      console.log(`Serving dashboard from cache for doctor: ${docId}`);
+      return res.json({ 
+        success: true, 
+        dashData: cachedData,
+        cached: true 
+      });
+    }
+
+    console.log(`Cache miss - fetching fresh dashboard data for doctor: ${docId}`);
+
     const appointments = await appointmentModel
       .find({ docId })
       .populate("userId", "name email");
@@ -572,7 +885,11 @@ const doctorDashboard = async (req, res) => {
       latestAppointments: appointments.reverse(),
     };
 
-    res.json({ success: true, dashData });
+    // Cache the dashboard data
+    setCachedDashboard(docId, dashData);
+    console.log(`Dashboard data cached for doctor: ${docId}`);
+
+    res.json({ success: true, dashData, cached: false });
   } catch (error) {
     console.log(error);
     res.json({ success: false, message: error.message });
@@ -732,6 +1049,9 @@ const addPatientByDoctor = async (req, res) => {
     const savedPatient = await newPatient.save();
 
     console.log("Patient saved successfully with doctor:", savedPatient.doctor);
+
+    // Clear dashboard cache since new patient added
+    clearDoctorDashboardCache(docId);
 
     res.json({
       success: true,
@@ -963,7 +1283,7 @@ const emailPrescription = async (req, res) => {
 
     // Generate PDF
     console.log("Generating PDF for prescription:", prescriptionId);
-    const { filepath, filename } = await generatePrescriptionPDF(prescription, {
+    const { buffer, filename } = await generatePrescriptionPDF(prescription, {
       name: doctor.name,
       speciality: doctor.speciality,
       email: doctor.email,
@@ -985,7 +1305,7 @@ const emailPrescription = async (req, res) => {
       fromAddress = `"${doctor.name} - Ayurvedic Health Center" <${process.env.EMAIL_USER}>`;
     }
 
-    // Send email
+    // Send email with PDF buffer (Vercel compatible - no filesystem)
     const mailOptions = {
       from: fromAddress,
       to: patientEmail,
@@ -994,7 +1314,7 @@ const emailPrescription = async (req, res) => {
       attachments: [
         {
           filename: `Prescription_${prescription.prescriptionId}.pdf`,
-          path: filepath,
+          content: buffer, // Use buffer instead of path
         },
       ],
     };
@@ -1005,11 +1325,6 @@ const emailPrescription = async (req, res) => {
     // Update prescription with emailedAt timestamp
     prescription.emailedAt = new Date();
     await prescription.save();
-
-    // Delete the temporary PDF file
-    fs.unlink(filepath, (err) => {
-      if (err) console.error("Error deleting PDF file:", err);
-    });
 
     res.json({
       success: true,
@@ -1135,6 +1450,9 @@ const updateAppointmentByDoctor = async (req, res) => {
     );
 
     console.log("Appointment updated successfully:", updatedAppointment._id);
+
+    // Clear dashboard cache since appointment details changed
+    clearDoctorDashboardCache(docId);
 
     res.json({
       success: true,
@@ -1793,48 +2111,7 @@ HARD LIMITS (DO NOT EXCEED UNDER ANY CIRCUMSTANCE):
 TASK - CALCULATE NUTRITION GOALS:
 **FIRST, you MUST calculate personalized daily nutrition targets based on the patient's profile:**
 
-1. **Base Calorie Calculation:**
-   - Start with base: 2000 kcal (female) or 2200 kcal (male)
-   - Age adjustment: If age > 50, reduce by 200 kcal; if age < 25, add 200 kcal
-   - BMI adjustment:
-     * BMI < 18.5 (underweight): Add 300 kcal
-     * BMI 25-30 (overweight): Reduce by 200 kcal
-     * BMI ≥ 30 (obese): Reduce by 400 kcal
-   - Constitution adjustment:
-     * Vata: No change
-     * Pitta: Add 100 kcal
-     * Kapha: Reduce by 200 kcal
-   - Bowel movement adjustment:
-     * Constipation/Irregular: May need more fiber
-     * Normal: No change
 
-2. **Macronutrient Calculation:**
-   - Protein: Base 50g, add 5g for Vata/Kapha, add 10g for Pitta
-   - Fat: Base 65g, add 10g for Vata, reduce 5g for Pitta, reduce 10g for Kapha
-   - Fiber: Base 25g, add 5g for Vata, add 10g for Kapha, add 10g for constipation
-   - Carbs: Calculate from remaining calories: (Total Calories - (Protein × 4) - (Fat × 9)) ÷ 4
-
-3. **Vitamins (Daily Recommended Intake):**
-   - Vitamin A: 700 mcg (female) or 900 mcg (male)
-   - Vitamin B1 (Thiamine): 1.1 mg
-   - Vitamin B2 (Riboflavin): 1.1 mg
-   - Vitamin B3 (Niacin): 14 mg
-   - Vitamin B6: 1.3 mg
-   - Vitamin B12: 2.4 mcg
-   - Vitamin C: 75 mg (female) or 90 mg (male)
-   - Vitamin D: 15 mcg
-   - Vitamin E: 15 mg
-   - Vitamin K: 90 mcg
-   - Folate: 400 mcg
-
-4. **Minerals (Daily Recommended Intake):**
-   - Calcium: 1000 mg
-   - Iron: 18 mg (female) or 10 mg (male)
-   - Magnesium: 310 mg (female) or 400 mg (male)
-   - Phosphorus: 700 mg
-   - Potassium: 2600 mg
-   - Sodium: 1500 mg
-   - Zinc: 8 mg (female) or 11 mg (male)
 
 **YOU MUST show your calculated nutrition goals at the beginning of your response in this EXACT format:**
 
@@ -1863,11 +2140,9 @@ CALCULATED NUTRITION GOALS:
 - Sodium: XXXX mg
 - Zinc: XX mg
 
-Then create the meal plan targeting 90-98% of these calculated values (NEVER exceed 100%).
+Then create the meal plan targeting 95-98% of these calculated values (NEVER exceed 100%).
 `
 }
-
-CRITICAL: If any nutrient falls short (below 90%), you MUST recommend specific Ayurvedic supplements to compensate.
 
 TOP 500 RECOMMENDED FOODS FOR THIS PATIENT (Already filtered to exclude allergens):
 ${foodList}
@@ -1901,8 +2176,8 @@ CRITICAL INSTRUCTIONS - MUST FOLLOW EXACTLY:
 8. **LIMIT LIQUIDS: Maximum ONE liquid per meal (Water, Milk, Tea, etc.) - NOT 2 or 3 liquids**
 9. MAXIMIZE VARIETY: Use each food item maximum 2-3 times across the entire week
 10. NEVER repeat the same food in the same day
-11. Daily totals MUST achieve 90-98% of ALL nutrition targets
-12. **CRITICAL HARD LIMIT: NEVER EXCEED 100% of ANY nutrient. If approaching limit, REDUCE portion sizes immediately**
+11. Daily totals MUST achieve 95-98% of ALL nutrition targets
+12. **CRITICAL HARD LIMIT: NEVER EXCEED 100% of ANY macronutrient. If approaching limit, REDUCE portion sizes immediately**
 13. Balance doshas according to patient's constitution: ${
     patientDetails.constitution
   }
@@ -2505,23 +2780,146 @@ const generateDietChartPDF = async (req, res) => {
     const { generateDietChartPDF: generatePDF } = await import(
       "../utils/pdfGenerator.js"
     );
-    const { filepath, filename } = await generatePDF(
+    const { buffer, filename } = await generatePDF(
       dietChartData,
       patientData,
       doctorData
     );
 
-    // Send file
-    res.download(filepath, filename, (err) => {
-      if (err) {
-        console.error("Error sending PDF:", err);
-        res.json({ success: false, message: "Error downloading PDF" });
-      }
-      // Delete file after sending
-      fs.unlinkSync(filepath);
-    });
+    // Send PDF buffer directly to response (Vercel compatible)
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Length', buffer.length);
+    res.send(buffer);
   } catch (error) {
     console.error("Error generating diet chart PDF:", error);
+    res.json({ success: false, message: error.message });
+  }
+};
+
+// API to get patient AI summary
+const getPatientAISummary = async (req, res) => {
+  try {
+    const { patientId } = req.params;
+    const doctorId = req.doctorId;
+    const { forceRefresh } = req.query; // Optional query param to force regeneration
+    
+    console.log(`AI summary request for patient: ${patientId}`);
+    
+    // Verify doctor has access to this patient
+    const patient = await userModel.findById(patientId);
+    if (!patient) {
+      return res.json({ success: false, message: 'Patient not found' });
+    }
+    
+    // Check if doctor has access (either assigned doctor or has appointments)
+    const hasAccess = patient.doctor.toString() === doctorId.toString();
+    const hasAppointment = await appointmentModel.exists({ docId: doctorId, userId: patientId });
+    
+    if (!hasAccess && !hasAppointment) {
+      return res.json({ success: false, message: 'Unauthorized access to patient' });
+    }
+    
+    // Check if force refresh requested
+    if (forceRefresh === 'true') {
+      console.log('Force refresh requested - generating new summary');
+      clearAISummaryCache(patientId);
+      const summary = await generatePatientAISummary(patientId);
+      return res.json({ 
+        success: true, 
+        summary,
+        cached: false,
+        regenerated: true
+      });
+    }
+    
+    // Check cache first
+    const cachedSummary = getCachedAISummary(patientId, patient.aiSummary?.version);
+    if (cachedSummary) {
+      console.log('Serving AI summary from cache');
+      return res.json({
+        success: true,
+        summary: {
+          content: cachedSummary,
+          metadata: patient.aiSummary.metadata,
+          lastGenerated: patient.aiSummary.lastGenerated,
+          version: patient.aiSummary.version
+        },
+        cached: true
+      });
+    }
+    
+    // Check if we have a stored summary in DB
+    if (patient.aiSummary && patient.aiSummary.content && 
+        patient.aiSummary.prescriptionCount === patient.prescriptions.length) {
+      console.log('Serving AI summary from database (up to date)');
+      
+      // Cache it for future requests
+      setCachedAISummary(patientId, patient.aiSummary.content, patient.aiSummary.version);
+      
+      return res.json({
+        success: true,
+        summary: {
+          content: patient.aiSummary.content,
+          metadata: patient.aiSummary.metadata,
+          lastGenerated: patient.aiSummary.lastGenerated,
+          version: patient.aiSummary.version
+        },
+        cached: false,
+        fromDatabase: true
+      });
+    }
+    
+    // Generate new summary
+    console.log('Generating new AI summary');
+    const summary = await generatePatientAISummary(patientId);
+    
+    res.json({
+      success: true,
+      summary,
+      cached: false,
+      generated: true
+    });
+    
+  } catch (error) {
+    console.error('Error getting patient AI summary:', error);
+    res.json({ success: false, message: error.message });
+  }
+};
+
+// API to manually regenerate patient AI summary
+const regeneratePatientAISummary = async (req, res) => {
+  try {
+    const { patientId } = req.params;
+    const doctorId = req.doctorId;
+    
+    console.log(`Manual regeneration request for patient: ${patientId}`);
+    
+    // Verify doctor has access
+    const patient = await userModel.findById(patientId);
+    if (!patient) {
+      return res.json({ success: false, message: 'Patient not found' });
+    }
+    
+    const hasAccess = patient.doctor.toString() === doctorId.toString();
+    const hasAppointment = await appointmentModel.exists({ docId: doctorId, userId: patientId });
+    
+    if (!hasAccess && !hasAppointment) {
+      return res.json({ success: false, message: 'Unauthorized access to patient' });
+    }
+    
+    // Clear cache and regenerate
+    clearAISummaryCache(patientId);
+    const summary = await generatePatientAISummary(patientId);
+    
+    res.json({
+      success: true,
+      message: 'AI summary regenerated successfully',
+      summary
+    });
+    
+  } catch (error) {
+    console.error('Error regenerating patient AI summary:', error);
     res.json({ success: false, message: error.message });
   }
 };
@@ -2557,4 +2955,7 @@ export {
   generateAIDietChart,
   linkDietChartToPrescription,
   generateDietChartPDF,
+  getPatientAISummary,
+  regeneratePatientAISummary,
+  generatePatientAISummary, // Export for use in other controllers
 };

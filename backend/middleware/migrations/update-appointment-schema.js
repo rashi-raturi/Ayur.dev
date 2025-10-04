@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
-import appointmentModel from '../models/appointmentModel.js';
+import appointmentModel from '../../models/appointmentModel.js';
 
 dotenv.config();
 

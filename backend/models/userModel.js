@@ -40,7 +40,21 @@ const userSchema = new mongoose.Schema({
     
     prescriptions: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Prescription' }],
     assessments: [{ type: mongoose.Schema.Types.ObjectId, ref: 'assessment' }],
-    doctor: { type: mongoose.Schema.Types.ObjectId, ref: 'doctor', required:true} // Doctor associated with this patient
+    doctor: { type: mongoose.Schema.Types.ObjectId, ref: 'doctor', required:true}, // Doctor associated with this patient
+    
+    // AI-Generated Summary
+    aiSummary: {
+        content: { type: String, default: '' }, // Markdown formatted AI summary
+        lastGenerated: { type: Date }, // When was it last generated
+        prescriptionCount: { type: Number, default: 0 }, // Number of prescriptions when summary was generated
+        version: { type: Number, default: 1 }, // Summary version for cache invalidation
+        metadata: {
+            healthTrends: [{ type: String }], // Key health trends
+            riskFactors: [{ type: String }], // Identified risk factors
+            recommendations: [{ type: String }], // Key recommendations
+            treatmentProgress: { type: String }, // Overall treatment progress assessment
+        }
+    }
 }, { timestamps: true });
 
 const userModel = mongoose.models.user || mongoose.model("user", userSchema);

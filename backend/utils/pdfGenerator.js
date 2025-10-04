@@ -1,6 +1,4 @@
 import PDFDocument from 'pdfkit';
-import fs from 'fs';
-import path from 'path';
 
 export const generateDietChartPDF = async (dietChartData, patientData, doctorData) => {
     return new Promise((resolve, reject) => {
@@ -64,19 +62,25 @@ export const generateDietChartPDF = async (dietChartData, patientData, doctorDat
                 margins: { top: 20, bottom: 20, left: 20, right: 20 }
             });
 
-            // Create uploads directory if it doesn't exist
-            const uploadsDir = path.join(process.cwd(), 'uploads', 'diet-charts');
-            if (!fs.existsSync(uploadsDir)) {
-                fs.mkdirSync(uploadsDir, { recursive: true });
-            }
+            // VERCEL FIX: Use memory buffer instead of file system
+            // Collect PDF data in memory chunks
+            const chunks = [];
+            
+            doc.on('data', (chunk) => {
+                chunks.push(chunk);
+            });
+            
+            doc.on('end', () => {
+                const pdfBuffer = Buffer.concat(chunks);
+                const filename = `diet_chart_${patientData.name.replace(/\s+/g, '_')}_${Date.now()}.pdf`;
+                console.log('Diet chart PDF generated successfully in memory:', filename);
+                resolve({ buffer: pdfBuffer, filename });
+            });
 
-            // Generate filename
-            const filename = `diet_chart_${patientData.name.replace(/\s+/g, '_')}_${Date.now()}.pdf`;
-            const filepath = path.join(uploadsDir, filename);
-
-            // Pipe the PDF to a file
-            const stream = fs.createWriteStream(filepath);
-            doc.pipe(stream);
+            doc.on('error', (error) => {
+                console.error('PDF generation error:', error);
+                reject(error);
+            });
 
             // Helper function to draw a line
             const drawLine = (y, color = '#e5e7eb') => {
@@ -367,17 +371,6 @@ export const generateDietChartPDF = async (dietChartData, patientData, doctorDat
             // Finalize the PDF
             doc.end();
 
-            // Wait for the stream to finish
-            stream.on('finish', () => {
-                console.log('Diet chart PDF generated successfully:', filename);
-                resolve({ filepath, filename });
-            });
-
-            stream.on('error', (error) => {
-                console.error('PDF stream error:', error);
-                reject(error);
-            });
-
         } catch (error) {
             console.error('Diet chart PDF generation error:', error);
             reject(error);
@@ -404,19 +397,25 @@ export const generatePrescriptionPDF = async (prescriptionData, doctorData) => {
                 margins: { top: 50, bottom: 50, left: 50, right: 50 }
             });
 
-            // Create uploads directory if it doesn't exist
-            const uploadsDir = path.join(process.cwd(), 'uploads', 'prescriptions');
-            if (!fs.existsSync(uploadsDir)) {
-                fs.mkdirSync(uploadsDir, { recursive: true });
-            }
+            // VERCEL FIX: Use memory buffer instead of file system
+            // Collect PDF data in memory chunks
+            const chunks = [];
+            
+            doc.on('data', (chunk) => {
+                chunks.push(chunk);
+            });
+            
+            doc.on('end', () => {
+                const pdfBuffer = Buffer.concat(chunks);
+                const filename = `prescription_${prescriptionId}_${Date.now()}.pdf`;
+                console.log('Prescription PDF generated successfully in memory:', filename);
+                resolve({ buffer: pdfBuffer, filename });
+            });
 
-            // Generate filename
-            const filename = `prescription_${prescriptionId}_${Date.now()}.pdf`;
-            const filepath = path.join(uploadsDir, filename);
-
-            // Pipe the PDF to a file
-            const stream = fs.createWriteStream(filepath);
-            doc.pipe(stream);
+            doc.on('error', (error) => {
+                console.error('Prescription PDF generation error:', error);
+                reject(error);
+            });
 
             // Helper function to draw a line
             const drawLine = (y) => {
@@ -672,17 +671,6 @@ export const generatePrescriptionPDF = async (prescriptionData, doctorData) => {
 
             // Finalize the PDF
             doc.end();
-
-            // Wait for the stream to finish
-            stream.on('finish', () => {
-                console.log('PDF generated successfully:', filename);
-                resolve({ filepath, filename });
-            });
-
-            stream.on('error', (error) => {
-                console.error('PDF stream error:', error);
-                reject(error);
-            });
 
         } catch (error) {
             console.error('PDF generation error:', error);

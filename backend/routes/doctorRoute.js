@@ -29,6 +29,8 @@ import {
   generateAIDietChart,
   linkDietChartToPrescription,
   generateDietChartPDF,
+  getPatientAISummary,
+  regeneratePatientAISummary,
 } from "../controllers/doctorController.js";
 import authDoctor from "../middleware/authDoctor.js";
 import upload from "../middleware/multer.js";
@@ -103,6 +105,18 @@ doctorRouter.put(
   authDoctor,
   upload.single("image"),
   updatePatientByDoctor
+);
+
+// AI Summary endpoints
+doctorRouter.get(
+  "/patient/:patientId/ai-summary",
+  authDoctor,
+  getPatientAISummary
+);
+doctorRouter.post(
+  "/patient/:patientId/regenerate-summary",
+  authDoctor,
+  regeneratePatientAISummary
 );
 
 // Prescription management

@@ -58,9 +58,6 @@ const Sidebar = () => {
             </div>
             <div>
               <h1 className="text-base font-semibold text-gray-900">Ayur.dev</h1>
-              <h1 className="text-base font-semibold text-gray-900">
-                ayur.dev
-              </h1>
               <p className="text-xs text-blue-600">Holistic Healthcare</p>
             </div>
           </div>

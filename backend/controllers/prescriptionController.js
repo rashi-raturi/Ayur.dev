@@ -406,6 +406,18 @@ export const createPrescription = async (req, res) => {
 
 		await prescription.save();
 
+		// Trigger AI summary generation in background (fire and forget)
+		// Note: The actual generation happens via a separate API endpoint or background job
+		// For now, we'll mark that the summary needs regeneration by incrementing version
+		try {
+			await userModel.findByIdAndUpdate(patientId, {
+				$inc: { 'aiSummary.version': 1 } // Increment version to invalidate cache
+			});
+			console.log(`AI summary marked for regeneration for patient: ${patientId}`);
+		} catch (err) {
+			console.error('Failed to mark AI summary for regeneration:', err);
+		}
+
 		res.status(201).json({ 
 			success: true, 
 			message: 'Prescription created successfully',
