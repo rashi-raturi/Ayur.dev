@@ -1,15 +1,19 @@
 import mongoose from "mongoose";
 
 // Sub-schema for address
-const addressSchema = new mongoose.Schema({
+const addressSchema = new mongoose.Schema(
+  {
     line1: { type: String, required: true },
     line2: { type: String },
     // city: { type: String, required: true },
     // state: { type: String, required: true },
     // zip: { type: String }
-}, { _id: false });
+  },
+  { _id: false }
+);
 
-const doctorSchema = new mongoose.Schema({
+const doctorSchema = new mongoose.Schema(
+  {
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
@@ -20,10 +24,14 @@ const doctorSchema = new mongoose.Schema({
     about: { type: String },
     available: { type: Boolean, default: true },
     fees: { type: Number },
-    registrationNumber: { type: String, required: true, unique: true}, 
-    address: { type: addressSchema},
-    slotsBooked: [{ type: mongoose.Schema.Types.ObjectId, ref: 'appointment' }]
-}, { timestamps: true });
+    registrationNumber: { type: String, required: true, unique: true },
+    phone: { type: String },
+    address: { type: addressSchema },
+    slotsBooked: [{ type: mongoose.Schema.Types.ObjectId, ref: "appointment" }],
+  },
+  { timestamps: true }
+);
 
-const doctorModel = mongoose.models.doctor || mongoose.model("doctor", doctorSchema);
+const doctorModel =
+  mongoose.models.doctor || mongoose.model("doctor", doctorSchema);
 export default doctorModel;
