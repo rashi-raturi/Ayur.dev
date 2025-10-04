@@ -27,7 +27,7 @@ export default function ContactWithOmniEnv() {
 
   return (
     <PageTransition>
-      <div className="flex flex-col min-h-screen w-full bg-gradient-to-br from-purple-50 via-pink-50 to-rose-50">
+      <div className="flex flex-col min-h-screen w-full bg-gradient-to-br from-blue-50 to-indigo-100">
         <div className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6">
           <div className="flex flex-col space-y-6">
             <div className="text-center py-8 md:py-16">
@@ -54,7 +54,7 @@ export default function ContactWithOmniEnv() {
 
                   <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex items-center justify-center">
                     <button 
-                      className="flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all bg-purple-600 text-white hover:bg-purple-700 shadow-lg hover:shadow-xl"
+                      className="flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all bg-blue-600 text-white hover:bg-blue-700 shadow-lg hover:shadow-xl"
                       onClick={() => {
                         // Trigger the OmniDimension widget
                         if (window.omnidimension && window.omnidimension.open) {
@@ -73,25 +73,25 @@ export default function ContactWithOmniEnv() {
               <div className="max-w-5xl mx-auto">
                 <h3 className="text-lg font-semibold text-gray-700 mb-6">Explore Vaani AI capabilities:</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="group p-6 text-center bg-white border-2 border-purple-100 rounded-2xl hover:border-purple-300 hover:shadow-xl transition-all transform hover:-translate-y-1">
-                    <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center mb-4 mx-auto group-hover:bg-purple-200 transition-colors">
-                      <Brain className="w-6 h-6 text-purple-600" />
+                  <div className="group p-6 text-center bg-white border-2 border-blue-100 rounded-2xl hover:border-blue-300 hover:shadow-xl transition-all transform hover:-translate-y-1">
+                    <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center mb-4 mx-auto group-hover:bg-blue-200 transition-colors">
+                      <Brain className="w-6 h-6 text-blue-600" />
                     </div>
                     <div className="font-bold text-gray-900 mb-2">Ayurveda Knowledge</div>
                     <div className="text-sm text-gray-600">Natural remedies, yoga, and lifestyle guidance</div>
                   </div>
 
-                  <div className="group p-6 text-center bg-white border-2 border-purple-100 rounded-2xl hover:border-purple-300 hover:shadow-xl transition-all transform hover:-translate-y-1">
-                    <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center mb-4 mx-auto group-hover:bg-purple-200 transition-colors">
-                      <Mic className="w-6 h-6 text-purple-600" />
+                  <div className="group p-6 text-center bg-white border-2 border-blue-100 rounded-2xl hover:border-blue-300 hover:shadow-xl transition-all transform hover:-translate-y-1">
+                    <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center mb-4 mx-auto group-hover:bg-blue-200 transition-colors">
+                      <Mic className="w-6 h-6 text-blue-600" />
                     </div>
                     <div className="font-bold text-gray-900 mb-2">Voice Interaction</div>
                     <div className="text-sm text-gray-600">Hands-free, natural conversations</div>
                   </div>
 
-                  <div className="group p-6 text-center bg-white border-2 border-purple-100 rounded-2xl hover:border-purple-300 hover:shadow-xl transition-all transform hover:-translate-y-1">
-                    <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center mb-4 mx-auto group-hover:bg-purple-200 transition-colors">
-                      <Sparkles className="w-6 h-6 text-purple-600" />
+                  <div className="group p-6 text-center bg-white border-2 border-blue-100 rounded-2xl hover:border-blue-300 hover:shadow-xl transition-all transform hover:-translate-y-1">
+                    <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center mb-4 mx-auto group-hover:bg-blue-200 transition-colors">
+                      <Sparkles className="w-6 h-6 text-blue-600" />
                     </div>
                     <div className="font-bold text-gray-900 mb-2">Modern Wisdom</div>
                     <div className="text-sm text-gray-600">Ancient knowledge meets AI technology</div>
