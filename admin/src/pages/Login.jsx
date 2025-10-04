@@ -5,6 +5,7 @@ import { AdminContext } from '../context/AdminContext'
 import { toast } from 'react-toastify'
 import { useNavigate } from 'react-router-dom'
 import { Eye, EyeOff } from 'lucide-react'
+import { assets } from '../assets/assets'
 
 const Login = () => {
 
@@ -67,11 +68,11 @@ const Login = () => {
         {/* Logo & Header */}
         <div className='text-center mb-8'>
           <div className='flex justify-center mb-4'>
-            <div className='w-16 h-16 bg-gray-900 rounded-2xl flex items-center justify-center shadow-lg'>
-              <img src='/logo.png' alt='AyurVed Pro' className='w-10 h-10 object-contain' />
+            <div className='w-20 h-20 rounded-2xl flex items-center justify-center shadow-lg'>
+              <img src={assets.admin_logo} alt='Ayur.dev' className='w-15 h-15 rounded-2xl' />
             </div>
           </div>
-          <h1 className='text-3xl font-bold text-gray-900 mb-2'>ayur.dev</h1>
+          <h1 className='text-3xl font-bold text-gray-900 mb-2'>Ayur.dev</h1>
           <p className='text-gray-500'>Holistic Healthcare Management System</p>
         </div>
 

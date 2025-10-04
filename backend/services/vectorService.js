@@ -3,7 +3,7 @@ import foodModel from '../models/foodModel.js';
 import dotenv from 'dotenv';
 dotenv.config();
 
-// Initialize Pinecone
+
 const API_KEY = process.env.PINECONE_API_KEY
 
 const pinecone = new Pinecone({
@@ -11,11 +11,11 @@ const pinecone = new Pinecone({
 });
 
 const INDEX_NAME = 'ayurveda-foods';
-const DIMENSION = 384; // BAAI/bge-small-en-v1.5 dimension
+const DIMENSION = 384; 
 const HUGGINGFACE_API_URL = 'https://api-inference.huggingface.co/models/BAAI/bge-small-en-v1.5';
 const HUGGINGFACE_API_KEY = process.env.HUGGINGFACE_API_KEY;
 
-// Get or create Pinecone index
+
 async function getIndex() {
     try {
         const indexes = await pinecone.listIndexes();
@@ -45,7 +45,6 @@ async function getIndex() {
     }
 }
 
-// Generate embedding using Hugging Face (Free, no quota issues!)
 async function generateEmbedding(text) {
     try {
         const response = await fetch(HUGGINGFACE_API_URL, {
@@ -70,14 +69,11 @@ async function generateEmbedding(text) {
 
         const result = await response.json();
         
-        // Hugging Face returns embeddings in different formats depending on the model
-        // For sentence-transformers, it typically returns a 2D array or direct array
+
         if (Array.isArray(result)) {
             if (Array.isArray(result[0]) && typeof result[0][0] === 'number') {
-                // 2D array - return first embedding
                 return result[0];
             } else if (typeof result[0] === 'number') {
-                // Already a 1D array of numbers
                 return result;
             }
         }
@@ -89,7 +85,7 @@ async function generateEmbedding(text) {
     }
 }
 
-// Create rich text representation of food for embedding
+
 function createFoodEmbeddingText(food) {
     const parts = [
         `Food: ${food.name}`,
@@ -134,7 +130,7 @@ function createFoodEmbeddingText(food) {
     return parts.join('. ');
 }
 
-// Embed all foods from database into Pinecone
+
 export async function embedAllFoods() {
     try {
         console.log('Starting food embedding process...');
@@ -144,12 +140,10 @@ export async function embedAllFoods() {
         
         console.log(`Found ${allFoods.length} total food items in database`);
 
-        // Filter to unique foods by name (case-insensitive)
         const uniqueFoodsMap = new Map();
         for (const food of allFoods) {
             const foodNameLower = food.name.toLowerCase().trim();
             
-            // Keep the first occurrence of each unique name
             if (!uniqueFoodsMap.has(foodNameLower)) {
                 uniqueFoodsMap.set(foodNameLower, food);
             }
@@ -159,9 +153,8 @@ export async function embedAllFoods() {
         console.log(`Filtered to ${foods.length} unique foods by name`);
         console.log(`Removed ${allFoods.length - foods.length} duplicate food names\n`);
 
-        // Process in batches of 200 with no delay for maximum speed
         const BATCH_SIZE = 200;
-        const DELAY_MS = 0; // No delay - maximum speed!
+        const DELAY_MS = 1000; 
         let processed = 0;
 
         for (let i = 0; i < foods.length; i += BATCH_SIZE) {
@@ -184,11 +177,10 @@ export async function embedAllFoods() {
                             retries--;
                             if (retries === 0) throw embeddingError;
                             console.log(`   Retrying ${food.name}... (${retries} attempts left)`);
-                            await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2s before retry
+                            await new Promise(resolve => setTimeout(resolve, 2000)); 
                         }
                     }
 
-                    // Prepare metadata (keep all fields as strings for Pinecone)
                     const metadata = {
                         foodId: food._id.toString(),
                         name: food.name,
@@ -220,18 +212,17 @@ export async function embedAllFoods() {
                         console.log(`✓ Processed ${processed}/${foods.length} foods (${Math.round(processed/foods.length*100)}%)`);
                     }
 
+                    await new Promise(resolve => setTimeout(resolve, DELAY_MS));
+
                 } catch (error) {
                     console.error(`✗ Error processing food "${food.name}":`, error.message);
                 }
             }
 
-            // Upsert batch to Pinecone
             if (vectors.length > 0) {
                 await index.upsert(vectors);
                 console.log(`📤 Upserted batch of ${vectors.length} vectors to Pinecone`);
             }
-
-            // No delay between batches for maximum speed
         }
 
         console.log(`\n✅ Successfully embedded ${processed} unique foods into Pinecone`);
@@ -249,12 +240,10 @@ export async function embedAllFoods() {
     }
 }
 
-// Query relevant foods based on patient context
-export async function queryRelevantFoods(patientContext, topK = 200) {
+export async function queryRelevantFoods(patientContext, topK = 500) {
     try {
         const index = await getIndex();
 
-        // Create query text from patient context
         const queryParts = [
             `Patient constitution: ${patientContext.constitution}`,
             `Health condition: ${patientContext.primaryHealthCondition}`,
@@ -265,18 +254,14 @@ export async function queryRelevantFoods(patientContext, topK = 200) {
         ];
 
         const queryText = queryParts.join('. ');
-        
-        // Generate query embedding
-        const queryEmbedding = await generateEmbedding(queryText);
 
-        // Query Pinecone
+        const queryEmbedding = await generateEmbedding(queryText);
         const queryResponse = await index.query({
             vector: queryEmbedding,
             topK,
             includeMetadata: true
         });
 
-        // Convert results to food objects
         const foods = queryResponse.matches.map(match => ({
             _id: match.metadata.foodId,
             id: match.metadata.foodId,
@@ -338,3 +323,5 @@ export async function clearEmbeddings() {
         throw error;
     }
 }
+
+

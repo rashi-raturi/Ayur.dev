@@ -78,7 +78,7 @@ foodSchema.index({ food_id: 1 });
 foodSchema.index({ name: 1, 'serving_size.unit': 1 }); // Compound index for unique name + serving unit queries 
 
 
-const foodModel = mongoose.models.fooditems || mongoose.model("fooditems", foodSchema, "fooditems");
-//const foodModel = mongoose.models.fooditems || mongoose.model("food", foodSchema, "food");
+//const foodModel = mongoose.models.fooditems || mongoose.model("fooditems", foodSchema, "fooditems");
+const foodModel = mongoose.models.fooditems || mongoose.model("food", foodSchema, "food");
 
 export default foodModel;

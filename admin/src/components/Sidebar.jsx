@@ -48,7 +48,7 @@ const Sidebar = () => {
               <img src={assets.admin_logo} alt="Logo" className="w-12 h-12 rounded-xl brightness-100" />
             </div>
             <div>
-              <h1 className="text-base font-semibold text-gray-900">ayur.dev</h1>
+              <h1 className="text-base font-semibold text-gray-900">Ayur.dev</h1>
               <p className="text-xs text-blue-600">Holistic Healthcare</p>
             </div>
           </div>
