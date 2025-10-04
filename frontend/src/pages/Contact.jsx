@@ -27,129 +27,79 @@ export default function ContactWithOmniEnv() {
 
   return (
     <PageTransition>
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-        {/* Header */}
-        <div className="pt-16 pb-8">
-          <div className="text-center">
-            <h1 className="text-4xl font-semibold text-gray-900 mb-4">Vaani AI</h1>
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto px-4">
-              Your Ayurveda-inspired voice-based AI assistant — blending ancient wisdom with modern conversations.
-            </p>
-          </div>
-        </div>
+      <div className="flex flex-col min-h-screen w-full bg-gradient-to-br from-purple-50 via-pink-50 to-rose-50">
+        <div className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6">
+          <div className="flex flex-col space-y-6">
+            <div className="text-center py-8 md:py-16">
+              {/* Vaani AI Title */}
+              <div className="mb-8">
+                <h1 className="text-5xl md:text-7xl font-bold text-gray-900 mb-4">Vaani AI</h1>
+                <p className="text-xl md:text-2xl text-gray-600">Your Ayurveda-inspired voice assistant</p>
+              </div>
+              
+              {/* Main Content Card */}
+              <div className="max-w-4xl mx-auto mb-10">
+                <div className="relative bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden">
+                  <div className="p-6">
+                    {/* Title Section */}
+                    <div className="text-center mb-8">
+                      <h2 className="text-2xl font-bold text-gray-900 mb-3">
+                        Meet Vaani AI
+                      </h2>
+                      <p className="text-gray-600 leading-relaxed">
+                        Your intelligent assistant designed to bring the essence of Ayurveda into modern life through natural voice interactions.
+                      </p>
+                    </div>
+                  </div>
 
-        {/* Main Content Card */}
-        <div className="max-w-4xl mx-auto px-6">
-          <div className="bg-white shadow-xl border-0 rounded-3xl overflow-hidden">
-            <div className="p-12">
-              {/* Icon */}
-              <div className="flex justify-center mb-8">
-                <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center">
-                  <div className="flex space-x-1">
-                    <div className="w-2 h-2 bg-white rounded-full"></div>
-                    <div className="w-2 h-2 bg-white/70 rounded-full"></div>
-                    <div className="w-2 h-2 bg-white/40 rounded-full"></div>
+                  <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex items-center justify-center">
+                    <button 
+                      className="flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all bg-purple-600 text-white hover:bg-purple-700 shadow-lg hover:shadow-xl"
+                      onClick={() => {
+                        // Trigger the OmniDimension widget
+                        if (window.omnidimension && window.omnidimension.open) {
+                          window.omnidimension.open();
+                        }
+                      }}
+                    >
+                      <Mic className="w-5 h-5" />
+                      Start Voice Chat
+                    </button>
                   </div>
                 </div>
               </div>
 
-              {/* Title Section */}
-              <div className="text-center mb-12">
-                <h2 className="text-3xl font-semibold text-gray-900 mb-4">
-                  Meet Vaani AI
-                </h2>
-                <p className="text-gray-600 max-w-2xl mx-auto leading-relaxed">
-                  Vaani AI is your intelligent assistant designed to bring the essence of Ayurveda into modern life. 
-                  Whether you want to learn natural wellness tips, explore holistic practices, or simply experience 
-                  smooth voice interactions, Vaani AI is here to guide you.
-                </p>
-              </div>
-
-              {/* Feature Cards */}
-              <div className="grid md:grid-cols-3 gap-6 mb-12">
-                {/* Ayurveda Knowledge */}
-                <div className="border border-blue-100 hover:shadow-lg transition-all duration-300 hover:border-blue-200 rounded-xl">
-                  <div className="p-6 text-center">
-                    <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center mx-auto mb-4">
-                      <Brain className="w-6 h-6 text-blue-600" />
+              {/* Feature Options - Exact AyuChart sizing */}
+              <div className="max-w-5xl mx-auto">
+                <h3 className="text-lg font-semibold text-gray-700 mb-6">Explore Vaani AI capabilities:</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="group p-6 text-center bg-white border-2 border-purple-100 rounded-2xl hover:border-purple-300 hover:shadow-xl transition-all transform hover:-translate-y-1">
+                    <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center mb-4 mx-auto group-hover:bg-purple-200 transition-colors">
+                      <Brain className="w-6 h-6 text-purple-600" />
                     </div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-3">
-                      🌱 Ayurveda Knowledge
-                    </h3>
-                    <p className="text-gray-600 text-sm leading-relaxed">
-                      Get insights into natural remedies, yoga, diet, and lifestyle balance.
-                    </p>
+                    <div className="font-bold text-gray-900 mb-2">Ayurveda Knowledge</div>
+                    <div className="text-sm text-gray-600">Natural remedies, yoga, and lifestyle guidance</div>
+                  </div>
+
+                  <div className="group p-6 text-center bg-white border-2 border-purple-100 rounded-2xl hover:border-purple-300 hover:shadow-xl transition-all transform hover:-translate-y-1">
+                    <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center mb-4 mx-auto group-hover:bg-purple-200 transition-colors">
+                      <Mic className="w-6 h-6 text-purple-600" />
+                    </div>
+                    <div className="font-bold text-gray-900 mb-2">Voice Interaction</div>
+                    <div className="text-sm text-gray-600">Hands-free, natural conversations</div>
+                  </div>
+
+                  <div className="group p-6 text-center bg-white border-2 border-purple-100 rounded-2xl hover:border-purple-300 hover:shadow-xl transition-all transform hover:-translate-y-1">
+                    <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center mb-4 mx-auto group-hover:bg-purple-200 transition-colors">
+                      <Sparkles className="w-6 h-6 text-purple-600" />
+                    </div>
+                    <div className="font-bold text-gray-900 mb-2">Modern Wisdom</div>
+                    <div className="text-sm text-gray-600">Ancient knowledge meets AI technology</div>
                   </div>
                 </div>
-
-                {/* Voice Interaction */}
-                <div className="border border-blue-100 hover:shadow-lg transition-all duration-300 hover:border-blue-200 rounded-xl">
-                  <div className="p-6 text-center">
-                    <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center mx-auto mb-4">
-                      <Mic className="w-6 h-6 text-blue-600" />
-                    </div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-3">
-                      🎤 Voice Interaction
-                    </h3>
-                    <p className="text-gray-600 text-sm leading-relaxed">
-                      Talk naturally with Vaani AI using voice — hands-free and effortless.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Modern + Ancient */}
-                <div className="border border-blue-100 hover:shadow-lg transition-all duration-300 hover:border-blue-200 rounded-xl">
-                  <div className="p-6 text-center">
-                    <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center mx-auto mb-4">
-                      <Sparkles className="w-6 h-6 text-blue-600" />
-                    </div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-3">
-                      ✨ Modern + Ancient
-                    </h3>
-                    <p className="text-gray-600 text-sm leading-relaxed">
-                      Seamlessly blends ancient Ayurvedic wisdom with modern AI capabilities.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Call to Action */}
-              <div className="text-center">
-                <p className="text-gray-600 mb-6">
-                  Place your first call. Check out Vaani AI 👋
-                </p>
-                <button 
-                  className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-8 py-3 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 text-lg font-semibold"
-                  onClick={() => {
-                    // Trigger the OmniDimension widget
-                    if (window.omnidimension && window.omnidimension.open) {
-                      window.omnidimension.open();
-                    }
-                  }}
-                >
-                  🎙️ Vaani AI
-                </button>
               </div>
             </div>
           </div>
-        </div>
-
-        {/* Chat Button (floating) */}
-        <div className="fixed bottom-6 right-6">
-          <button 
-            className="w-14 h-14 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-xl hover:shadow-2xl transition-all duration-300 flex items-center justify-center"
-            onClick={() => {
-              // Trigger the OmniDimension widget
-              if (window.omnidimension && window.omnidimension.open) {
-                window.omnidimension.open();
-              }
-            }}
-          >
-            <div className="relative">
-              <Mic className="w-6 h-6 text-white" />
-              <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white"></div>
-            </div>
-          </button>
         </div>
 
         {/* Footer */}
