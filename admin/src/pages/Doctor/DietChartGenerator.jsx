@@ -834,8 +834,9 @@ const DietChartGenerator = () => {
       // Now generate and download the PDF
       toast.info('Generating PDF...');
       
-      const response = await axios.get(
+      const response = await axios.post(
         `${backendUrl}/api/doctor/diet-chart/${chartId}/pdf`,
+        {}, // empty body - docId will be extracted from token
         {
           headers: { dToken },
           responseType: 'blob'
@@ -843,10 +844,22 @@ const DietChartGenerator = () => {
       );
 
       // Create a download link
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const contentDisposition = response.headers['content-disposition'];
+      let filename = `diet_chart_${patientName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+      
+      // Extract filename from content-disposition header if available
+      if (contentDisposition) {
+        const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
+        const matches = filenameRegex.exec(contentDisposition);
+        if (matches != null && matches[1]) {
+          filename = matches[1].replace(/['"]/g, '');
+        }
+      }
+      
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `diet_chart_${patientName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
+      link.setAttribute('download', filename);
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -855,7 +868,28 @@ const DietChartGenerator = () => {
       toast.success('✅ PDF downloaded successfully!');
     } catch (error) {
       console.error('Error downloading PDF:', error);
-      toast.error('Failed to download PDF. Please try again.');
+      
+      // Provide more specific error messages
+      if (error.response) {
+        const status = error.response.status;
+        const data = error.response.data;
+        
+        if (status === 404) {
+          toast.error('Diet chart not found. Please save the chart first.');
+        } else if (status === 401) {
+          toast.error('You are not authorized to download this chart.');
+        } else if (status === 500) {
+          toast.error('Server error while generating PDF. Please try again.');
+        } else if (data && data.message) {
+          toast.error(`Error: ${data.message}`);
+        } else {
+          toast.error(`Failed to download PDF (${status}). Please try again.`);
+        }
+      } else if (error.request) {
+        toast.error('Network error. Please check your connection and try again.');
+      } else {
+        toast.error('Failed to download PDF. Please try again.');
+      }
     } finally {
       setIsDownloadingPDF(false);
     }

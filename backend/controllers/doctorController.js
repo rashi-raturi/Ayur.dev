@@ -2448,10 +2448,18 @@ const generateDietChartPDF = async (req, res) => {
     const { chartId } = req.params;
     const doctorId = req.body.docId;
 
+    console.log('PDF Generation Debug:');
+    console.log('Chart ID:', chartId);
+    console.log('Doctor ID:', doctorId);
+
     // Fetch the diet chart (no need to populate food_ref since foods are embedded)
     const dietChart = await dietChartModel
       .findById(chartId)
       .populate("patient_id");
+
+    console.log('Fetched diet chart:', !!dietChart);
+    console.log('Weekly meal plan exists:', !!dietChart?.weekly_meal_plan);
+    console.log('Weekly meal plan keys:', dietChart?.weekly_meal_plan ? Object.keys(dietChart.weekly_meal_plan) : 'None');
 
     if (!dietChart) {
       return res.json({ success: false, message: "Diet chart not found" });
@@ -2459,17 +2467,23 @@ const generateDietChartPDF = async (req, res) => {
 
     // Verify doctor has access
     if (dietChart.doctor_id.toString() !== doctorId) {
+      console.log('Doctor access denied:', dietChart.doctor_id.toString(), 'vs', doctorId);
       return res.json({ success: false, message: "Unauthorized access" });
     }
 
     // Fetch doctor data
     const doctorData = await doctorModel.findById(doctorId);
+    console.log('Doctor data fetched:', !!doctorData);
 
     // Prepare data for PDF generation
     const dietChartData = {
-      weeklyMealPlan: dietChart.weekly_meal_plan,
+      weeklyMealPlan: dietChart.weekly_meal_plan.toObject ? dietChart.weekly_meal_plan.toObject() : dietChart.weekly_meal_plan,
       nutritionGoals: dietChart.custom_nutrition_goals,
     };
+
+    console.log('Diet chart data prepared:');
+    console.log('Weekly meal plan keys:', dietChartData.weeklyMealPlan ? Object.keys(dietChartData.weeklyMealPlan) : 'None');
+    console.log('Nutrition goals:', !!dietChartData.nutritionGoals);
 
     // Get patient data from both patient_id reference and patient_snapshot
     const patientSnapshot = dietChart.patient_snapshot || {};

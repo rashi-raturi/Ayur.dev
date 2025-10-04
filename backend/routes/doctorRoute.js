@@ -77,7 +77,7 @@ doctorRouter.post("/diet-chart/create", authDoctor, createDietChart);
 doctorRouter.post("/diet-chart/generate-ai", authDoctor, generateAIDietChart);
 doctorRouter.get("/diet-charts", authDoctor, getDietChartsByDoctor);
 doctorRouter.get("/diet-chart/:chartId", authDoctor, getDietChartById);
-doctorRouter.get("/diet-chart/:chartId/pdf", authDoctor, generateDietChartPDF);
+doctorRouter.post("/diet-chart/:chartId/pdf", authDoctor, generateDietChartPDF);
 doctorRouter.get(
   "/diet-charts/patient/:patientId",
   authDoctor,
