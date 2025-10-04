@@ -1,9 +1,19 @@
-import { useState } from "react";
+import { useState, useContext, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
-import { ChefHat, Download, User, Utensils, Heart, Target, RefreshCw, FileText } from "lucide-react";
+import { ChefHat, Download, User, Utensils, Heart, Target, RefreshCw, FileText, Users } from "lucide-react";
 import jsPDF from 'jspdf';
+import { DoctorContext } from '../context/DoctorContext';
+import { toast } from 'react-toastify';
 
 export default function DietChartGenerator() {
+  const { backendUrl, dToken } = useContext(DoctorContext);
+  const [patients, setPatients] = useState([]);
+  const [hisPatients, setHisPatients] = useState([]);
+  const [selectedPatient, setSelectedPatient] = useState(null);
+  const [showPatientSelector, setShowPatientSelector] = useState(false);
+  const [searchSource, setSearchSource] = useState('internal'); // 'internal' or 'his'
+  const [searchQuery, setSearchQuery] = useState('');
+  
   const [formData, setFormData] = useState({
     patientName: "",
     age: "",
@@ -23,6 +33,82 @@ export default function DietChartGenerator() {
   const [loading, setLoading] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [showForm, setShowForm] = useState(true);
+
+  // Fetch patients on component mount
+  useEffect(() => {
+    fetchPatients();
+  }, []);
+
+  const fetchPatients = async () => {
+    try {
+      const response = await fetch(`${backendUrl}/api/doctor/patients`, {
+        headers: {
+          'Authorization': `Bearer ${dToken}`
+        }
+      });
+      const data = await response.json();
+      if (data.success) {
+        setPatients(data.patients);
+      }
+    } catch (error) {
+      console.error('Error fetching patients:', error);
+    }
+  };
+
+  const fetchHISPatients = async (query = '') => {
+    if (!query || query.length < 2) {
+      setHisPatients([]);
+      return;
+    }
+    
+    try {
+      const response = await fetch(
+        `${backendUrl}/api/his/patients/search?q=${encodeURIComponent(query)}&limit=20`,
+        {
+          headers: {
+            'Authorization': `Bearer ${dToken}`
+          }
+        }
+      );
+      const data = await response.json();
+      if (data.success) {
+        setHisPatients(data.patients || []);
+      } else {
+        console.error('HIS search failed:', data.message);
+        setHisPatients([]);
+        toast.error(data.message || 'Failed to search HIS patients');
+      }
+    } catch (error) {
+      console.error('Error fetching HIS patients:', error);
+      setHisPatients([]);
+      toast.error('Error searching HIS patients');
+    }
+  };
+
+  const handleSearchQueryChange = (query) => {
+    setSearchQuery(query);
+    if (searchSource === 'his') {
+      fetchHISPatients(query);
+    }
+  };
+
+  const handlePatientSelect = (patient) => {
+    setSelectedPatient(patient);
+    setFormData({
+      patientName: patient.name,
+      age: patient.age || '',
+      gender: patient.gender || '',
+      primaryConstitution: patient.constitution || '',
+      lifestyle: '',
+      primaryCondition: patient.conditions || patient.condition || '',
+      currentSymptoms: '',
+      foodAllergies: patient.allergies || patient.foodAllergies || '',
+      healthGoals: []
+    });
+    setShowPatientSelector(false);
+    const patientSource = patient.hisPatientId ? 'HIS' : 'Internal';
+    toast.success(`Patient ${patient.name} data loaded successfully from ${patientSource}!`);
+  };
 
   // Save generated charts to localStorage
   const saveChartToHistory = (chartData) => {
@@ -265,6 +351,22 @@ export default function DietChartGenerator() {
             <h1 className="text-3xl font-bold text-gray-800">Diet Chart Generator</h1>
           </div>
           <p className="text-gray-600">Create personalized Ayurvedic meal plans</p>
+          
+          {/* Patient Auto-fill Button */}
+          <div className="mt-4">
+            <button
+              onClick={() => setShowPatientSelector(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
+            >
+              <Users className="w-4 h-4" />
+              Auto-fill from Patient
+            </button>
+            {selectedPatient && (
+              <p className="text-sm text-green-600 mt-2">
+                ✓ Loaded data for {selectedPatient.name}
+              </p>
+            )}
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -594,6 +696,154 @@ export default function DietChartGenerator() {
           )}
         </div>
       </div>
+
+      {/* Patient Selector Modal */}
+      {showPatientSelector && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-semibold text-gray-900">Select Patient</h3>
+              <button
+                onClick={() => setShowPatientSelector(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                ✕
+              </button>
+            </div>
+            
+            {/* Patient Source Selection */}
+            <div className="mb-4">
+              <div className="flex space-x-4 mb-3">
+                <button
+                  onClick={() => {
+                    setSearchSource('internal');
+                    setSearchQuery('');
+                    setHisPatients([]);
+                  }}
+                  className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                    searchSource === 'internal'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  Internal Patients ({patients.length})
+                </button>
+                <button
+                  onClick={() => {
+                    setSearchSource('his');
+                    setSearchQuery('');
+                  }}
+                  className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                    searchSource === 'his'
+                      ? 'bg-green-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  HIS Patients
+                </button>
+              </div>
+              
+              {/* Search input for HIS patients */}
+              {searchSource === 'his' && (
+                <div className="mb-4">
+                  <input
+                    type="text"
+                    placeholder="Search HIS patients (minimum 2 characters)..."
+                    value={searchQuery}
+                    onChange={(e) => handleSearchQueryChange(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Search by name, phone, email, or patient ID
+                  </p>
+                </div>
+              )}
+            </div>
+            
+            <div className="space-y-3">
+              {searchSource === 'internal' && patients.map((patient) => (
+                <div
+                  key={patient.id}
+                  onClick={() => handlePatientSelect(patient)}
+                  className="p-4 border border-gray-200 rounded-lg hover:bg-blue-50 cursor-pointer transition-colors duration-200"
+                >
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h4 className="font-semibold text-gray-900">{patient.name}</h4>
+                      <p className="text-sm text-gray-600">
+                        {patient.age} years • {patient.gender}
+                      </p>
+                      <p className="text-xs text-blue-600 font-medium">Internal Patient</p>
+                      {patient.constitution && (
+                        <p className="text-sm text-blue-600">Constitution: {patient.constitution}</p>
+                      )}
+                      {patient.condition && (
+                        <p className="text-sm text-orange-600">Condition: {patient.condition}</p>
+                      )}
+                    </div>
+                    <button className="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                      Select
+                    </button>
+                  </div>
+                </div>
+              ))}
+              
+              {searchSource === 'his' && hisPatients.map((patient) => (
+                <div
+                  key={patient.hisPatientId}
+                  onClick={() => handlePatientSelect(patient)}
+                  className="p-4 border border-green-200 rounded-lg hover:bg-green-50 cursor-pointer transition-colors duration-200"
+                >
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h4 className="font-semibold text-gray-900">{patient.name}</h4>
+                      <p className="text-sm text-gray-600">
+                        {patient.age} years • {patient.gender}
+                      </p>
+                      <p className="text-xs text-green-600 font-medium">HIS Patient • ID: {patient.hisPatientId}</p>
+                      {patient.constitution && (
+                        <p className="text-sm text-green-600">Constitution: {patient.constitution}</p>
+                      )}
+                      {patient.conditions && (
+                        <p className="text-sm text-orange-600">Conditions: {patient.conditions}</p>
+                      )}
+                      {patient.allergies && (
+                        <p className="text-sm text-red-600">Allergies: {patient.allergies}</p>
+                      )}
+                    </div>
+                    <button className="text-green-600 hover:text-green-800 text-sm font-medium">
+                      Select
+                    </button>
+                  </div>
+                </div>
+              ))}
+              
+              {searchSource === 'internal' && patients.length === 0 && (
+                <div className="text-center py-8 text-gray-500">
+                  <User className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                  <p>No internal patients found</p>
+                  <p className="text-sm">Add patients first to use auto-fill</p>
+                </div>
+              )}
+              
+              {searchSource === 'his' && searchQuery.length < 2 && (
+                <div className="text-center py-8 text-gray-500">
+                  <User className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                  <p>Enter at least 2 characters to search HIS patients</p>
+                </div>
+              )}
+              
+              {searchSource === 'his' && searchQuery.length >= 2 && hisPatients.length === 0 && (
+                <div className="text-center py-8 text-gray-500">
+                  <User className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                  <p>No HIS patients found for "{searchQuery}"</p>
+                  <p className="text-sm">Try a different search term</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
