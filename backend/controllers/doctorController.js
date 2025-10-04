@@ -8,7 +8,7 @@ import userModel from "../models/userModel.js";
 import prescriptionModel from "../models/prescriptionModel.js";
 import foodModel from "../models/foodModel.js";
 import dietChartModel from "../models/dietChartModel.js";
-import { queryRelevantFoods } from "../services/vectorService.js";
+import { queryRelevantFoods } from "../services/fastVectorService.js"; // ⚡ LIGHTNING FAST VECTOR SEARCH
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import transporter from "../config/nodemailer.js";
 import { generatePrescriptionPDF } from "../utils/pdfGenerator.js";
