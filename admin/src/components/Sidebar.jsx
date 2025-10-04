@@ -13,6 +13,7 @@ import {
   X,
   Menu,
   LogOut,
+  Database,
 } from "lucide-react";
 import { toast } from "react-toastify";
 
@@ -134,6 +135,19 @@ const Sidebar = () => {
           >
             <ClipboardList className="w-4 h-4" />
             <span>Diet Charts</span>
+          </NavLink>
+          <NavLink
+            to={"/his-integration"}
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors text-sm ${
+                isActive
+                  ? "bg-blue-600 text-white font-medium"
+                  : "text-gray-700 hover:bg-gray-100"
+              }`
+            }
+          >
+            <Database className="w-4 h-4" />
+            <span>HIS Integration</span>
           </NavLink>
           <NavLink
             to={"/doctor-profile"}

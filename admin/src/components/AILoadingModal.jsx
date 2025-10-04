@@ -39,7 +39,7 @@ const AILoadingModal = ({ isOpen, message = "AI is generating your diet chart...
             {message}
           </h3>
           <p className="text-sm text-gray-500 mb-4">
-            This may take 10-30 seconds
+            This may take 5-10 seconds
           </p>
           
           {/* Progress indicators */}

@@ -19,6 +19,7 @@ import DoctorProfile from "./pages/Doctor/DoctorProfile";
 import DietChartGenerator from "./pages/Doctor/DietChartGenerator";
 import PatientManagement from "./pages/Doctor/PatientManagement";
 import Prescriptions from "./pages/Doctor/Prescriptions";
+import HISIntegration from "./pages/Doctor/HISIntegration";
 import DoctorSignup from "./pages/DoctorSignup";
 
 // Protected Route Component for Doctor Only
@@ -126,6 +127,14 @@ const AppContent = () => {
                     element={
                       <ProtectedRoute>
                         <Prescriptions />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/his-integration"
+                    element={
+                      <ProtectedRoute>
+                        <HISIntegration />
                       </ProtectedRoute>
                     }
                   />
