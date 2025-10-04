@@ -108,16 +108,21 @@ const generatePatientAISummary = async (patientId) => {
   try {
     console.log(`Generating AI summary for patient: ${patientId}`);
     
-    // Fetch patient data with populated prescriptions
-    const patient = await userModel.findById(patientId)
-      .populate({
-        path: 'prescriptions',
-        options: { sort: { createdAt: -1 }, limit: 10 } // Last 10 prescriptions
-      });
+    // Fetch patient data
+    const patient = await userModel.findById(patientId);
     
     if (!patient) {
       throw new Error('Patient not found');
     }
+    
+    // Fetch prescriptions separately from Prescription collection
+    const prescriptions = await prescriptionModel
+      .find({ patientId: patientId })
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .lean();
+    
+    console.log(`Found ${prescriptions.length} prescriptions for patient ${patientId}`);
     
     // Calculate age
     let age = 'N/A';
@@ -139,7 +144,7 @@ const generatePatientAISummary = async (patientId) => {
     }
     
     // Build prescription summary
-    const prescriptionSummaries = patient.prescriptions.slice(0, 5).map((rx, index) => {
+    const prescriptionSummaries = prescriptions.slice(0, 5).map((rx, index) => {
       if (!rx) return null;
       
       const date = rx.createdAt ? new Date(rx.createdAt).toLocaleDateString('en-US', { 
@@ -149,14 +154,15 @@ const generatePatientAISummary = async (patientId) => {
       }) : 'Unknown date';
       
       const medications = rx.medications && rx.medications.length > 0
-        ? rx.medications.map(med => med.name).join(', ')
+        ? rx.medications.map(med => `${med.name} (${med.dosage}${med.duration ? ', ' + med.duration : ''})`).join(', ')
         : 'No medications';
       
       return `${index + 1}. Date: ${date}
    - Chief Complaint: ${rx.chiefComplaint || 'Not specified'}
    - Diagnosis: ${rx.diagnosis || 'Not specified'}
    - Medications: ${medications}
-   - Dietary Recommendations: ${rx.dietaryRecommendations ? (rx.dietaryRecommendations.substring(0, 100) + '...') : 'None'}`;
+   - Dietary Recommendations: ${rx.dietaryRecommendations ? (rx.dietaryRecommendations.length > 100 ? rx.dietaryRecommendations.substring(0, 100) + '...' : rx.dietaryRecommendations) : 'None'}
+   - Lifestyle Advice: ${rx.lifestyleAdvice ? (rx.lifestyleAdvice.length > 100 ? rx.lifestyleAdvice.substring(0, 100) + '...' : rx.lifestyleAdvice) : 'None'}`;
     }).filter(Boolean).join('\n\n');
     
     // Build AI prompt
@@ -176,64 +182,66 @@ MEDICAL PROFILE:
 - Current Medications: ${patient.medications && patient.medications.length > 0 ? patient.medications.join(', ') : 'None'}
 - Doctor's Notes: ${patient.notes || 'No additional notes'}
 
-PRESCRIPTION HISTORY (${patient.prescriptions.length} total prescriptions):
+PRESCRIPTION HISTORY (${prescriptions.length} total prescriptions):
 ${prescriptionSummaries || 'No prescriptions recorded yet'}
 
 INSTRUCTIONS:
-Generate a comprehensive patient summary in **Markdown format** with the following structure:
+Generate a comprehensive patient summary in **Markdown format** with the following structure. Do NOT use emojis - the UI will add icons automatically.
 
-## 🏥 Patient Overview
+## Patient Overview
 [Brief 2-3 sentence overview of patient's health status and constitution]
 
-## 📊 Health Profile
+## Health Profile
 - **Constitution (Prakriti):** [Analysis based on constitution]
 - **Current Health Status:** [Assessment based on condition and symptoms]
 - **BMI Status:** [Interpretation of BMI with recommendations if needed]
 - **Digestive Health:** [Analysis based on bowel movements]
 
-## 🔍 Key Health Trends
-[Bullet points identifying patterns from prescription history]
-- Pattern 1
-- Pattern 2
-- Pattern 3
+## Key Health Trends
+[Bullet points identifying patterns from prescription history. If no clear patterns exist, state "Insufficient data for trend analysis" or "No significant trends identified yet"]
+- Pattern 1 (only if there are real patterns)
+- Pattern 2 (only if there are real patterns)
+- Pattern 3 (only if there are real patterns)
 
-## ⚠️ Risk Factors & Concerns
-[List any health concerns or risk factors based on the data]
-- Risk factor 1
-- Risk factor 2
+## Risk Factors & Concerns
+[List any health concerns or risk factors based on the data. Use **bold** for emphasis on key terms (e.g., **Underweight**, **Hair Loss**, **Kapha Imbalance**). Do NOT use asterisks like ****. If no risk factors, state "No significant risk factors identified"]
+- **Risk Factor Name:** Description of the risk factor and its implications
+- **Risk Factor Name:** Description of the risk factor and its implications
 
-## 💊 Treatment Progress
+## Treatment Progress
 [Analysis of treatment history and progress over time]
 - What has been treated
 - Medications patterns
 - Treatment outcomes (if inferable)
 
-## 🥗 Dietary Considerations
+## Dietary Considerations
 [Key dietary recommendations based on constitution, allergies, and prescriptions]
 - Recommendation 1
 - Recommendation 2
 - Recommendation 3
 
-## 📈 Recommendations for Continued Care
+## Recommendations for Continued Care
 [Forward-looking recommendations for the doctor]
 1. Recommendation 1
 2. Recommendation 2
 3. Recommendation 3
 
-## 🎯 Quick Reference
-- **Last Consultation:** ${patient.prescriptions.length > 0 && patient.prescriptions[0].createdAt ? new Date(patient.prescriptions[0].createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : 'No consultations yet'}
-- **Total Prescriptions:** ${patient.prescriptions.length}
-- **Active Concerns:** [List 2-3 key concerns]
+## Quick Reference
+- **Last Consultation:** ${prescriptions.length > 0 && prescriptions[0].createdAt ? new Date(prescriptions[0].createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : 'No consultations yet'}
+- **Total Prescriptions:** ${prescriptions.length}
+- **Active Concerns:** [List 2-3 key concerns based on data]
 
-IMPORTANT:
-- Use professional medical language
+FORMATTING RULES:
+- Use **bold** for emphasis (e.g., **Underweight**, **High Risk**, **Vata Imbalance**)
+- Do NOT use emojis anywhere in the response
+- Do NOT use **** or multiple asterisks for emphasis - use proper markdown **bold**
 - Be specific and evidence-based using the data provided
 - Focus on Ayurvedic perspective when analyzing constitution
 - Keep the summary concise but comprehensive
 - Use bullet points and lists for easy scanning
-- If data is missing or insufficient, acknowledge it professionally
+- If data is missing or insufficient, acknowledge it professionally (e.g., "No trends available yet", "Insufficient data")
 - Do not make up information not provided in the data
-- Format response in clean Markdown with emojis for section headers
+- Format response in clean Markdown without emojis
 
 Generate the summary now:`;
 
@@ -253,19 +261,44 @@ Generate the summary now:`;
     const recommendations = [];
     
     // Simple extraction logic (can be improved)
-    const trendMatch = aiResponse.match(/## 🔍 Key Health Trends\n([\s\S]*?)##/);
+    const trendMatch = aiResponse.match(/## Key Health Trends\n([\s\S]*?)##/);
     if (trendMatch) {
       const trends = trendMatch[1].match(/- (.*)/g);
-      if (trends) healthTrends.push(...trends.map(t => t.replace('- ', '').trim()));
+      if (trends) {
+        // Filter out placeholder text
+        const validTrends = trends
+          .map(t => t.replace('- ', '').trim())
+          .filter(t => !t.toLowerCase().includes('pattern') && 
+                       !t.toLowerCase().includes('insufficient data') &&
+                       !t.toLowerCase().includes('no significant trends') &&
+                       t.length > 10);
+        healthTrends.push(...validTrends);
+      }
     }
     
-    const riskMatch = aiResponse.match(/## ⚠️ Risk Factors & Concerns\n([\s\S]*?)##/);
+    const riskMatch = aiResponse.match(/## Risk Factors & Concerns\n([\s\S]*?)##/);
     if (riskMatch) {
-      const risks = riskMatch[1].match(/- (.*)/g);
-      if (risks) riskFactors.push(...risks.map(r => r.replace('- ', '').trim()));
+      const risks = riskMatch[1].match(/- \*\*(.*?)\*\*:(.*)/g);
+      if (risks) {
+        riskFactors.push(...risks.map(r => {
+          const match = r.match(/\*\*(.*?)\*\*:(.*)/);
+          return match ? `${match[1].trim()}: ${match[2].trim()}` : r.replace('- ', '').trim();
+        }));
+      } else {
+        // Fallback to simple bullet parsing
+        const simpleRisks = riskMatch[1].match(/- (.*)/g);
+        if (simpleRisks) {
+          const validRisks = simpleRisks
+            .map(r => r.replace('- ', '').trim())
+            .filter(r => !r.toLowerCase().includes('no significant risk') &&
+                         !r.toLowerCase().includes('no risk factors') &&
+                         r.length > 10);
+          riskFactors.push(...validRisks);
+        }
+      }
     }
     
-    const recMatch = aiResponse.match(/## 📈 Recommendations for Continued Care\n([\s\S]*?)##/);
+    const recMatch = aiResponse.match(/## Recommendations for Continued Care\n([\s\S]*?)##/);
     if (recMatch) {
       const recs = recMatch[1].match(/\d+\. (.*)/g);
       if (recs) recommendations.push(...recs.map(r => r.replace(/\d+\. /, '').trim()));
@@ -275,13 +308,13 @@ Generate the summary now:`;
     patient.aiSummary = {
       content: aiResponse,
       lastGenerated: new Date(),
-      prescriptionCount: patient.prescriptions.length,
+      prescriptionCount: prescriptions.length,
       version: (patient.aiSummary?.version || 0) + 1,
       metadata: {
         healthTrends: healthTrends.slice(0, 5),
         riskFactors: riskFactors.slice(0, 5),
         recommendations: recommendations.slice(0, 5),
-        treatmentProgress: 'Analysis based on ' + patient.prescriptions.length + ' prescriptions'
+        treatmentProgress: 'Analysis based on ' + prescriptions.length + ' prescriptions'
       }
     };
     
@@ -2850,8 +2883,11 @@ const getPatientAISummary = async (req, res) => {
     }
     
     // Check if we have a stored summary in DB
+    // Fetch current prescription count for comparison
+    const currentPrescriptionCount = await prescriptionModel.countDocuments({ patientId: patientId });
+    
     if (patient.aiSummary && patient.aiSummary.content && 
-        patient.aiSummary.prescriptionCount === patient.prescriptions.length) {
+        patient.aiSummary.prescriptionCount === currentPrescriptionCount) {
       console.log('Serving AI summary from database (up to date)');
       
       // Cache it for future requests
@@ -2871,7 +2907,7 @@ const getPatientAISummary = async (req, res) => {
     }
     
     // Generate new summary
-    console.log('Generating new AI summary');
+    console.log('Generating new AI summary (prescription count changed or no summary exists)');
     const summary = await generatePatientAISummary(patientId);
     
     res.json({

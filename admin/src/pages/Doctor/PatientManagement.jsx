@@ -3,8 +3,9 @@ import { useLocation } from 'react-router-dom';
 import { DoctorContext } from '../../context/DoctorContext';
 import { toast } from 'react-toastify';
 import axios from 'axios';
-import { Search, Plus, Eye, Edit2, Calendar, User, Stethoscope, Activity, CheckCircle, Clock, AlertCircle, Upload, FileText, Download, Loader } from 'lucide-react';
+import { Search, Plus, Eye, Edit2, Calendar, User, Stethoscope, Activity, CheckCircle, Clock, AlertCircle, Upload, FileText, Download, Loader, Sparkles, RefreshCw, TrendingUp, Shield, Target, Heart } from 'lucide-react';
 import PrescriptionPreview from '../../components/PrescriptionPreview';
+import ReactMarkdown from 'react-markdown';
 
 const PatientManagement = () => {
   const { dToken, backendUrl, patients: contextPatients, getPatients } = useContext(DoctorContext);
@@ -62,6 +63,20 @@ const PatientManagement = () => {
   const [editingMedication, setEditingMedication] = useState(null);
   const [previewPrescription, setPreviewPrescription] = useState(null);
   const [showPrescriptionPreview, setShowPrescriptionPreview] = useState(false);
+  
+  // AI Summary states
+  const [aiSummary, setAiSummary] = useState(null);
+  const [aiSummaryLoading, setAiSummaryLoading] = useState(false);
+  const [regeneratingSummary, setRegeneratingSummary] = useState(false);
+  
+  // History states
+  const [patientHistory, setPatientHistory] = useState({
+    appointments: [],
+    prescriptions: [],
+    dietCharts: [],
+    assessments: []
+  });
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   const fetchPatients = useCallback(async (force = false) => {
     try {
@@ -182,7 +197,84 @@ const PatientManagement = () => {
     setSelectedPatient(patient);
     setShowPatientModal(true);
     fetchPrescriptions(patient.id); // Fetch prescriptions when opening modal
+    setActiveTab('overview'); // Reset to overview tab
+    setAiSummary(null); // Clear previous summary
+    setPatientHistory({ appointments: [], prescriptions: [], dietCharts: [], assessments: [] }); // Clear history
   };
+  
+  // Fetch complete patient history
+  const fetchPatientHistory = useCallback(async (patientId) => {
+    if (!patientId) return;
+    
+    try {
+      setHistoryLoading(true);
+      console.log('Fetching history for patient:', patientId);
+      
+      // Fetch all data in parallel
+      const [appointmentsRes, prescriptionsRes, dietChartsRes] = await Promise.all([
+        // Fetch all doctor appointments and filter by patient on client side
+        axios.get(`${backendUrl}/api/doctor/appointments`, {
+          headers: { dToken }
+        }).catch(err => {
+          console.error('Error fetching appointments:', err);
+          return { data: { success: false, appointments: [] } };
+        }),
+        
+        axios.get(`${backendUrl}/api/doctor/prescriptions/${patientId}`, {
+          headers: { dToken }
+        }).catch(err => {
+          console.error('Error fetching prescriptions:', err);
+          return { data: { success: false, prescriptions: [] } };
+        }),
+        
+        axios.get(`${backendUrl}/api/doctor/diet-charts/patient/${patientId}`, {
+          headers: { dToken }
+        }).catch(err => {
+          console.error('Error fetching diet charts:', err);
+          return { data: { success: false, dietCharts: [] } };
+        })
+      ]);
+      
+      console.log('Appointments response:', appointmentsRes.data);
+      console.log('Prescriptions response:', prescriptionsRes.data);
+      console.log('Diet charts response:', dietChartsRes.data);
+      
+      // Filter appointments for this specific patient
+      const allAppointments = appointmentsRes.data.success && appointmentsRes.data.appointments
+        ? appointmentsRes.data.appointments
+        : [];
+      
+      console.log('All appointments:', allAppointments.length);
+      console.log('Looking for patient ID:', patientId);
+      
+      const patientAppointments = allAppointments.filter(apt => {
+        const aptUserId = apt.userId?._id || apt.userId;
+        console.log('Checking appointment:', apt._id, 'userId:', aptUserId);
+        return aptUserId === patientId || apt.userData?._id === patientId;
+      });
+      
+      console.log('Filtered patient appointments:', patientAppointments.length);
+      
+      setPatientHistory({
+        appointments: patientAppointments,
+        prescriptions: prescriptionsRes.data.success ? prescriptionsRes.data.prescriptions || [] : [],
+        dietCharts: dietChartsRes.data.success ? dietChartsRes.data.dietCharts || [] : [],
+        assessments: [] // Add when assessment API is available
+      });
+      
+      console.log('Patient history set:', {
+        appointments: patientAppointments.length,
+        prescriptions: prescriptionsRes.data.prescriptions?.length || 0,
+        dietCharts: dietChartsRes.data.dietCharts?.length || 0
+      });
+      
+    } catch (error) {
+      console.error('Error fetching patient history:', error);
+      toast.error('Failed to load patient history');
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [dToken, backendUrl]);
 
   // Fetch prescriptions for a patient with caching
   const fetchPrescriptions = useCallback(async (patientId, force = false) => {
@@ -257,6 +349,68 @@ const PatientManagement = () => {
       toast.error('Failed to upload prescription');
     } finally {
       setUploadingPrescription(false);
+    }
+  };
+
+  // Fetch AI Summary for a patient
+  const fetchAISummary = useCallback(async (patientId, forceRefresh = false) => {
+    if (!patientId) return;
+    
+    try {
+      setAiSummaryLoading(true);
+      const url = forceRefresh 
+        ? `${backendUrl}/api/doctor/patient/${patientId}/ai-summary?forceRefresh=true`
+        : `${backendUrl}/api/doctor/patient/${patientId}/ai-summary`;
+        
+      const { data } = await axios.get(url, {
+        headers: { dToken }
+      });
+
+      if (data.success) {
+        setAiSummary(data.summary);
+        if (data.cached) {
+          console.log('AI summary loaded from cache');
+        } else if (data.generated) {
+          toast.success('AI summary generated successfully');
+        }
+      } else {
+        toast.error(data.message || 'Failed to fetch AI summary');
+      }
+    } catch (error) {
+      console.error('Error fetching AI summary:', error);
+      if (error.response?.status === 404) {
+        toast.info('No AI summary available yet. Generating...');
+      } else {
+        toast.error('Failed to load AI summary');
+      }
+    } finally {
+      setAiSummaryLoading(false);
+    }
+  }, [dToken, backendUrl]);
+
+  // Regenerate AI Summary
+  const regenerateAISummary = async (patientId) => {
+    if (!patientId) return;
+    
+    try {
+      setRegeneratingSummary(true);
+      const { data } = await axios.post(
+        `${backendUrl}/api/doctor/patient/${patientId}/regenerate-summary`,
+        {},
+        { headers: { dToken } }
+      );
+
+      if (data.success) {
+        setAiSummary(data.summary);
+        toast.success('AI summary regenerated successfully');
+      } else {
+        toast.error(data.message || 'Failed to regenerate AI summary');
+      }
+    } catch (error) {
+      console.error('Error regenerating AI summary:', error);
+      toast.error('Failed to regenerate AI summary');
+    } finally {
+      setRegeneratingSummary(false);
     }
   };
 
@@ -861,113 +1015,419 @@ const PatientManagement = () => {
       );
     };
 
-    const renderHistoryContent = () => (
-      <div className="space-y-6">
-        <div className="mb-6">
-          <h3 className="text-lg font-semibold text-purple-700 mb-2">Medical History</h3>
-          <p className="text-sm text-gray-500">Complete timeline of patient care</p>
-        </div>
-
-        {/* Timeline */}
-        <div className="relative">
-          <div className="absolute left-4 top-0 bottom-0 w-px bg-gray-200"></div>
-          
-          <div className="space-y-8">
-            {/* Timeline Item 1 */}
-            <div className="relative flex items-start">
-              <div className="absolute left-0 w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center z-10">
-                <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
-              </div>
-              <div className="ml-12 bg-white rounded-lg p-4 border shadow-sm w-full">
-                <div className="flex items-center gap-2 mb-2">
-                  <Calendar className="w-4 h-4 text-orange-600" />
-                  <span className="font-medium text-gray-900">Follow-up Consultation</span>
-                  <span className="px-2 py-1 bg-orange-100 text-orange-800 rounded text-xs font-medium ml-auto">
-                    Follow-up
-                  </span>
+    const renderHistoryContent = () => {
+      // Fetch history when tab is opened
+      if (patientHistory.appointments.length === 0 && 
+          patientHistory.prescriptions.length === 0 && 
+          patientHistory.dietCharts.length === 0 && 
+          !historyLoading && 
+          currentData?.id) {
+        fetchPatientHistory(currentData.id);
+      }
+      
+      // Combine all history items with timestamps
+      const allHistoryItems = [
+        ...patientHistory.appointments.map(apt => ({
+          type: 'appointment',
+          date: new Date(apt.slotDate),
+          data: apt,
+          icon: Calendar,
+          color: apt.cancelled ? 'gray' : apt.isCompleted ? 'green' : 'blue'
+        })),
+        ...patientHistory.prescriptions.map(rx => ({
+          type: 'prescription',
+          date: new Date(rx.createdAt || rx.date),
+          data: rx,
+          icon: FileText,
+          color: 'purple'
+        })),
+        ...patientHistory.dietCharts.map(diet => ({
+          type: 'dietChart',
+          date: new Date(diet.createdAt),
+          data: diet,
+          icon: Activity,
+          color: 'orange'
+        }))
+      ].sort((a, b) => b.date - a.date); // Sort by date descending (newest first)
+      
+      const getColorClasses = (color) => {
+        const colors = {
+          green: { bg: 'bg-green-100', dot: 'bg-green-500', text: 'text-green-800', icon: 'text-green-600', badge: 'bg-green-100 text-green-800' },
+          blue: { bg: 'bg-blue-100', dot: 'bg-blue-500', text: 'text-blue-800', icon: 'text-blue-600', badge: 'bg-blue-100 text-blue-800' },
+          purple: { bg: 'bg-purple-100', dot: 'bg-purple-500', text: 'text-purple-800', icon: 'text-purple-600', badge: 'bg-purple-100 text-purple-800' },
+          orange: { bg: 'bg-orange-100', dot: 'bg-orange-500', text: 'text-orange-800', icon: 'text-orange-600', badge: 'bg-orange-100 text-orange-800' },
+          red: { bg: 'bg-red-100', dot: 'bg-red-500', text: 'text-red-800', icon: 'text-red-600', badge: 'bg-red-100 text-red-800' },
+          gray: { bg: 'bg-gray-100', dot: 'bg-gray-500', text: 'text-gray-800', icon: 'text-gray-600', badge: 'bg-gray-100 text-gray-800' }
+        };
+        return colors[color] || colors.blue;
+      };
+      
+      const renderHistoryItem = (item, index) => {
+        const Icon = item.icon;
+        const colors = getColorClasses(item.color);
+        
+        switch (item.type) {
+          case 'appointment':
+            const apt = item.data;
+            
+            // Format appointment type
+            const appointmentTypeLabel = {
+              'consultation': 'Consultation',
+              'follow-up': 'Follow-up',
+              'emergency': 'Emergency'
+            }[apt.appointmentType || 'consultation'] || 'Consultation';
+            
+            // Get appropriate icon and color for appointment type
+            const typeInfo = {
+              'consultation': { icon: Stethoscope, color: 'blue' },
+              'follow-up': { icon: Calendar, color: 'orange' },
+              'emergency': { icon: AlertCircle, color: 'red' }
+            }[apt.appointmentType || 'consultation'] || { icon: Calendar, color: 'blue' };
+            
+            const TypeIcon = typeInfo.icon;
+            
+            return (
+              <div key={`apt-${index}`} className="relative flex items-start">
+                <div className={`absolute left-0 w-8 h-8 ${colors.bg} rounded-full flex items-center justify-center z-10`}>
+                  <div className={`w-3 h-3 ${colors.dot} rounded-full`}></div>
                 </div>
-                <p className="text-sm text-gray-600 mb-2">2024-01-15</p>
-                <p className="text-sm text-gray-700">
-                  Regular follow-up for digestive issues. Patient showing good improvement.
-                </p>
-              </div>
-            </div>
-
-            {/* Timeline Item 2 */}
-            <div className="relative flex items-start">
-              <div className="absolute left-0 w-8 h-8 bg-green-100 rounded-full flex items-center justify-center z-10">
-                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-              </div>
-              <div className="ml-12 bg-white rounded-lg p-4 border shadow-sm w-full">
-                <div className="flex items-center gap-2 mb-2">
-                  <Stethoscope className="w-4 h-4 text-green-600" />
-                  <span className="font-medium text-gray-900">Treatment Plan Update</span>
-                  <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs font-medium ml-auto">
-                    Treatment
-                  </span>
-                </div>
-                <p className="text-sm text-gray-600 mb-2">2024-01-08</p>
-                <p className="text-sm text-gray-700">
-                  Added stress management protocol with Ashwagandha and pranayama.
-                </p>
-                
-                {/* Progress Review Expandable */}
-                <div className="mt-4 border-t pt-4">
-                  <div className="flex items-center gap-2 text-blue-600 cursor-pointer hover:text-blue-700">
-                    <div className="w-5 h-5 border border-blue-300 rounded flex items-center justify-center">
-                      <span className="text-xs">▶</span>
-                    </div>
-                    <span className="text-sm font-medium">Progress Review</span>
+                <div className="ml-12 bg-white rounded-lg p-4 border shadow-sm w-full">
+                  <div className="flex items-center gap-2 mb-2 flex-wrap">
+                    <Icon className={`w-4 h-4 ${colors.icon}`} />
+                    <span className="font-medium text-gray-900">
+                      {apt.cancelled ? 'Cancelled Appointment' : apt.isCompleted ? 'Completed Appointment' : 'Scheduled Appointment'}
+                    </span>
+                    {/* Appointment Type Badge */}
+                    <span className={`px-2 py-1 rounded text-xs font-medium flex items-center gap-1 ${
+                      apt.appointmentType === 'emergency' 
+                        ? 'bg-red-100 text-red-800' 
+                        : apt.appointmentType === 'follow-up'
+                        ? 'bg-orange-100 text-orange-800'
+                        : 'bg-blue-100 text-blue-800'
+                    }`}>
+                      <TypeIcon className="w-3 h-3" />
+                      {appointmentTypeLabel}
+                    </span>
+                    {/* Location Type */}
+                    {apt.locationType && apt.locationType !== 'clinic' && (
+                      <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded text-xs font-medium">
+                        {apt.locationType === 'online' ? '🌐 Online' : apt.locationType === 'home-visit' ? '🏠 Home Visit' : '🏥 Clinic'}
+                      </span>
+                    )}
                   </div>
-                  <div className="mt-3 space-y-3">
-                    <div className="bg-green-50 p-3 rounded-lg">
-                      <h5 className="text-xs font-medium text-green-800 mb-2">FINDINGS</h5>
-                      <p className="text-sm text-green-700">
-                        Improvement in digestive symptoms noted. Patient reports 70% reduction in 
-                        acid reflux episodes. Sleep quality improved. However, still experiencing mild 
-                        stress-related symptoms.
-                      </p>
-                    </div>
-                    <div className="bg-orange-50 p-3 rounded-lg">
-                      <h5 className="text-xs font-medium text-orange-800 mb-2">RECOMMENDATIONS</h5>
-                      <p className="text-sm text-orange-700">
-                        Continue current herbal protocol. Added Ashwagandha for stress management. 
-                        Recommended oil massage (abhyanga) twice weekly.
-                      </p>
-                    </div>
+                  <p className="text-sm text-gray-600 mb-2">
+                    {new Date(apt.slotDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })} at {apt.slotTime}
+                    {apt.duration && ` (${apt.duration} mins)`}
+                  </p>
+                  {apt.chiefComplaint && (
+                    <p className="text-sm text-gray-700 mb-1">
+                      <strong>Chief Complaint:</strong> {apt.chiefComplaint}
+                    </p>
+                  )}
+                  {apt.diagnosis && (
+                    <p className="text-sm text-gray-700">
+                      <strong>Diagnosis:</strong> {apt.diagnosis}
+                    </p>
+                  )}
+                </div>
+              </div>
+            );
+            
+          case 'prescription':
+            const rx = item.data;
+            return (
+              <div key={`rx-${index}`} className="relative flex items-start">
+                <div className={`absolute left-0 w-8 h-8 ${colors.bg} rounded-full flex items-center justify-center z-10`}>
+                  <div className={`w-3 h-3 ${colors.dot} rounded-full`}></div>
+                </div>
+                <div className="ml-12 bg-white rounded-lg p-4 border shadow-sm w-full">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Icon className={`w-4 h-4 ${colors.icon}`} />
+                    <span className="font-medium text-gray-900">Prescription Issued</span>
+                    <span className={`px-2 py-1 ${colors.badge} rounded text-xs font-medium ml-auto`}>
+                      {rx.prescriptionId || 'Prescription'}
+                    </span>
                   </div>
+                  <p className="text-sm text-gray-600 mb-2">
+                    {new Date(rx.createdAt || rx.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+                  </p>
+                  <p className="text-sm text-gray-700 mb-1">
+                    <strong>Chief Complaint:</strong> {rx.chiefComplaint || 'N/A'}
+                  </p>
+                  {rx.diagnosis && (
+                    <p className="text-sm text-gray-700 mb-2">
+                      <strong>Diagnosis:</strong> {rx.diagnosis}
+                    </p>
+                  )}
+                  {rx.medications && rx.medications.length > 0 && (
+                    <div className="mt-3 border-t pt-3">
+                      <p className="text-xs font-medium text-gray-500 mb-2">MEDICATIONS</p>
+                      <div className="space-y-1">
+                        {rx.medications.slice(0, 3).map((med, idx) => (
+                          <p key={idx} className="text-sm text-gray-700">
+                            • {med.name} - {med.dosage} {med.duration && `(${med.duration})`}
+                          </p>
+                        ))}
+                        {rx.medications.length > 3 && (
+                          <p className="text-xs text-gray-500 italic">+{rx.medications.length - 3} more medications</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
-            </div>
-
-            {/* Timeline Item 3 */}
-            <div className="relative flex items-start">
-              <div className="absolute left-0 w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center z-10">
-                <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
-              </div>
-              <div className="ml-12 bg-white rounded-lg p-4 border shadow-sm w-full">
-                <div className="flex items-center gap-2 mb-2">
-                  <User className="w-4 h-4 text-purple-600" />
-                  <span className="font-medium text-gray-900">Initial Diagnosis</span>
-                  <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded text-xs font-medium ml-auto">
-                    Diagnosis
-                  </span>
+            );
+            
+          case 'dietChart':
+            const diet = item.data;
+            return (
+              <div key={`diet-${index}`} className="relative flex items-start">
+                <div className={`absolute left-0 w-8 h-8 ${colors.bg} rounded-full flex items-center justify-center z-10`}>
+                  <div className={`w-3 h-3 ${colors.dot} rounded-full`}></div>
                 </div>
-                <p className="text-sm text-gray-600 mb-2">2023-12-20</p>
-                <p className="text-sm text-gray-700">
-                  Diagnosed with Pitta-Vata imbalance causing digestive irregularity.
-                </p>
+                <div className="ml-12 bg-white rounded-lg p-4 border shadow-sm w-full">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Icon className={`w-4 h-4 ${colors.icon}`} />
+                    <span className="font-medium text-gray-900">Diet Chart Created</span>
+                    <span className={`px-2 py-1 ${colors.badge} rounded text-xs font-medium ml-auto`}>
+                      Diet Plan
+                    </span>
+                  </div>
+                  <p className="text-sm text-gray-600 mb-2">
+                    {new Date(diet.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+                  </p>
+                  {diet.goals && diet.goals.length > 0 && (
+                    <p className="text-sm text-gray-700">
+                      <strong>Goals:</strong> {diet.goals.join(', ')}
+                    </p>
+                  )}
+                </div>
               </div>
-            </div>
+            );
+            
+          default:
+            return null;
+        }
+      };
+      
+      return (
+        <div className="space-y-6">
+          <div className="mb-6">
+            <h3 className="text-lg font-semibold text-purple-700 mb-2">Medical History</h3>
+            <p className="text-sm text-gray-500">Complete timeline of patient care</p>
           </div>
+
+          {historyLoading ? (
+            <div className="flex flex-col items-center justify-center py-16 space-y-4">
+              <Loader className="w-12 h-12 animate-spin text-purple-600" />
+              <p className="text-gray-600">Loading patient history...</p>
+            </div>
+          ) : allHistoryItems.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 space-y-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+              <Clock className="w-16 h-16 text-gray-400" />
+              <div className="text-center">
+                <h4 className="text-lg font-medium text-gray-900 mb-2">No History Available</h4>
+                <p className="text-sm text-gray-600">
+                  No appointments, prescriptions, or diet charts have been recorded yet.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="relative">
+              <div className="absolute left-4 top-0 bottom-0 w-px bg-gray-200"></div>
+              <div className="space-y-8">
+                {allHistoryItems.map((item, index) => renderHistoryItem(item, index))}
+              </div>
+            </div>
+          )}
         </div>
-      </div>
-    );
+      );
+    };
 
     const renderTabContent = () => {
       switch (activeTab) {
         case 'overview':
           return renderOverviewContent();
+        case 'ai-summary':
+          // Auto-fetch summary when tab is opened
+          if (!aiSummary && !aiSummaryLoading && currentData?.id) {
+            fetchAISummary(currentData.id, false);
+          }
+          
+          return (
+            <div className="space-y-6">
+              {/* Header */}
+              <div className="flex items-center gap-3 mb-6">
+                <Sparkles className="w-6 h-6 text-purple-600" />
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">AI-Powered Patient Summary</h3>
+                  <p className="text-sm text-gray-500">Comprehensive analysis of patient health data</p>
+                </div>
+              </div>
+
+              {/* Content */}
+              {aiSummaryLoading && !aiSummary ? (
+                <div className="flex flex-col items-center justify-center py-16 space-y-4">
+                  <Loader className="w-12 h-12 animate-spin text-purple-600" />
+                  <p className="text-gray-600">Generating AI summary...</p>
+                  <p className="text-sm text-gray-500">This may take a few moments</p>
+                </div>
+              ) : aiSummary ? (
+                <div className="space-y-4">
+                  {/* Summary Info Card */}
+                  <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Sparkles className="w-4 h-4 text-purple-600" />
+                          <span className="text-sm font-medium text-purple-900">Last Updated</span>
+                        </div>
+                        <p className="text-xs text-purple-700">
+                          {aiSummary.lastGenerated ? new Date(aiSummary.lastGenerated).toLocaleString('en-US', {
+                            dateStyle: 'medium',
+                            timeStyle: 'short'
+                          }) : 'Just now'}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => regenerateAISummary(currentData.id)}
+                        disabled={regeneratingSummary}
+                        className="flex items-center gap-2 px-3 py-1.5 bg-white text-purple-600 border border-purple-300 rounded-md hover:bg-purple-50 transition-colors text-sm disabled:opacity-50"
+                      >
+                        {regeneratingSummary ? (
+                          <>
+                            <Loader className="w-3 h-3 animate-spin" />
+                            Regenerating...
+                          </>
+                        ) : (
+                          <>
+                            <RefreshCw className="w-3 h-3" />
+                            Regenerate
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* AI Summary Content - Markdown Rendered */}
+                  <div className="bg-white rounded-lg border shadow-sm p-6">
+                    <div className="prose prose-sm max-w-none">
+                      <ReactMarkdown
+                        components={{
+                          h1: ({ node, ...props }) => <h1 className="text-2xl font-bold text-gray-900 mb-4 mt-6" {...props} />,
+                          h2: ({ node, ...props }) => <h2 className="text-xl font-semibold text-gray-800 mb-3 mt-5 flex items-center gap-2" {...props} />,
+                          h3: ({ node, ...props }) => <h3 className="text-lg font-medium text-gray-700 mb-2 mt-4" {...props} />,
+                          p: ({ node, ...props }) => <p className="text-gray-700 mb-3 leading-relaxed" {...props} />,
+                          ul: ({ node, ...props }) => <ul className="list-disc list-inside space-y-2 mb-4 ml-2" {...props} />,
+                          ol: ({ node, ...props }) => <ol className="list-decimal list-inside space-y-2 mb-4 ml-2" {...props} />,
+                          li: ({ node, ...props }) => <li className="text-gray-700 leading-relaxed" {...props} />,
+                          strong: ({ node, ...props }) => <strong className="font-semibold text-gray-900" {...props} />,
+                          em: ({ node, ...props }) => <em className="italic text-gray-600" {...props} />,
+                          code: ({ node, ...props }) => <code className="bg-gray-100 text-purple-600 px-1.5 py-0.5 rounded text-sm" {...props} />,
+                          blockquote: ({ node, ...props }) => <blockquote className="border-l-4 border-purple-400 pl-4 italic text-gray-600 my-4" {...props} />,
+                        }}
+                      >
+                        {aiSummary.content}
+                      </ReactMarkdown>
+                    </div>
+                  </div>
+
+                  {/* Metadata Quick Reference */}
+                  {aiSummary.metadata && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+                      {/* Health Trends */}
+                      <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                        <h4 className="font-medium text-blue-900 mb-3 flex items-center gap-2">
+                          <TrendingUp className="w-4 h-4" />
+                          Key Health Trends
+                        </h4>
+                        {aiSummary.metadata.healthTrends && aiSummary.metadata.healthTrends.length > 0 ? (
+                          <div className="space-y-2">
+                            {aiSummary.metadata.healthTrends.slice(0, 3).map((trend, idx) => (
+                              <div key={idx} className="flex items-start gap-2">
+                                <Activity className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-blue-600" />
+                                <div className="text-sm text-blue-700 prose prose-sm max-w-none">
+                                  <ReactMarkdown
+                                    components={{
+                                      p: ({ node, ...props }) => <span {...props} />,
+                                      strong: ({ node, ...props }) => <strong className="font-semibold text-blue-900" {...props} />,
+                                      em: ({ node, ...props }) => <em className="italic" {...props} />,
+                                    }}
+                                  >
+                                    {trend}
+                                  </ReactMarkdown>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-blue-600 italic">No trends available yet</p>
+                        )}
+                      </div>
+                      
+                      {/* Risk Factors */}
+                      <div className="bg-amber-50 rounded-lg p-4 border border-amber-200">
+                        <h4 className="font-medium text-amber-900 mb-3 flex items-center gap-2">
+                          <Shield className="w-4 h-4" />
+                          Risk Factors
+                        </h4>
+                        {aiSummary.metadata.riskFactors && aiSummary.metadata.riskFactors.length > 0 ? (
+                          <div className="space-y-2">
+                            {aiSummary.metadata.riskFactors.slice(0, 3).map((risk, idx) => (
+                              <div key={idx} className="flex items-start gap-2">
+                                <AlertCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-amber-600" />
+                                <div className="text-sm text-amber-700 prose prose-sm max-w-none">
+                                  <ReactMarkdown
+                                    components={{
+                                      p: ({ node, ...props }) => <span {...props} />,
+                                      strong: ({ node, ...props }) => <strong className="font-semibold text-amber-900" {...props} />,
+                                      em: ({ node, ...props }) => <em className="italic" {...props} />,
+                                    }}
+                                  >
+                                    {risk}
+                                  </ReactMarkdown>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-amber-600 italic">No risk factors identified</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-16 space-y-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+                  <Sparkles className="w-16 h-16 text-gray-400" />
+                  <div className="text-center">
+                    <h4 className="text-lg font-medium text-gray-900 mb-2">No AI Summary Available</h4>
+                    <p className="text-sm text-gray-600 mb-4 max-w-md">
+                      Generate a comprehensive AI-powered summary of this patient's health data, 
+                      treatment history, and recommendations.
+                    </p>
+                    <button
+                      onClick={() => fetchAISummary(currentData.id, true)}
+                      disabled={aiSummaryLoading}
+                      className="flex items-center gap-2 px-6 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 mx-auto"
+                    >
+                      {aiSummaryLoading ? (
+                        <>
+                          <Loader className="w-4 h-4 animate-spin" />
+                          Generating...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-4 h-4" />
+                          Generate AI Summary
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
         case 'reports':
           return (
             <div className="space-y-6">
@@ -1169,6 +1629,7 @@ const PatientManagement = () => {
               <nav className="space-y-2">
                 {[
                   { id: 'overview', label: 'Overview', icon: User },
+                  { id: 'ai-summary', label: 'AI Summary', icon: Sparkles },
                   { id: 'reports', label: 'Reports', icon: Activity },
                   { id: 'medications', label: 'Medications', icon: Activity },
                   { id: 'history', label: 'History', icon: Clock }
