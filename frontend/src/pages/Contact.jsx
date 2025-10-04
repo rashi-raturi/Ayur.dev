@@ -126,11 +126,13 @@
 // }
 
 
-import React from "react";
 
 // ContactWithOmniEnv.jsx
 // Drop this component into your Vite + React app (replace your current Contact.jsx)
 // Instructions: create a `.env` at project root with VITE_OMNI_SECRET_KEY=your_key and restart dev server.
+
+import React from 'react';
+import PageTransition from '../components/PageTransition';
 
 export default function ContactWithOmniEnv() {
   // Vite exposes env vars prefixed with VITE_ via import.meta.env
@@ -191,14 +193,15 @@ export default function ContactWithOmniEnv() {
 </html>`;
 
   return (
-    <div
-      className="min-h-screen flex flex-col items-center justify-start p-8"
-      style={{ backgroundColor: "#486C4C" }}
-    >
-      <h1 className="text-4xl font-extrabold mb-4 text-white">Vaani AI</h1>
-      <p className="text-gray-100 mb-6 text-center max-w-2xl">
-        Your Ayurveda-inspired voice-based AI assistant — blending ancient wisdom with modern conversations.
-      </p>
+    <PageTransition>
+      <div
+        className="min-h-screen flex flex-col items-center justify-start p-8"
+        style={{ backgroundColor: "#486C4C" }}
+      >
+        <h1 className="text-4xl font-extrabold mb-4 text-white">Vaani AI</h1>
+        <p className="text-gray-100 mb-6 text-center max-w-2xl">
+          Your Ayurveda-inspired voice-based AI assistant — blending ancient wisdom with modern conversations.
+        </p>
 
       <div
         style={{
@@ -221,28 +224,10 @@ export default function ContactWithOmniEnv() {
         />
       </div>
 
-      <p className="text-sm text-gray-200 mt-4 text-center max-w-lg">
-        Powered by OmniDimension • Crafted with the wisdom of Ayurveda 🌿
-      </p>
-
-      {/*
-        Below are auxiliary files/templates for generating a standalone omni-widget.html
-        ------------------------------------------------------------
-        File: omni-widget.template.html
-        (this is your original HTML with styles preserved; the script src uses ${OMNI_SECRET_KEY} placeholder)
-
-        File: scripts/generate-omni.js
-        (small Node script that reads .env and writes public/omni-widget.html by replacing ${OMNI_SECRET_KEY})
-
-        Add the following to package.json to auto-generate before dev/build:
-          "predev": "node scripts/generate-omni.js",
-          "prebuild": "node scripts/generate-omni.js"
-
-        Create .env at project root with:
-          VITE_OMNI_SECRET_KEY=your_secret_here
-
-        The generator will write the final public/omni-widget.html with the real secret injected. Use iframe src="/omni-widget.html" in your Contact component instead of srcDoc if you prefer that flow.
-      */}
-    </div>
+        <p className="text-sm text-gray-200 mt-4 text-center max-w-lg">
+          Powered by OmniDimension • Crafted with the wisdom of Ayurveda 🌿
+        </p>
+      </div>
+    </PageTransition>
   );
 }

@@ -5,17 +5,20 @@ import FeaturesSection from '../components/FeaturesSection'
 import Hero from '../components/Hero'
 import CallToAction from '../components/CallToAction'
 import WhyChooseUs from '../components/WhyChooseUs'
+import PageTransition from '../components/PageTransition'
 
 const Home = () => {
   return (
-    <div>
-      <Hero/>
-      <FeaturesSection/>
-      <Banner />
-      <SpecialityMenu />
-      <WhyChooseUs/>
-      <CallToAction/>
-    </div>
+    <PageTransition>
+      <div>
+        <Hero/>
+        <FeaturesSection/>
+        <Banner />
+        <SpecialityMenu />
+        <WhyChooseUs/>
+        <CallToAction/>
+      </div>
+    </PageTransition>
   )
 }
 

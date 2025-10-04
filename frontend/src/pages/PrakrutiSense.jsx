@@ -1,11 +1,14 @@
 import React from 'react';
 import PrakrutiAnalysisForm from '../components/PrakrutiAnalysisForm';
+import PageTransition from '../components/PageTransition';
 
 const PrakrutiSense = () => {
   return (
-    <div className="prakruti-sense-page">
-      <PrakrutiAnalysisForm />
-    </div>
+    <PageTransition>
+      <div className="prakruti-sense-page">
+        <PrakrutiAnalysisForm />
+      </div>
+    </PageTransition>
   );
 };
 

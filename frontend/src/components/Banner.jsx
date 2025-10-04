@@ -1,31 +1,39 @@
 import React from 'react'
 import { assets } from '../assets/assets'
 import { useNavigate } from 'react-router-dom'
+import { Calendar, ArrowRight } from 'lucide-react'
 
 const Banner = () => {
 
     const navigate = useNavigate()
 
     return (
-        <div className='flex bg-primary rounded-lg  px-6 sm:px-10 md:px-14 lg:px-12 my-20 md:mx-10'>
+        <div className='w-full py-20 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-100'>
+            <div className='max-w-[1400px] mx-auto px-6'>
+                <div className='flex flex-col md:flex-row items-center justify-between gap-12'>
+                    {/* ------- Left Side ------- */}
+                    <div className='flex-1 text-center md:text-left'>
+                        <div className='text-3xl sm:text-4xl md:text-5xl font-bold text-gray-900 leading-tight'>
+                            <p>Book Appointment</p>
+                            <p className='mt-2'>With Trusted Doctors</p>
+                        </div>
+                        <p className='text-gray-700 mt-6 text-lg max-w-xl'>
+                            Schedule hassle-free consultations with experienced Ayurvedic practitioners who understand your unique health needs.
+                        </p>
+                        <a href="#speciality">
+                            <button className="bg-gray-900 text-white text-base font-semibold px-8 py-4 rounded-xl mt-8 hover:bg-gray-800 hover:shadow-2xl transition-all duration-300 inline-flex items-center gap-3 group">
+                                <Calendar className="w-5 h-5" />
+                                Book Appointment
+                                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                            </button>
+                        </a>
+                    </div>
 
-            {/* ------- Left Side ------- */}
-            <div className='flex-1 py-8 sm:py-10 md:py-16 lg:py-24 lg:pl-5'>
-                <div className='text-xl sm:text-2xl md:text-3xl lg:text-5xl font-semibold text-white'>
-                    <p>Book Appointment</p>
-                    <p className='mt-4'>With Trusted Doctors</p>
+                    {/* ------- Right Side ------- */}
+                    <div className='hidden md:block w-full md:w-[45%] lg:w-[400px]'>
+                        <img className='w-full object-contain drop-shadow-2xl' src={assets.appointment_img} alt="Book appointment" />
+                    </div>
                 </div>
-                <a href="#speciality">
-                    <button className="bg-white text-sm sm:text-base text-[#595959] px-12 py-3 rounded-full mt-6 hover:scale-105 transition-all flex items-center gap-2">
-                        Book appointment 
-                        <img className="w-3" src={assets.arrow_icon} alt="" />
-                    </button>
-                </a>
-            </div>
-
-            {/* ------- Right Side ------- */}
-            <div className='hidden md:block md:w-1/2 lg:w-[370px] relative'>
-                <img className='w-full absolute bottom-0 right-0 max-w-md' src={assets.appointment_img} alt="" />
             </div>
         </div>
     )
