@@ -1,5 +1,5 @@
 import express from 'express';
-import { loginUser, registerUser, getProfile, updateProfile, bookAppointment, listAppointment, cancelAppointment, paymentStripe, verifyStripe, getPatientProfileById } from '../controllers/userController.js';
+import { loginUser, registerUser, getProfile, updateProfile, bookAppointment, listAppointment, listDietCharts, cancelAppointment, paymentStripe, verifyStripe, getPatientProfileById } from '../controllers/userController.js';
 import { uploadDoctorPrescription, listPrescriptions } from '../controllers/prescriptionController.js';
 
 import upload from '../middleware/multer.js';
@@ -18,6 +18,7 @@ userRouter.post("/payment-stripe", authUser, paymentStripe)
 userRouter.post("/verifyStripe", authUser, verifyStripe)
 
 userRouter.get("/prescriptions", authUser, listPrescriptions)
+userRouter.get("/diet-charts", authUser, listDietCharts)
 
 userRouter.get("/patient-profile/:patientId", authUser, getPatientProfileById)
 

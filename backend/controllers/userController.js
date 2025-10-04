@@ -4,6 +4,7 @@ import validator from "validator";
 import userModel from "../models/userModel.js";
 import doctorModel from "../models/doctorModel.js";
 import appointmentModel from "../models/appointmentModel.js";
+import dietChartModel from "../models/dietChartModel.js";
 import { v2 as cloudinary } from 'cloudinary'
 import stripe from "stripe";
 
@@ -274,6 +275,27 @@ const listAppointment = async (req, res) => {
     }
 }
 
+// API to get user's diet charts
+const listDietCharts = async (req, res) => {
+    try {
+        const { userId } = req.body
+        const dietCharts = await dietChartModel
+            .find({ patient_id: userId })
+            .sort({ created_at: -1 })
+            .populate("doctor_id", "name speciality")
+            .populate("prescription_id");
+
+        res.json({
+            success: true,
+            count: dietCharts.length,
+            dietCharts,
+        });
+    } catch (error) {
+        console.log(error)
+        res.json({ success: false, message: error.message })
+    }
+}
+
 
 
 // API to make payment of appointment using Stripe
@@ -343,6 +365,7 @@ export {
     updateProfile,
     bookAppointment,
     listAppointment,
+    listDietCharts,
     cancelAppointment,
     paymentStripe,
     verifyStripe

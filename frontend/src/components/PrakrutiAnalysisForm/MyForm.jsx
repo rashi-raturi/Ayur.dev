@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import "./MyForm.css";
 import logicData from "./logic.json";
+import { Zap, RotateCcw } from "lucide-react";
 
 const MyForm = () => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -127,43 +128,30 @@ const MyForm = () => {
       <div className="ms-forms-container">
         <div className="ms-forms-card">
           <div className="welcome-page">
-            <h1 className="welcome-title">Prakruti Analysis</h1>
+            <div className="welcome-icon">
+              <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" style={{width: '100%', height: '100%'}}>
+                <circle cx="32" cy="16" r="12" fill="#7c3aed"/>
+                <circle cx="16" cy="40" r="10" fill="#7c3aed" opacity="0.6"/>
+                <circle cx="48" cy="40" r="10" fill="#7c3aed" opacity="0.6"/>
+              </svg>
+            </div>
+            <h1 className="welcome-title">Prakruti Sense Assessment</h1>
             <div className="welcome-subtitle">
-              Ayurvedic Constitution Assessment
+              Discover your unique Ayurvedic constitution
             </div>
             <p className="welcome-description">
-              Discover your unique Ayurvedic constitution through this
-              comprehensive assessment. Prakruti represents your natural state
-              of being, determined by the balance of three doshas: Vata, Pitta,
-              and Kapha.
+              PrakrutiSense is an AI-powered Ayurvedic assessment tool that analyzes your unique body constitution (Prakruti) 
+              by evaluating physical, mental, and behavioral characteristics. Through a comprehensive questionnaire, 
+              it determines your dominant dosha: Vata, Pitta, or Kapha, and provides personalized lifestyle and dietary 
+              recommendations tailored to your constitution for optimal health and balance.
             </p>
-            <div className="welcome-features">
-              <div className="feature-item">
-                <span className="feature-icon">🌿</span>
-                <span>20 Comprehensive Questions</span>
-              </div>
-              <div className="feature-item">
-                <span className="feature-icon">⚖️</span>
-                <span>Detailed Dosha Analysis</span>
-              </div>
-              <div className="feature-item">
-                <span className="feature-icon">📋</span>
-                <span>Personalized Recommendations</span>
-              </div>
-            </div>
             <div className="welcome-actions">
               <button
                 className="ms-forms-button ms-forms-button-primary welcome-start-btn"
                 onClick={startQuiz}
               >
-                Begin Analysis →
+                Begin Assessment →
               </button>
-            </div>
-            <div className="welcome-note">
-              <small>
-                ✨ Take your time with each question for the most accurate
-                results
-              </small>
             </div>
           </div>
         </div>
@@ -204,11 +192,11 @@ const MyForm = () => {
 
     const getDoshaDescription = (dosha) => {
       const descriptions = {
-        Vata: "You have a Vata constitution, characterized by movement, creativity, and quick thinking. Vata types are typically energetic, enthusiastic, and adaptable, but may experience anxiety or restlessness when imbalanced.",
+        Vata: "Vata governs movement, creativity, and quick thinking.",
         Pitta:
-          "You have a Pitta constitution, characterized by transformation, intelligence, and determination. Pitta types are typically focused, organized, and goal-oriented, but may experience anger or impatience when imbalanced.",
+          "Pitta governs transformation, intelligence, and determination.",
         Kapha:
-          "You have a Kapha constitution, characterized by stability, strength, and calmness. Kapha types are typically patient, loyal, and steady, but may experience lethargy or attachment when imbalanced.",
+          "Kapha governs structure, immunity, and fluid balance.",
       };
       return descriptions[dosha] || "";
     };
@@ -216,122 +204,133 @@ const MyForm = () => {
     const getDoshaRecommendations = (dosha) => {
       const recommendations = {
         Vata: [
-          "Maintain regular daily routines",
-          "Eat warm, cooked foods",
-          "Practice calming activities like yoga",
-          "Get adequate rest and sleep",
-          "Stay warm and avoid cold environments",
+          "Regular daily routine with consistent meal times",
+          "Gentle, grounding exercises like yoga or walking",
+          "Adequate rest and sleep (7-8 hours)",
+          "Stress management through meditation",
         ],
         Pitta: [
           "Keep cool and avoid excessive heat",
           "Eat cooling foods like cucumber and coconut",
           "Practice moderation in activities",
-          "Avoid spicy and acidic foods",
           "Take time for relaxation and leisure",
         ],
         Kapha: [
-          "Engage in regular vigorous exercise",
-          "Eat light, warm, and spicy foods",
-          "Avoid heavy, oily, and sweet foods",
-          "Stay active and avoid oversleeping",
-          "Embrace variety and new experiences",
+          "Regular daily routine with consistent meal times",
+          "Gentle, grounding exercises like yoga or walking",
+          "Adequate rest and sleep (7-8 hours)",
+          "Stress management through meditation",
         ],
       };
       return recommendations[dosha] || [];
+    };
+
+    const getDietaryGuidelines = (dosha) => {
+      const guidelines = {
+        Vata: [
+          "Warm, cooked foods with good oils",
+          "Sweet, sour, and salty tastes",
+          "Regular meal times, avoid skipping meals",
+          "Limit cold, dry, and raw foods",
+        ],
+        Pitta: [
+          "Cool, refreshing foods",
+          "Sweet, bitter, and astringent tastes",
+          "Avoid spicy and acidic foods",
+          "Moderate portions",
+        ],
+        Kapha: [
+          "Warm, cooked foods with good oils",
+          "Sweet, sour, and salty tastes",
+          "Regular meal times, avoid skipping meals",
+          "Limit cold, dry, and raw foods",
+        ],
+      };
+      return guidelines[dosha] || [];
     };
 
     return (
       <div className="ms-forms-container">
         <div className="ms-forms-card">
           <div className="ms-forms-header">
-            <h1>Your Prakruti Analysis Results</h1>
+            <h1>Your Prakruti Results</h1>
             <p>
-              Discover your unique Ayurvedic constitution and personalized
-              wellness insights
+              Your unique Ayurvedic constitution has been revealed
             </p>
           </div>
 
           <div className="ms-forms-content">
-            <div className="dosha-results">
-              <div
-                className={`dosha-result dosha-vata ${
-                  dominantDosha === "Vata" ? "dominant" : ""
-                }`}
-              >
-                <div className="dosha-info">
+            <div className="constitution-card">
+              <div className="primary-constitution-badge">Primary Constitution</div>
+              
+              <h2 style={{ fontSize: '32px', fontWeight: '700', color: '#111827', marginTop: '0', marginBottom: '12px', textAlign: 'center' }}>
+                {dominantDosha} Dominant
+              </h2>
+              <p style={{ fontSize: '16px', color: '#6b7280', marginBottom: '20px', textAlign: 'center' }}>
+                {dominantDosha === "Vata" ? "Air & Space • Movement, Creativity, Quick Thinking" :
+                 dominantDosha === "Pitta" ? "Fire & Water • Transformation, Leadership, Focus" :
+                 "Earth & Water • Structure, Stability, Immunity"}
+              </p>
+              
+              <p style={{ fontSize: '16px', color: '#6b7280', lineHeight: '1.6', marginBottom: '32px', textAlign: 'center' }}>
+                {getDoshaDescription(dominantDosha)}
+              </p>
+
+              <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#111827', marginBottom: '24px', textAlign: 'center' }}>
+                Your Dosha Distribution
+              </h3>
+
+              <div className="dosha-results">
+                <div className="dosha-result dosha-vata">
                   <div className="dosha-header">
                     <span className="dosha-name">Vata</span>
-                    <span className="dosha-elements">Air & Space</span>
                   </div>
-                  <span className="dosha-percentage">{doshaScores.Vata}%</span>
+                  <div className="dosha-bar">
+                    <div
+                      className="dosha-fill"
+                      style={{ width: `${doshaScores.Vata}%` }}
+                    />
+                  </div>
+                  <span className="dosha-percentage" style={{ color: doshaScores.Vata === Math.max(doshaScores.Vata, doshaScores.Pitta, doshaScores.Kapha) ? '#7c3aed' : '#111827' }}>
+                    {doshaScores.Vata}%
+                  </span>
                 </div>
-                <div className="dosha-bar">
-                  <div
-                    className="dosha-fill"
-                    style={{ width: `${doshaScores.Vata}%` }}
-                  />
-                </div>
-                <div className="dosha-characteristics">
-                  <span>Movement • Creativity • Quick Thinking</span>
-                </div>
-              </div>
 
-              <div
-                className={`dosha-result dosha-pitta ${
-                  dominantDosha === "Pitta" ? "dominant" : ""
-                }`}
-              >
-                <div className="dosha-info">
+                <div className="dosha-result dosha-pitta">
                   <div className="dosha-header">
                     <span className="dosha-name">Pitta</span>
-                    <span className="dosha-elements">Fire & Water</span>
                   </div>
-                  <span className="dosha-percentage">{doshaScores.Pitta}%</span>
+                  <div className="dosha-bar">
+                    <div
+                      className="dosha-fill"
+                      style={{ width: `${doshaScores.Pitta}%` }}
+                    />
+                  </div>
+                  <span className="dosha-percentage" style={{ color: doshaScores.Pitta === Math.max(doshaScores.Vata, doshaScores.Pitta, doshaScores.Kapha) ? '#ef4444' : '#111827' }}>
+                    {doshaScores.Pitta}%
+                  </span>
                 </div>
-                <div className="dosha-bar">
-                  <div
-                    className="dosha-fill"
-                    style={{ width: `${doshaScores.Pitta}%` }}
-                  />
-                </div>
-                <div className="dosha-characteristics">
-                  <span>Transformation • Leadership • Focus</span>
-                </div>
-              </div>
 
-              <div
-                className={`dosha-result dosha-kapha ${
-                  dominantDosha === "Kapha" ? "dominant" : ""
-                }`}
-              >
-                <div className="dosha-info">
+                <div className="dosha-result dosha-kapha">
                   <div className="dosha-header">
                     <span className="dosha-name">Kapha</span>
-                    <span className="dosha-elements">Earth & Water</span>
                   </div>
-                  <span className="dosha-percentage">{doshaScores.Kapha}%</span>
-                </div>
-                <div className="dosha-bar">
-                  <div
-                    className="dosha-fill"
-                    style={{ width: `${doshaScores.Kapha}%` }}
-                  />
-                </div>
-                <div className="dosha-characteristics">
-                  <span>Stability • Nurturing • Strength</span>
+                  <div className="dosha-bar">
+                    <div
+                      className="dosha-fill"
+                      style={{ width: `${doshaScores.Kapha}%` }}
+                    />
+                  </div>
+                  <span className="dosha-percentage" style={{ color: doshaScores.Kapha === Math.max(doshaScores.Vata, doshaScores.Pitta, doshaScores.Kapha) ? '#10b981' : '#111827' }}>
+                    {doshaScores.Kapha}%
+                  </span>
                 </div>
               </div>
             </div>
 
-            <div className="dominant-dosha">
-              <h3>
-                Your Dominant Dosha: {dominantDosha} (
-                {doshaScores[dominantDosha]}%)
-              </h3>
-              <p>{getDoshaDescription(dominantDosha)}</p>
-
+            <div className="recommendations-grid">
               <div className="recommendations">
-                <h4>Recommendations for {dominantDosha} Constitution:</h4>
+                <h4>Lifestyle Recommendations</h4>
                 <ul>
                   {getDoshaRecommendations(dominantDosha).map(
                     (recommendation, index) => (
@@ -340,20 +339,32 @@ const MyForm = () => {
                   )}
                 </ul>
               </div>
+
+              <div className="dietary-guidelines">
+                <h4>Dietary Guidelines</h4>
+                <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                  {getDietaryGuidelines(dominantDosha).map((guideline, index) => (
+                    <li key={index} style={{ padding: '10px 0 10px 28px', position: 'relative', fontSize: '15px', color: '#374151', lineHeight: '1.6' }}>
+                      <span style={{ position: 'absolute', left: 0, fontSize: '16px', color: '#10b981', fontWeight: '700' }}>✓</span>
+                      {guideline}
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
 
             <div className="results-actions">
               <button
-                className="ms-forms-button ms-forms-button-primary"
+                className="ms-forms-button ms-forms-button-primary get-diet-plan-btn"
                 onClick={handleSubmit}
               >
-                Complete Analysis
+                <Zap className="w-4 h-4 mr-2" /> Get Personalized Diet Plan
               </button>
               <button
-                className="ms-forms-button ms-forms-button-secondary"
+                className="ms-forms-button ms-forms-button-secondary retake-assessment-btn"
                 onClick={restartAssessment}
               >
-                Restart Assessment
+                <RotateCcw className="w-4 h-4 mr-2" /> Retake Assessment
               </button>
             </div>
           </div>
@@ -367,11 +378,9 @@ const MyForm = () => {
       <div className="ms-forms-card">
         <div className="ms-forms-progress">
           <div className="progress-info">
+            <span className="question-number">Physical</span>
             <span className="progress-text">
               Question {currentQuestionIndex + 1} of {formData.blocks.length}
-            </span>
-            <span className="progress-percentage">
-              {Math.round(progressPercentage)}%
             </span>
           </div>
           <div
@@ -382,9 +391,6 @@ const MyForm = () => {
 
         <div className="ms-forms-content">
           <div className="ms-forms-question">
-            <div className="question-number">
-              QUESTION {currentQuestionIndex + 1}
-            </div>
             <h2 className="question-title">{currentQuestion.title}</h2>
 
             <div className="ms-forms-options">
@@ -413,13 +419,6 @@ const MyForm = () => {
                 </div>
               ))}
             </div>
-
-            <div className="keyboard-hint">
-              <span>
-                🌿 Use number keys (1-{currentQuestion.options.length}) to
-                select options, Enter to continue
-              </span>
-            </div>
           </div>
 
           <div className="ms-forms-navigation">
@@ -440,8 +439,8 @@ const MyForm = () => {
               disabled={!isAnswered}
             >
               {currentQuestionIndex === formData.blocks.length - 1
-                ? "View Results →"
-                : "Next →"}
+                ? "View Results"
+                : "Next"} →
             </button>
           </div>
         </div>

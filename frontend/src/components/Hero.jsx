@@ -1,55 +1,69 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import {Sparkles,ArrowRight} from 'lucide-react';
+import { Activity, MessageCircle, Heart } from 'lucide-react';
 import { assets } from '../assets/assets'
 
 const Hero = () => {
   return (
-    <section
-      className="relative bg-cover bg-center bg-no-repeat rounded-xl px-6 md:px-10 lg:px-20 py-12 md:py-24 text-white overflow-hidden"
-      style={{ backgroundImage: `url(${assets.ayurveda_hero_bg1})` }}
-    >
-      {/* Optional dark overlay for text contrast */}
-      <div className="absolute inset-0 bg-black/50 z-0" />
+    <section className="relative bg-gray-50 w-full">
+      <div className="max-w-[1400px] mx-auto px-6 py-12 md:py-20">
+        <div className="grid md:grid-cols-2 gap-12 items-center">
+          {/* Left Content */}
+          <div className="space-y-6">
+            <div className="inline-flex items-center gap-2 text-sm text-gray-600">
+              <Activity className="w-4 h-4" />
+              <span>Your Wellness Journey</span>
+            </div>
 
-      {/* Hero Content */}
-      <div className="relative z-10 max-w-6xl mx-auto">
-        <div className="flex flex-col items-center text-center gap-8">
-          {/* Badge */}
-          <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full">
-            <Sparkles className="w-4 h-4 text-yellow-300" />
-            <span className="text-sm font-medium">Ancient Wisdom, Modern Technology</span>
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-gray-900 leading-tight">
+              Welcome to Your
+              <br />
+              <span className="block mt-2">Ayurvedic Wellness Portal</span>
+            </h1>
+
+            <p className="text-lg text-gray-600 leading-relaxed max-w-xl">
+              Embark on a personalized journey of holistic health with ancient Ayurvedic wisdom
+              combined with modern technology. Discover your constitution, get tailored
+              nutrition plans, and access AI-powered guidance.
+            </p>
+
+            <div className="flex flex-col sm:flex-row gap-4 pt-4">
+              <Link
+                to="/PrakrutiSense"
+                className="group inline-flex items-center justify-center gap-2 bg-black text-white px-8 py-3.5 rounded-xl text-base font-semibold hover:bg-gray-800 transition-all duration-300 shadow-lg hover:shadow-xl"
+              >
+                <Activity className="w-5 h-5" />
+                Start Your Assessment
+              </Link>
+
+              <Link
+                to="/contact"
+                className="group inline-flex items-center justify-center gap-2 bg-white text-gray-900 border-2 border-gray-200 px-8 py-3.5 rounded-xl text-base font-semibold hover:border-gray-300 hover:shadow-md transition-all duration-300"
+              >
+                <MessageCircle className="w-5 h-5" />
+                Talk with VaaniAI
+              </Link>
+            </div>
           </div>
 
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight">
-            Your Personalized
-            <span className="block bg-gradient-to-r from-yellow-300 to-orange-300 bg-clip-text text-transparent">
-              Ayurvedic Companion
-            </span>
-          </h1>
-
-          <p className="text-lg md:text-xl font-light max-w-4xl leading-relaxed opacity-95">
-            Discover your <strong>Prakruti</strong>, generate <strong>Ayurvedic diet plans</strong>, and get 
-            instant support with our intelligent AI assistant. We bring ancient wisdom and modern technology together — for your holistic wellness.
-          </p>
-
-          <div className="flex flex-col sm:flex-row gap-4 mt-6">
-            <Link
-                to="/PrakrutiSense"
-                className="group bg-white text-green-700 px-8 py-4 rounded-full text-lg font-semibold hover:bg-green-50 transition-all duration-300 flex items-center gap-2 shadow-lg hover:shadow-xl"
-            >
-                Try PrakrutiSense
-                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-            </Link>
-
-            <Link
-                to="/AyuChart"
-                className="group border-2 border-white text-white px-8 py-4 rounded-full text-lg font-semibold hover:bg-white hover:text-green-700 transition-all duration-300 flex items-center gap-2"
-            >
-                Explore AyuChart
-                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-            </Link>
+          {/* Right Image */}
+          <div className="relative">
+            <div className="relative rounded-3xl overflow-hidden shadow-2xl">
+              <img 
+                src={assets.ayurveda_hero_bg1} 
+                alt="Ayurvedic wellness" 
+                className="w-full h-[500px] object-cover"
+              />
+              {/* Floating heart icon */}
+              <div className="absolute top-6 right-6 bg-white rounded-full p-3 shadow-lg">
+                <Heart className="w-6 h-6 text-gray-900" />
+              </div>
+              {/* Floating activity icon */}
+              <div className="absolute bottom-6 left-6 bg-white rounded-full p-3 shadow-lg">
+                <Activity className="w-6 h-6 text-gray-900" />
+              </div>
             </div>
+          </div>
         </div>
       </div>
     </section>
