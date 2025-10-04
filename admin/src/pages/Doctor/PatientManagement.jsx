@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { DoctorContext } from '../../context/DoctorContext';
 import { toast } from 'react-toastify';
 import axios from 'axios';
-import { Search, Plus, Eye, Edit2, Calendar, User, Stethoscope, Activity, CheckCircle, Clock, AlertCircle, Upload, FileText, Download, Loader, Sparkles, RefreshCw, TrendingUp, Shield, Target, Heart } from 'lucide-react';
+import { Search, Plus, Eye, Edit2, Calendar, User, Stethoscope, Activity, CheckCircle, Clock, AlertCircle, Upload, FileText, Download, Loader, Sparkles, RefreshCw, TrendingUp, Shield, Target, Heart, Phone, Mail, MapPin } from 'lucide-react';
 import PrescriptionPreview from '../../components/PrescriptionPreview';
 import ReactMarkdown from 'react-markdown';
 
@@ -77,6 +77,12 @@ const PatientManagement = () => {
     assessments: []
   });
   const [historyLoading, setHistoryLoading] = useState(false);
+
+  // HIS Integration states
+  const [showHISSearch, setShowHISSearch] = useState(false);
+  const [hisSearchQuery, setHisSearchQuery] = useState('');
+  const [hisSearchResults, setHisSearchResults] = useState([]);
+  const [hisSearchLoading, setHisSearchLoading] = useState(false);
 
   const fetchPatients = useCallback(async (force = false) => {
     try {
@@ -550,6 +556,81 @@ const PatientManagement = () => {
     } finally {
       setAddPatientLoading(false);
     }
+  };
+
+  // HIS Integration Functions
+  const searchHISPatients = async () => {
+    if (!hisSearchQuery || hisSearchQuery.trim().length < 2) {
+      toast.error("Please enter at least 2 characters to search");
+      return;
+    }
+
+    setHisSearchLoading(true);
+    try {
+      const response = await fetch(
+        `${backendUrl}/api/his/patients/search?q=${encodeURIComponent(
+          hisSearchQuery
+        )}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      const data = await response.json();
+      if (data.success) {
+        setHisSearchResults(data.patients);
+        if (data.patients.length === 0) {
+          toast.info("No patients found in HIS matching your search");
+        }
+      } else {
+        toast.error(data.message || "HIS search failed");
+        setHisSearchResults([]);
+      }
+    } catch (error) {
+      console.error("Error searching HIS patients:", error);
+      toast.error("Error connecting to HIS");
+      setHisSearchResults([]);
+    } finally {
+      setHisSearchLoading(false);
+    }
+  };
+
+  const handleHISPatientSelect = (hisPatient) => {
+    // Auto-fill the form with HIS patient data
+    setAddPatientData({
+      name: hisPatient.name,
+      email: hisPatient.email || '',
+      phone: hisPatient.phone || '',
+      address: {
+        line1: hisPatient.address || '',
+        line2: '',
+        city: '',
+        state: '',
+        pincode: '',
+        country: 'India'
+      },
+      gender: hisPatient.gender || '',
+      dob: hisPatient.dateOfBirth ? hisPatient.dateOfBirth.split('T')[0] : '',
+      height: { feet: 0, inches: 0 },
+      weight: hisPatient.weight || 0,
+      bowel_movements: '',
+      constitution: hisPatient.constitution || '',
+      condition: hisPatient.conditions || '',
+      foodAllergies: hisPatient.allergies || '',
+      notes: `Imported from HIS. Patient ID: ${hisPatient.hisPatientId}. BMI: ${
+        hisPatient.bmi || "N/A"
+      }`
+    });
+    
+    // Close HIS search modal
+    setShowHISSearch(false);
+    setHisSearchResults([]);
+    setHisSearchQuery('');
+    
+    toast.success(`Patient ${hisPatient.name} data auto-filled successfully!`);
   };
 
   const PatientModal = ({ patient, isOpen, onClose }) => {
@@ -1944,9 +2025,19 @@ const PatientManagement = () => {
               {/* Modal Content */}
               <div className="p-6">
               <div className="space-y-4">
-                {/* Personal Details Section Header */}
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Personal Details</h3>
+                {/* Personal Details Section Header with Fill from HIS button */}
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-gray-900">Personal Details</h3>
+                  {!isEditMode && (
+                    <button
+                      type="button"
+                      onClick={() => setShowHISSearch(true)}
+                      className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm shadow-sm"
+                    >
+                      <Search className="w-4 h-4" />
+                      Fill from HIS
+                    </button>
+                  )}
                 </div>
 
                 {/* Name and Email Row */}
@@ -2280,6 +2371,196 @@ const PatientManagement = () => {
           setPreviewPrescription(null);
         }}
       />
+
+      {/* HIS Patient Search Modal */}
+      {showHISSearch && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-semibold text-gray-900">Search HIS Patients</h3>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Search and import patient data from Hospital Information System
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowHISSearch(false);
+                    setHisSearchResults([]);
+                    setHisSearchQuery('');
+                  }}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6">
+              {/* Search Input */}
+              <div className="flex gap-3 mb-6">
+                <div className="flex-1">
+                  <input
+                    type="text"
+                    placeholder="Search by name, phone, email, or patient ID..."
+                    value={hisSearchQuery}
+                    onChange={(e) => setHisSearchQuery(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    onKeyPress={(e) => e.key === 'Enter' && searchHISPatients()}
+                  />
+                </div>
+                <button
+                  onClick={searchHISPatients}
+                  disabled={hisSearchLoading || hisSearchQuery.length < 2}
+                  className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-xl hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {hisSearchLoading ? (
+                    <Loader className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Search className="w-4 h-4" />
+                  )}
+                  Search
+                </button>
+              </div>
+
+              {/* Search Results */}
+              <div className="space-y-4 max-h-96 overflow-y-auto">
+                {hisSearchResults.map((patient) => (
+                  <div
+                    key={patient.hisPatientId}
+                    onClick={() => handleHISPatientSelect(patient)}
+                    className="group p-5 border border-gray-200 rounded-xl hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 cursor-pointer transition-all duration-300 hover:border-blue-300 hover:shadow-md"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        {/* Patient Header */}
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                            <User className="w-5 h-5 text-blue-600" />
+                          </div>
+                          <div>
+                            <h4 className="font-semibold text-gray-900 text-lg group-hover:text-blue-900">
+                              {patient.name}
+                            </h4>
+                            <p className="text-sm text-blue-600 font-medium">
+                              HIS ID: {patient.hisPatientId}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Patient Details Grid */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                          {/* Basic Info */}
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2 text-sm">
+                              <Calendar className="w-4 h-4 text-gray-400" />
+                              <span className="text-gray-600">{patient.age} years old • {patient.gender}</span>
+                            </div>
+                            {patient.phone && (
+                              <div className="flex items-center gap-2 text-sm">
+                                <Phone className="w-4 h-4 text-gray-400" />
+                                <span className="text-gray-600">{patient.phone}</span>
+                              </div>
+                            )}
+                            {patient.email && (
+                              <div className="flex items-center gap-2 text-sm">
+                                <Mail className="w-4 h-4 text-gray-400" />
+                                <span className="text-gray-600 truncate">{patient.email}</span>
+                              </div>
+                            )}
+                            {patient.address && (
+                              <div className="flex items-center gap-2 text-sm">
+                                <MapPin className="w-4 h-4 text-gray-400" />
+                                <span className="text-gray-600 truncate">{patient.address}</span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Medical Info */}
+                          <div className="space-y-2">
+                            {patient.constitution && (
+                              <div className="flex items-center gap-2">
+                                <Activity className="w-4 h-4 text-blue-500" />
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                  {patient.constitution}
+                                </span>
+                              </div>
+                            )}
+                            {patient.conditions && (
+                              <div className="flex items-start gap-2">
+                                <AlertCircle className="w-4 h-4 text-orange-500 mt-0.5" />
+                                <div>
+                                  <p className="text-xs text-gray-500 font-medium">Conditions</p>
+                                  <p className="text-sm text-orange-700 font-medium">{patient.conditions}</p>
+                                </div>
+                              </div>
+                            )}
+                            {patient.allergies && (
+                              <div className="flex items-start gap-2">
+                                <AlertCircle className="w-4 h-4 text-red-500 mt-0.5" />
+                                <div>
+                                  <p className="text-xs text-gray-500 font-medium">Allergies</p>
+                                  <p className="text-sm text-red-700 font-medium">{patient.allergies}</p>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Additional Info Tags */}
+                        <div className="flex flex-wrap gap-2 mt-3">
+                          {patient.bmi && (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              BMI: {patient.bmi}
+                            </span>
+                          )}
+                          {patient.weight && (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                              Weight: {patient.weight} kg
+                            </span>
+                          )}
+                          {patient.eligible && (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
+                              ✓ Diet Planning Eligible
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Import Button */}
+                      <button 
+                        className="ml-4 bg-gradient-to-r from-green-600 to-emerald-600 text-white px-6 py-2.5 rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all duration-200 font-medium text-sm shadow-sm hover:shadow-md transform hover:scale-105"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleHISPatientSelect(patient);
+                        }}
+                      >
+                        Import Patient
+                      </button>
+                    </div>
+                  </div>
+                ))}
+
+                {hisSearchResults.length === 0 && hisSearchQuery.length >= 2 && !hisSearchLoading && (
+                  <div className="text-center py-8 text-gray-500">
+                    <User className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                    <p>No patients found matching "{hisSearchQuery}"</p>
+                    <p className="text-sm">Try different search terms</p>
+                  </div>
+                )}
+
+                {hisSearchQuery.length < 2 && (
+                  <div className="text-center py-8 text-gray-500">
+                    <Search className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                    <p>Enter at least 2 characters to search HIS patients</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

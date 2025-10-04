@@ -13,7 +13,7 @@ class HISIntegrationService {
     try {
       // Ensure we have the model
       const PatientModel = await getHISPatientModel();
-      
+
       if (!PatientModel) {
         throw new Error("HIS Patient model not initialized");
       }
@@ -112,7 +112,7 @@ class HISIntegrationService {
     try {
       // Ensure we have the model
       const PatientModel = await getHISPatientModel();
-      
+
       if (!PatientModel) {
         throw new Error("HIS Patient model not initialized");
       }
@@ -262,11 +262,11 @@ class HISIntegrationService {
   static async getPendingDietChartRequests(doctorId, limit = 10) {
     try {
       const DietChartModel = await getHISDietChartModel();
-      
+
       if (!DietChartModel) {
         throw new Error("HIS Diet Chart model not initialized");
       }
-      
+
       // Get both pending requests and recent completed ones (synced from main system)
       const [pendingRequests, recentCompleted] = await Promise.all([
         DietChartModel.find({
@@ -332,11 +332,11 @@ class HISIntegrationService {
   static async pushDietChartToHIS(dietChart, doctorId, hisPatientId) {
     try {
       const DietChartModel = await getHISDietChartModel();
-      
+
       if (!DietChartModel) {
         throw new Error("HIS Diet Chart model not initialized");
       }
-      
+
       // Create new diet chart record in HIS
       const hisDietChart = new DietChartModel({
         hisDietChartId: DietChartModel.generateDietChartId(),
@@ -392,11 +392,11 @@ class HISIntegrationService {
       // Ensure we have the models
       const PatientModel = await getHISPatientModel();
       const DietChartModel = await getHISDietChartModel();
-      
+
       if (!PatientModel) {
         throw new Error("HIS Patient model not initialized");
       }
-      
+
       if (!DietChartModel) {
         throw new Error("HIS Diet Chart model not initialized");
       }
