@@ -1,11 +1,3 @@
-import axios from 'axios'
-import React, { useContext, useState } from 'react'
-import { DoctorContext } from '../context/DoctorContext'
-import { AdminContext } from '../context/AdminContext'
-import { toast } from 'react-toastify'
-import { useNavigate } from 'react-router-dom'
-import { Eye, EyeOff } from 'lucide-react'
-import { assets } from '../assets/assets'
 import axios from "axios";
 import React, { useContext, useState } from "react";
 import { DoctorContext } from "../context/DoctorContext";
