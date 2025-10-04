@@ -31,7 +31,7 @@ import {
 
 const DoctorAppointments = () => {
 
-  const { dToken, appointments, getAppointments, cancelAppointment, confirmAppointment, startAppointment, completeAppointment } = useContext(DoctorContext)
+  const { dToken, appointments, getAppointments, cancelAppointment, confirmAppointment, startAppointment, completeAppointment, profileData, getProfileData } = useContext(DoctorContext)
   const { slotDateFormat, calculateAge, currency, backendUrl } = useContext(AppContext)
   
   // State for patient profile modal
@@ -55,6 +55,7 @@ const DoctorAppointments = () => {
   useEffect(() => {
     if (dToken) {
       getAppointments()
+      getProfileData() // Load doctor profile data
     }
   }, [dToken])
 
@@ -105,6 +106,99 @@ const DoctorAppointments = () => {
     } catch (error) {
       console.error('Error restoring appointment:', error)
       toast.error('Failed to restore appointment')
+    }
+  }
+
+  // Function to send WhatsApp appointment notification
+  const sendWhatsAppNotification = (appointment) => {
+    try {
+      // Safety check for userData
+      if (!appointment.userData || !appointment.userData.phone) {
+        toast.error('Patient phone number not available')
+        return
+      }
+
+      // Get patient details
+      const patientName = appointment.userData.name || 'Patient'
+      const patientPhone = appointment.userData.phone
+      
+      // Format date and time
+      const appointmentDate = new Date(appointment.slotDate).toLocaleDateString('en-US', { 
+        weekday: 'long',
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+      })
+      const appointmentTime = appointment.slotTime
+      
+      // Get appointment type
+      const appointmentType = appointment.appointmentType || 'consultation'
+      const typeLabel = appointmentType.charAt(0).toUpperCase() + appointmentType.slice(1).replace('-', ' ')
+      
+      // Get location type
+      const locationType = appointment.locationType || 'clinic'
+      const locationLabel = locationType === 'online' ? '💻 Online Consultation' : 
+                           locationType === 'home-visit' ? '🏠 Home Visit' : 
+                           '🏥 Clinic Visit'
+      
+      // Format fees
+      const fees = appointment.amount ? `${currency}${appointment.amount}` : 'As per consultation'
+      
+      // Get doctor name (from context profileData, then appointment data, then fallback)
+      console.log('ProfileData:', profileData)
+      console.log('Appointment docData:', appointment.docData)
+      const doctorName = profileData?.name || appointment.docData?.name || 'Your Doctor'
+      console.log('Doctor Name:', doctorName)
+      
+      // Craft the WhatsApp message
+      const message = `✨ *Appointment Confirmation* ✨
+
+Dear ${patientName},
+
+Your appointment has been successfully scheduled! 🎉
+
+📋 *Appointment Details:*
+━━━━━━━━━━━━━━━━━━━━
+👨‍⚕️ Doctor: ${doctorName}
+📅 Date: ${appointmentDate}
+🕐 Time: ${appointmentTime}
+⏱️ Duration: ${appointment.duration || 45} minutes
+🔖 Type: ${typeLabel}
+📍 Location: ${locationLabel}
+💰 Consultation Fee: ${fees}
+
+${appointment.appointmentType === 'emergency' ? '⚠️ *This is marked as an EMERGENCY appointment. Please arrive 10 minutes early.*\n\n' : ''}${appointment.locationType === 'online' ? '💻 *Online Consultation Link will be shared 15 minutes before the appointment.*\n\n' : ''}📝 *Important Instructions:*
+• Please arrive 10 minutes before your scheduled time
+• Bring any previous medical reports
+• Carry a valid ID proof
+${appointment.locationType === 'clinic' ? '• Wear a mask for your safety\n' : ''}
+✅ *Your appointment is CONFIRMED!*
+
+For any changes or queries, please contact the clinic.
+
+Thank you for choosing us for your healthcare needs! 🙏
+
+_This is an automated message. Please do not reply._`
+
+      // Remove country code prefix if present and clean phone number
+      let cleanPhone = patientPhone.replace(/\D/g, '') // Remove all non-digits
+      
+      // If phone starts with country code, keep it; otherwise assume it needs one
+      if (!cleanPhone.startsWith('91') && cleanPhone.length === 10) {
+        cleanPhone = '91' + cleanPhone // Add India country code
+      }
+      
+      // Create WhatsApp URL - Don't encode the message to preserve emojis
+      // WhatsApp's API will handle the encoding properly
+      const whatsappUrl = `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURI(message)}`
+      
+      // Open WhatsApp in new tab
+      window.open(whatsappUrl, '_blank')
+      
+      toast.success('Opening WhatsApp...')
+    } catch (error) {
+      console.error('Error sending WhatsApp notification:', error)
+      toast.error('Failed to open WhatsApp')
     }
   }
 
@@ -453,7 +547,11 @@ const DoctorAppointments = () => {
                               <button className='p-1 border border-blue-600 hover:bg-blue-50 rounded-xl transition-colors'>
                                 <Mail className='w-4 h-4 text-blue-600 mx-auto' />
                               </button>
-                              <button className='p-1 border border-green-600 hover:bg-green-50 rounded-xl transition-colors'>
+                              <button 
+                                onClick={() => sendWhatsAppNotification(item)}
+                                className='p-1 border border-green-600 hover:bg-green-50 rounded-xl transition-colors'
+                                title='Send WhatsApp notification'
+                              >
                                 <MessageSquare className='w-4 h-4 text-green-600 mx-auto' />
                               </button>
                             </div>
@@ -485,7 +583,11 @@ const DoctorAppointments = () => {
                               <button className='p-1 border border-blue-600 hover:bg-blue-50 rounded-xl transition-colors'>
                                 <Mail className='w-4 h-4 text-blue-600 mx-auto' />
                               </button>
-                              <button className='p-1 border border-green-600 hover:bg-green-50 rounded-xl transition-colors'>
+                              <button 
+                                onClick={() => sendWhatsAppNotification(item)}
+                                className='p-1 border border-green-600 hover:bg-green-50 rounded-xl transition-colors'
+                                title='Send WhatsApp notification'
+                              >
                                 <MessageSquare className='w-4 h-4 text-green-600 mx-auto' />
                               </button>
                             </div>
@@ -517,7 +619,11 @@ const DoctorAppointments = () => {
                               <button className='p-1 border border-blue-600 hover:bg-blue-50 rounded-xl transition-colors'>
                                 <Mail className='w-4 h-4 text-blue-600 mx-auto' />
                               </button>
-                              <button className='p-1 border border-green-600 hover:bg-green-50 rounded-xl transition-colors'>
+                              <button 
+                                onClick={() => sendWhatsAppNotification(item)}
+                                className='p-1 border border-green-600 hover:bg-green-50 rounded-xl transition-colors'
+                                title='Send WhatsApp notification'
+                              >
                                 <MessageSquare className='w-4 h-4 text-green-600 mx-auto' />
                               </button>
                             </div>
