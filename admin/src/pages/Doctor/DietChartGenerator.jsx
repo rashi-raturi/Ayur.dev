@@ -1,4 +1,5 @@
 import { useState, useEffect, useContext, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import { User, ChevronLeft, ChevronRight, Save, Clock, Eye, Search, X, Plus, UtensilsCrossed, Calendar, Filter, SlidersHorizontal, ArrowUpDown, Tag, Coffee } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { DoctorContext } from '../../context/DoctorContext';
@@ -9,6 +10,7 @@ import axios from 'axios';
 
 const DietChartGenerator = () => {
   const { dToken, backendUrl } = useContext(DoctorContext);
+  const location = useLocation();
   const [currentStep, setCurrentStep] = useState(1);
   const [activeTab, setActiveTab] = useState('saved'); // Start with 'saved' to show the cards
   const [searchTerm, setSearchTerm] = useState('');
@@ -535,6 +537,18 @@ const DietChartGenerator = () => {
   useEffect(() => {
     setCurrentPage(1);
   }, [foodSearchTerm, selectedCategory, selectedRasa, selectedDoshas, selectedDietType, sortBy, sortDirection]);
+
+  // Check if we should open the create diet chart from navigation state
+  useEffect(() => {
+    if (location.state?.openCreateDietChart) {
+      // Add a small delay for smooth transition after navigation
+      const timer = setTimeout(() => {
+        setActiveTab('create');
+        setCurrentStep(1);
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, [location]);
 
   const handleNext = () => {
     if (currentStep === 1) {
@@ -1751,7 +1765,7 @@ const DietChartGenerator = () => {
         </div>
 
         {activeTab === 'create' ? (
-          <>
+          <div className="animate-fadeIn">
             {/* Step Indicator */}
             <div className="mb-4 md:mb-6">
               <div className="flex items-center justify-between max-w-full md:max-w-3xl">
@@ -3060,7 +3074,7 @@ const DietChartGenerator = () => {
                 )}
               </div>
             </div>
-          </>
+          </div>
         ) : (
           /* Saved Charts Tab */
           <div>

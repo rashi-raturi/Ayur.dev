@@ -751,7 +751,6 @@ const Prescriptions = () => {
         bowel_movements: formData.bowel_movements || "normal",
       };
 
-      console.log("Sending AI Prescription Request:", requestData);
 
       const response = await fetch(
         'https://ayurgenixai-dr4y.onrender.com/generate-medication',
@@ -764,8 +763,6 @@ const Prescriptions = () => {
         }
       );
 
-      console.log("AI Prescription Response Status:", response.status);
-
       if (!response.ok) {
         const errorData = await response.text();
         console.error('API Error Response:', errorData);
@@ -773,7 +770,6 @@ const Prescriptions = () => {
       }
 
       const medData = await response.json();
-      console.log("AI Prescription Response Data:", medData);
 
       if (medData.success) {
         // Extract and set diagnosis
@@ -881,8 +877,6 @@ const Prescriptions = () => {
           setShowAiMedicationForms(true);
         }
 
-        console.log("Extracted medications:", medicationsToAdd);
-
         // Apply all data to form (except medications - they go to the separate AI box)
         setFormData((prev) => ({
           ...prev,
@@ -937,8 +931,6 @@ const Prescriptions = () => {
         return;
       }
 
-      console.log("Current formData:", formData);
-
       // Prepare patient details for diet chart generation
       const patientDetails = {
         patientName: formData.patientName,
@@ -954,8 +946,6 @@ const Prescriptions = () => {
         healthGoals: Array.isArray(formData.healthGoals) ? formData.healthGoals : ["Improve overall health and constitution balance"]
       };
 
-      console.log("Generating AI Diet Chart with data:", patientDetails);
-
       // Call diet chart AI generation endpoint using axios like DietChartGenerator
       const response = await axios.post(
         `${backendUrl}/api/doctor/diet-chart/generate-ai`,
@@ -966,12 +956,7 @@ const Prescriptions = () => {
         { headers: { dToken } }
       );
 
-      console.log("AI Diet Chart Response:", response.data);
-      
       if (response.data.success) {
-        console.log("Weekly Meal Plan Structure:", response.data.weeklyMealPlan);
-        console.log("Nutrition Goals:", response.data.customNutritionGoals);
-        // Format the data for saving as a diet chart
         const dietChartData = {
           patientId: formData.patientId,
           patientDetails: {
@@ -1026,8 +1011,6 @@ const Prescriptions = () => {
 
           // Store for immediate preview access
           setDietChartData(completeChartData);
-          
-          console.log("Stored diet chart data for preview:", completeChartData);
 
           // Set the linked diet chart with the saved chart data
           setLinkedDietChart({

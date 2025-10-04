@@ -10,6 +10,7 @@ import {
   doctorList,
   changeAvailablity,
   appointmentComplete,
+  markReminderSent,
   createAppointmentByDoctor,
   updateAppointmentByDoctor,
   doctorDashboard,
@@ -56,6 +57,8 @@ doctorRouter.put(
 );
 doctorRouter.post("/confirm-appointment", authDoctor, confirmAppointment);
 doctorRouter.post("/start-appointment", authDoctor, startAppointment);
+doctorRouter.post("/complete-appointment", authDoctor, appointmentComplete);
+doctorRouter.post("/mark-reminder-sent", authDoctor, markReminderSent);
 doctorRouter.post("/create-appointment", authDoctor, createAppointmentByDoctor);
 doctorRouter.put(
   "/update-appointment/:appointmentId",

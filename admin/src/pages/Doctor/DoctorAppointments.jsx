@@ -1,11 +1,13 @@
 import React from 'react'
 import { useContext, useEffect, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { DoctorContext } from '../../context/DoctorContext'
 import { AppContext } from '../../context/AppContext'
 import { assets } from '../../assets/assets'
 import PatientProfileModal from './PatientProfileModal'
 import NewAppointmentModal from '../../components/NewAppointmentModal'
 import { toast } from 'react-toastify'
+import axios from 'axios'
 import { 
   Search, 
   ChevronDown, 
@@ -33,6 +35,7 @@ const DoctorAppointments = () => {
 
   const { dToken, appointments, getAppointments, cancelAppointment, confirmAppointment, startAppointment, completeAppointment, profileData, getProfileData } = useContext(DoctorContext)
   const { slotDateFormat, calculateAge, currency, backendUrl } = useContext(AppContext)
+  const location = useLocation()
   
   // State for patient profile modal
   const [isPatientModalOpen, setIsPatientModalOpen] = useState(false)
@@ -58,6 +61,17 @@ const DoctorAppointments = () => {
       getProfileData() // Load doctor profile data
     }
   }, [dToken])
+
+  // Check if we should open the add appointment modal from navigation state
+  useEffect(() => {
+    if (location.state?.openAddAppointment) {
+      // Add a small delay for smooth transition after navigation
+      const timer = setTimeout(() => {
+        setIsNewAppointmentModalOpen(true)
+      }, 150)
+      return () => clearTimeout(timer)
+    }
+  }, [location])
 
   // Function to handle patient name click
   const handlePatientClick = (patientId) => {
@@ -110,7 +124,7 @@ const DoctorAppointments = () => {
   }
 
   // Function to send WhatsApp appointment notification
-  const sendWhatsAppNotification = (appointment) => {
+  const sendWhatsAppNotification = async (appointment) => {
     try {
       // Safety check for userData
       if (!appointment.userData || !appointment.userData.phone) {
@@ -195,7 +209,24 @@ _This is an automated message. Please do not reply._`
       // Open WhatsApp in new tab
       window.open(whatsappUrl, '_blank')
       
-      toast.success('Opening WhatsApp...')
+      // Mark reminder as sent in the database
+      try {
+        const response = await axios.post(
+          backendUrl + '/api/doctor/mark-reminder-sent',
+          { appointmentId: appointment._id },
+          { headers: { dToken } }
+        )
+        
+        if (response.data.success) {
+          // Refresh appointments to update the UI
+          getAppointments()
+          toast.success('Reminder sent successfully!')
+        }
+      } catch (apiError) {
+        console.error('Error marking reminder as sent:', apiError)
+        // Still show success for WhatsApp opening even if DB update fails
+        toast.success('WhatsApp opened successfully')
+      }
     } catch (error) {
       console.error('Error sending WhatsApp notification:', error)
       toast.error('Failed to open WhatsApp')
@@ -647,10 +678,26 @@ _This is an automated message. Please do not reply._`
                     </div>
 
                     {/* Reminder Alert - Full Width */}
-                    {!item.reminderSent && appointmentStatus === 'scheduled' && (
-                      <div className='mt-4 bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-2.5 flex items-center gap-2'>
-                        <AlertCircle className='w-4 h-4 text-yellow-600 flex-shrink-0' />
-                        <span className='text-sm text-yellow-800 font-medium'>Reminder not sent yet</span>
+                    {appointmentStatus === 'scheduled' && (
+                      <div className='mt-4'>
+                        {!item.reminderSent ? (
+                          <div className='bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-2.5 flex items-center gap-2'>
+                            <AlertCircle className='w-4 h-4 text-yellow-600 flex-shrink-0' />
+                            <span className='text-sm text-yellow-800 font-medium'>Reminder not sent yet</span>
+                          </div>
+                        ) : (
+                          <div className='bg-green-50 border border-green-200 rounded-lg px-4 py-2.5 flex items-center gap-2'>
+                            <CheckCircle className='w-4 h-4 text-green-600 flex-shrink-0' />
+                            <div className='flex-1'>
+                              <span className='text-sm text-green-800 font-medium'>Reminder sent</span>
+                              {item.reminderSentAt && (
+                                <span className='text-xs text-green-600 ml-2'>
+                                  on {new Date(item.reminderSentAt).toLocaleDateString()} at {new Date(item.reminderSentAt).toLocaleTimeString()}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

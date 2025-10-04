@@ -58,7 +58,6 @@ const setCachedDashboard = (doctorId, data) => {
 const clearDoctorDashboardCache = (doctorId) => {
   if (doctorId) {
     dashboardCache.data.delete(doctorId);
-    console.log(`Dashboard cache cleared for doctor: ${doctorId}`);
   }
 };
 
@@ -99,15 +98,12 @@ const setCachedAISummary = (patientId, content, version) => {
 const clearAISummaryCache = (patientId) => {
   if (patientId) {
     aiSummaryCache.data.delete(patientId);
-    console.log(`AI summary cache cleared for patient: ${patientId}`);
   }
 };
 
 // Function to generate AI summary for a patient
 const generatePatientAISummary = async (patientId) => {
   try {
-    console.log(`Generating AI summary for patient: ${patientId}`);
-    
     // Fetch patient data
     const patient = await userModel.findById(patientId);
     
@@ -121,8 +117,6 @@ const generatePatientAISummary = async (patientId) => {
       .sort({ createdAt: -1 })
       .limit(10)
       .lean();
-    
-    console.log(`Found ${prescriptions.length} prescriptions for patient ${patientId}`);
     
     // Calculate age
     let age = 'N/A';
@@ -249,11 +243,8 @@ Generate the summary now:`;
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
     const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
     
-    console.log('Calling Gemini AI for patient summary...');
     const result = await model.generateContent(prompt);
     const aiResponse = result.response.text();
-    
-    console.log('AI summary generated successfully');
     
     // Extract metadata from the summary
     const healthTrends = [];
@@ -322,8 +313,6 @@ Generate the summary now:`;
     
     // Cache the summary
     setCachedAISummary(patientId, aiResponse, patient.aiSummary.version);
-    
-    console.log(`AI summary saved and cached for patient: ${patientId}`);
     
     return {
       content: aiResponse,
@@ -704,13 +693,47 @@ const appointmentComplete = async (req, res) => {
   }
 };
 
+// API to mark reminder as sent
+const markReminderSent = async (req, res) => {
+  try {
+    const { appointmentId } = req.body;
+    const docId = req.doctorId;
+
+    const appointment = await appointmentModel.findById(appointmentId);
+
+    if (!appointment) {
+      return res.json({ success: false, message: "Appointment not found" });
+    }
+
+    if (appointment.docId.toString() !== docId.toString()) {
+      return res.json({
+        success: false,
+        message: "Unauthorized to update this appointment",
+      });
+    }
+
+    await appointmentModel.findByIdAndUpdate(appointmentId, {
+      reminderSent: true,
+      reminderSentAt: new Date(),
+    });
+
+    // Clear dashboard cache
+    clearDoctorDashboardCache(docId);
+
+    return res.json({ 
+      success: true, 
+      message: "Reminder marked as sent",
+      reminderSentAt: new Date()
+    });
+  } catch (error) {
+    console.log(error);
+    res.json({ success: false, message: error.message });
+  }
+};
+
 // API to create appointment by doctor
 const createAppointmentByDoctor = async (req, res) => {
   try {
-    console.log("=== CREATE APPOINTMENT REQUEST ===");
-    console.log("Request body:", req.body);
-    console.log("Doctor ID:", req.doctorId);
-
     const {
       userId,
       slotDate,
@@ -725,7 +748,6 @@ const createAppointmentByDoctor = async (req, res) => {
 
     // Validate required fields
     if (!userId || !slotDate || !slotTime) {
-      console.log("Missing required fields:", { userId, slotDate, slotTime });
       return res.json({ success: false, message: "Missing required fields" });
     }
 
@@ -774,14 +796,10 @@ const createAppointmentByDoctor = async (req, res) => {
     const newAppointment = new appointmentModel(appointmentData);
     await newAppointment.save();
 
-    console.log("Appointment created:", newAppointment._id);
-
     // Update doctor's slotsBooked array
     await doctorModel.findByIdAndUpdate(docId, {
       $push: { slotsBooked: newAppointment._id },
     });
-
-    console.log("Updated doctor slotsBooked");
 
     // Clear dashboard cache since new appointment created
     clearDoctorDashboardCache(docId);
@@ -870,15 +888,12 @@ const doctorDashboard = async (req, res) => {
     // Check cache first
     const cachedData = getCachedDashboard(docId);
     if (cachedData) {
-      console.log(`Serving dashboard from cache for doctor: ${docId}`);
       return res.json({ 
         success: true, 
         dashData: cachedData,
         cached: true 
       });
     }
-
-    console.log(`Cache miss - fetching fresh dashboard data for doctor: ${docId}`);
 
     const appointments = await appointmentModel
       .find({ docId })
@@ -920,7 +935,6 @@ const doctorDashboard = async (req, res) => {
 
     // Cache the dashboard data
     setCachedDashboard(docId, dashData);
-    console.log(`Dashboard data cached for doctor: ${docId}`);
 
     res.json({ success: true, dashData, cached: false });
   } catch (error) {
@@ -932,11 +946,6 @@ const doctorDashboard = async (req, res) => {
 // API to add a patient for a doctor
 const addPatientByDoctor = async (req, res) => {
   try {
-    console.log("=== ADD PATIENT REQUEST ===");
-    console.log("req.body:", req.body);
-    console.log("req.doctorId:", req.doctorId);
-    console.log("req.headers:", req.headers);
-
     const {
       name,
       email,
@@ -1071,17 +1080,8 @@ const addPatientByDoctor = async (req, res) => {
       doctor: docId, // Associate patient with the doctor who added them
     };
 
-    console.log("Patient data being saved:", {
-      ...patientData,
-      password: "[HIDDEN]",
-      image: "[HIDDEN]",
-    });
-    console.log("Doctor ID:", docId);
-
     const newPatient = new userModel(patientData);
     const savedPatient = await newPatient.save();
-
-    console.log("Patient saved successfully with doctor:", savedPatient.doctor);
 
     // Clear dashboard cache since new patient added
     clearDoctorDashboardCache(docId);
@@ -1116,13 +1116,6 @@ const updatePatientByDoctor = async (req, res) => {
     const docId = req.doctorId;
     const updates = { ...req.body };
 
-    console.log(
-      "Update patient request - patientId:",
-      patientId,
-      "docId:",
-      docId
-    );
-
     // Validate patientId
     if (!patientId || patientId === "undefined") {
       console.error("Invalid patient ID received:", patientId);
@@ -1139,17 +1132,7 @@ const updatePatientByDoctor = async (req, res) => {
       doctor: docId,
     });
 
-    console.log(
-      "Access check - hasAppointment:",
-      hasAppointment,
-      "isAssignedDoctor:",
-      isAssignedDoctor
-    );
-
     if (!hasAppointment && !isAssignedDoctor) {
-      console.log(
-        "Doctor does not have access to patient - no appointment and not assigned doctor"
-      );
       return res.json({
         success: false,
         message: "Unauthorized access to patient",
@@ -1200,11 +1183,9 @@ const updatePatientByDoctor = async (req, res) => {
       .select("-password");
 
     if (!patient) {
-      console.log("Patient not found with ID:", patientId);
       return res.json({ success: false, message: "Patient not found" });
     }
 
-    console.log("Patient updated successfully:", patient._id);
     res.json({ success: true, patient });
   } catch (error) {
     console.error("Error updating patient:", error);
@@ -1353,7 +1334,6 @@ const emailPrescription = async (req, res) => {
     };
 
     await transporter.sendMail(mailOptions);
-    console.log("Email sent successfully to:", patientEmail);
 
     // Update prescription with emailedAt timestamp
     prescription.emailedAt = new Date();
@@ -1387,11 +1367,6 @@ const updateAppointmentByDoctor = async (req, res) => {
     } = req.body;
     const docId = req.doctorId;
 
-    console.log("=== UPDATE APPOINTMENT REQUEST ===");
-    console.log("Appointment ID:", appointmentId);
-    console.log("Request body:", req.body);
-    console.log("Doctor ID:", docId);
-
     // Validate required fields
     if (!slotDate || !slotTime) {
       return res.json({
@@ -1405,18 +1380,6 @@ const updateAppointmentByDoctor = async (req, res) => {
     if (!appointment) {
       return res.json({ success: false, message: "Appointment not found" });
     }
-
-    console.log(
-      "Appointment docId:",
-      appointment.docId,
-      "Type:",
-      typeof appointment.docId
-    );
-    console.log("Request docId:", docId, "Type:", typeof docId);
-    console.log(
-      "Comparison result:",
-      appointment.docId.toString() === docId.toString()
-    );
 
     if (appointment.docId.toString() !== docId.toString()) {
       return res.json({
@@ -1482,8 +1445,6 @@ const updateAppointmentByDoctor = async (req, res) => {
       { new: true }
     );
 
-    console.log("Appointment updated successfully:", updatedAppointment._id);
-
     // Clear dashboard cache since appointment details changed
     clearDoctorDashboardCache(docId);
 
@@ -1509,7 +1470,6 @@ const getFoodDatabase = async (req, res) => {
       foodCache.timestamp &&
       now - foodCache.timestamp < foodCache.ttl
     ) {
-      console.log("Serving food data from cache (monthly cache)");
       return res.json({
         success: true,
         foods: foodCache.data,
@@ -1523,7 +1483,6 @@ const getFoodDatabase = async (req, res) => {
     }
 
     // Cache miss or expired - fetch from database
-    console.log("Cache miss - fetching food data from database");
 
     // Use aggregation to get only unique foods based on name and serving unit
     const foods = await foodModel.aggregate([
@@ -1552,10 +1511,6 @@ const getFoodDatabase = async (req, res) => {
     foodCache.data = foods;
     foodCache.timestamp = now;
 
-    console.log(
-      `Cached ${foods.length} unique food items (by name + serving unit) for 30 days`
-    );
-
     res.json({
       success: true,
       foods,
@@ -1573,7 +1528,6 @@ const getFoodDatabase = async (req, res) => {
 const clearFoodCache = () => {
   foodCache.data = null;
   foodCache.timestamp = null;
-  console.log("Food cache cleared");
 };
 
 // API to create a new diet chart
@@ -1808,8 +1762,6 @@ const getDietChartById = async (req, res) => {
   try {
     const { chartId } = req.params;
 
-    console.log("Fetching diet chart with ID:", chartId);
-
     let dietChart = await dietChartModel
       .findById(chartId)
       .populate("patient_id", "name email phone age gender")
@@ -1817,18 +1769,11 @@ const getDietChartById = async (req, res) => {
       .populate("prescription_id");
 
     if (!dietChart) {
-      console.log("Diet chart not found");
       return res.json({
         success: false,
         message: "Diet chart not found",
       });
     }
-
-    console.log("Diet chart found");
-    console.log(
-      "Meal plan structure:",
-      JSON.stringify(dietChart.weekly_meal_plan.Mon.Breakfast, null, 2)
-    );
 
     // Convert to object and return - foods are already stored with complete details
     const chartObject = dietChart.toObject();
@@ -1843,9 +1788,7 @@ const getDietChartById = async (req, res) => {
           chartObject.weekly_meal_plan[day] &&
           chartObject.weekly_meal_plan[day][meal]
         ) {
-          console.log(
-            `${day} ${meal}: ${chartObject.weekly_meal_plan[day][meal].length} items`
-          );
+          // Count items in meal
         }
       });
     });
@@ -1966,10 +1909,6 @@ const generateAIDietChart = async (req, res) => {
   try {
     const { patientDetails, customNutritionGoals } = req.body;
 
-    console.log("AI Diet Chart Generation requested");
-    console.log("Patient Details:", patientDetails);
-    console.log("Custom Goals:", customNutritionGoals);
-
     // Validate required fields
     if (!patientDetails) {
       return res.json({
@@ -1982,14 +1921,8 @@ const generateAIDietChart = async (req, res) => {
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
 
-    console.log("Querying vector database for relevant foods...");
-
     // Query vector database for top 500 most relevant foods for maximum variety
     const relevantFoods = await queryRelevantFoods(patientDetails, 500);
-
-    console.log(
-      `Retrieved ${relevantFoods.length} relevant foods from vector DB`
-    );
 
     // Generate custom nutrition goals if not provided or if all values are 0
     let nutritionGoals = customNutritionGoals;
@@ -2002,14 +1935,6 @@ const generateAIDietChart = async (req, res) => {
         nutritionGoals.macronutrients.protein > 0 ||
         nutritionGoals.macronutrients.carbs > 0);
 
-    if (!hasManualGoals) {
-      console.log(
-        "No manual goals set (all 0). AI will calculate nutrition goals based on patient data..."
-      );
-    } else {
-      console.log("Using manual nutrition goals provided by doctor");
-    }
-
     // Build the AI prompt (no food data, foods are already in vector DB context)
     const prompt = buildGeminiDietPrompt(
       patientDetails,
@@ -2017,18 +1942,9 @@ const generateAIDietChart = async (req, res) => {
       relevantFoods
     );
 
-    console.log("Calling Gemini AI...");
-
     // Call Gemini API
     const result = await model.generateContent(prompt);
     const aiResponse = result.response.text();
-
-    console.log("AI Response received, parsing...");
-    console.log("=".repeat(80));
-    console.log("AI GENERATED DIET CHART RESPONSE:");
-    console.log("=".repeat(80));
-    console.log(aiResponse);
-    console.log("=".repeat(80));
 
     // Parse the AI response
     const parsedResponse = parseAIDietResponse(
@@ -2968,9 +2884,8 @@ export {
   undoCancellation,
   confirmAppointment,
   startAppointment,
-  doctorList,
-  changeAvailablity,
   appointmentComplete,
+  markReminderSent,
   createAppointmentByDoctor,
   updateAppointmentByDoctor,
   doctorDashboard,
@@ -2993,5 +2908,7 @@ export {
   generateDietChartPDF,
   getPatientAISummary,
   regeneratePatientAISummary,
-  generatePatientAISummary, // Export for use in other controllers
+  generatePatientAISummary,
+  changeAvailablity,
+  doctorList
 };

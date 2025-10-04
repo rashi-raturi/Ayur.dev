@@ -158,7 +158,7 @@ const DoctorDashboard = () => {
             </h1>
             <p className="text-gray-600 text-sm">Here&apos;s what&apos;s happening with your practice today</p>
           </div>
-           <div className="w-20 h-20 rounded-xl overflow-hidden shadow-md border-2 border-gray-200">
+           <div className="w-28 h-20 rounded-xl overflow-hidden shadow-md border-2 border-gray-200">
             <img
               src={flowerImg}
               alt="Ayurvedic flower"
@@ -255,7 +255,7 @@ const DoctorDashboard = () => {
         </div>
 
         {/* Today's Appointments */}
-        <div className='bg-white rounded-lg shadow-sm border border-gray-100 p-4'>
+        <div className='bg-white rounded-lg shadow-sm border border-gray-200 p-4'>
           <div className="flex items-center gap-2 mb-4">
             <Calendar className="w-4 h-4 text-gray-600" />
             <h3 className="text-md font-semibold text-gray-900">Today&apos;s Appointments</h3>
@@ -297,14 +297,14 @@ const DoctorDashboard = () => {
             <UserPlus className="w-5 h-5 text-gray-600" />
           </button>
           <button
-            onClick={() => navigate('/doctor-appointments')}
+            onClick={() => navigate('/doctor-appointments', { state: { openAddAppointment: true } })}
             className="flex items-center justify-between w-full border border-gray-200 rounded-md px-4 py-2 hover:bg-gray-50 transition-colors"
           >
-            <span className="text-gray-900 font-medium text-sm">Start Consultation</span>
-            <MessageCircle className="w-5 h-5 text-gray-600" />
+            <span className="text-gray-900 font-medium text-sm">Add Appointment</span>
+            <Calendar className="w-5 h-5 text-gray-600" />
           </button>
           <button
-            onClick={() => navigate('/dietchart-generator')}
+            onClick={() => navigate('/dietchart-generator', { state: { openCreateDietChart: true } })}
             className="flex items-center justify-between w-full border border-gray-200 rounded-md px-4 py-2 hover:bg-gray-50 transition-colors"
           >
             <span className="text-gray-900 font-medium text-sm">Create Diet Chart</span>
