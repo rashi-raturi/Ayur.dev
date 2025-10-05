@@ -4,7 +4,7 @@ import { AppContext } from '../context/AppContext'
 import axios from 'axios'
 import { toast } from 'react-toastify'
 import { assets } from '../assets/assets'
-import PageTransition from '../components/PageTransition'
+import { Calendar, MapPin, Clock, CreditCard, CheckCircle, XCircle, FileText, AlertCircle } from 'lucide-react'
 
 const MyAppointments = () => {
 
@@ -83,50 +83,187 @@ const MyAppointments = () => {
     }, [token])
 
     return (
-        <div>
-            <p className='pb-3 mt-12 text-lg font-medium text-gray-600 border-b border-gray-600'>My appointments</p>
-            <div className=''>
-                {appointments.map((item, index) => (
-                    <div key={index} className='grid grid-cols-[1fr_2fr] gap-4 sm:flex sm:gap-6 py-4 border-b border-gray-500'>
-                        <div>
-                            <img className='w-36 bg-[#EAEFFF]' src={item.docData.image} alt="" />
-                        </div>
-                        <div className='flex-1 text-sm text-[#5E5E5E]'>
-                            <p className='text-[#262626] text-base font-semibold'>{item.docData.name}</p>
-                            <p>{item.docData.speciality}</p>
-                            <p className='text-[#464646] font-medium mt-1'>Address:</p>
-                            <p className=''>{item.docData.address.line1}</p>
-                            <p className=''>{item.docData.address.line2}</p>
-                            <p className=' mt-1'><span className='text-sm text-[#3C3C3C] font-medium'>Date & Time:</span> {slotDateFormat(item.slotDate)} |  {item.slotTime}</p>
-                        </div>
-                        <div></div>
-                        <div className='flex flex-col gap-2 justify-end text-sm text-center'>
-                            {!item.cancelled && !item.payment && !item.isCompleted && payment !== item._id && <button onClick={() => setPayment(item._id)} className='text-[#696969] sm:min-w-48 py-2 border border-gray-200 rounded-xl hover:bg-primary hover:text-white transition-all duration-300'>Pay Online</button>}
-                            {!item.cancelled && !item.payment && !item.isCompleted && payment === item._id && <button onClick={() => appointmentStripe(item._id)} className='text-[#696969] sm:min-w-48 py-2 border border-gray-200 rounded-xl hover:bg-gray-100 hover:text-white transition-all duration-300 flex items-center justify-center'><img className='max-w-20 max-h-5' src={assets.stripe_logo} alt="" /></button>}
-                            {!item.cancelled && item.payment && !item.isCompleted && <button className='sm:min-w-48 py-2 border border-gray-200 rounded-xl text-[#696969] bg-white'>Paid</button>}
+        <div className="min-h-screen bg-gradient-to-br from-green-50 via-blue-50 to-purple-50 py-8 px-4 sm:px-6 lg:px-8">
+            <div className="max-w-6xl mx-auto">
+                
+                {/* Header Section */}
+                <div className="mb-8">
+                    <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-3">
+                        My Appointments
+                    </h1>
+                    <p className="text-lg text-gray-600">
+                        Manage and track your healthcare appointments
+                    </p>
+                </div>
 
-                            {item.isCompleted && <button className='sm:min-w-48 py-2 border border-gray-200 rounded-xl text-gray-700 bg-white'>Completed</button>}
-
-                            {!item.cancelled && !item.isCompleted && <button onClick={() => cancelAppointment(item._id)} className='text-[#696969] sm:min-w-48 py-2 border border-gray-200 rounded-xl hover:bg-red-600 hover:text-white transition-all duration-300'>Cancel appointment</button>}
-                            {item.cancelled && !item.isCompleted && <button className='sm:min-w-48 py-2 border border-gray-200 rounded-xl text-red-500 bg-white'>Appointment cancelled</button>}
-                            {/* Patient Reports */}
-                            {item.reports && item.reports.length > 0 && (
-                              <div className='mt-4 text-left'>
-                                <p className='font-medium text-gray-700'>Reports:</p>
-                                <ul className='list-disc list-inside mt-1'>
-                                  {item.reports.map((report, idx) => (
-                                    <li key={idx} className='text-sm text-primary hover:underline'>
-                                      <a href={report.url} target='_blank' rel='noopener noreferrer'>
-                                        {report.title} - {new Date(report.date).toLocaleDateString()}
-                                      </a>
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
+                {/* Appointments List */}
+                {appointments.length === 0 ? (
+                    <div className="bg-white rounded-2xl border-2 border-gray-100 p-12 text-center">
+                        <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <Calendar className="w-10 h-10 text-gray-400" />
                         </div>
+                        <h3 className="text-xl font-semibold text-gray-900 mb-2">No appointments yet</h3>
+                        <p className="text-gray-500 mb-6">Book your first appointment with our expert practitioners</p>
+                        <button 
+                            onClick={() => navigate('/doctors')}
+                            className="px-6 py-3 bg-gray-900 text-white rounded-xl font-medium hover:bg-gray-800 transition-all"
+                        >
+                            Find Doctors
+                        </button>
                     </div>
-                ))}
+                ) : (
+                    <div className="space-y-4">
+                        {appointments.map((item, index) => {
+                            // Safety check for docId (populated doctor data)
+                            if (!item.docId) {
+                                return null
+                            }
+                            
+                            return (
+                            <div
+                                key={index}
+                                className="bg-white rounded-2xl border-2 border-gray-100 overflow-hidden hover:border-gray-300 hover:shadow-lg transition-all duration-300"
+                            >
+                                <div className="p-6">
+                                    <div className="flex flex-col lg:flex-row gap-6">
+                                        
+                                        {/* Doctor Image */}
+                                        <div className="flex-shrink-0">
+                                            <div className="relative w-32 h-32 rounded-xl overflow-hidden bg-gradient-to-br from-green-50 to-emerald-50">
+                                                <img 
+                                                    className="w-full h-full object-cover" 
+                                                    src={item.docId.image} 
+                                                    alt={item.docId.name}
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {/* Appointment Details */}
+                                        <div className="flex-1 space-y-3">
+                                            <div>
+                                                <h3 className="text-xl font-bold text-gray-900 mb-1">
+                                                    {item.docId.name}
+                                                </h3>
+                                                <p className="text-gray-600">{item.docId.speciality}</p>
+                                            </div>
+
+                                            <div className="flex flex-wrap gap-4">
+                                                {/* Date & Time */}
+                                                <div className="flex items-center gap-2 text-gray-700">
+                                                    <Calendar className="w-4 h-4 text-gray-900" />
+                                                    <span className="text-sm font-medium">{slotDateFormat(item.slotDate)}</span>
+                                                </div>
+                                                <div className="flex items-center gap-2 text-gray-700">
+                                                    <Clock className="w-4 h-4 text-gray-900" />
+                                                    <span className="text-sm font-medium">{item.slotTime}</span>
+                                                </div>
+                                            </div>
+
+                                            {/* Address */}
+                                            {item.docId.address && (
+                                            <div className="flex items-start gap-2 text-gray-600">
+                                                <MapPin className="w-4 h-4 text-gray-900 mt-0.5 flex-shrink-0" />
+                                                <div className="text-sm">
+                                                    <p>{item.docId.address.line1}</p>
+                                                    {item.docId.address.line2 && <p>{item.docId.address.line2}</p>}
+                                                </div>
+                                            </div>
+                                            )}
+
+                                            {/* Status Badge */}
+                                            <div className="flex items-center gap-2">
+                                                {item.isCompleted && (
+                                                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 text-gray-900 text-xs font-semibold rounded-full">
+                                                        <CheckCircle className="w-4 h-4" />
+                                                        Completed
+                                                    </span>
+                                                )}
+                                                {item.cancelled && (
+                                                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 text-xs font-semibold rounded-full">
+                                                        <XCircle className="w-4 h-4" />
+                                                        Cancelled
+                                                    </span>
+                                                )}
+                                                {item.payment && !item.isCompleted && !item.cancelled && (
+                                                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-700 text-xs font-semibold rounded-full">
+                                                        <CheckCircle className="w-4 h-4" />
+                                                        Paid
+                                                    </span>
+                                                )}
+                                                {!item.payment && !item.isCompleted && !item.cancelled && (
+                                                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 text-amber-700 text-xs font-semibold rounded-full">
+                                                        <AlertCircle className="w-4 h-4" />
+                                                        Payment Pending
+                                                    </span>
+                                                )}
+                                            </div>
+
+                                            {/* Patient Reports */}
+                                            {item.reports && item.reports.length > 0 && (
+                                                <div className="pt-3 border-t border-gray-100">
+                                                    <div className="flex items-center gap-2 mb-2">
+                                                        <FileText className="w-4 h-4 text-gray-900" />
+                                                        <p className="font-semibold text-gray-900 text-sm">Reports:</p>
+                                                    </div>
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {item.reports.map((report, idx) => (
+                                                            <a 
+                                                                key={idx}
+                                                                href={report.url} 
+                                                                target='_blank' 
+                                                                rel='noopener noreferrer'
+                                                                className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-50 hover:bg-gray-100 text-gray-700 text-xs rounded-lg transition-colors"
+                                                            >
+                                                                <FileText className="w-3 h-3" />
+                                                                {report.title}
+                                                            </a>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Action Buttons */}
+                                        <div className="flex flex-col gap-2 lg:min-w-[200px]">
+                                            {/* Pay Online Button */}
+                                            {!item.cancelled && !item.payment && !item.isCompleted && payment !== item._id && (
+                                                <button 
+                                                    onClick={() => setPayment(item._id)} 
+                                                    className="flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-900 text-white rounded-xl font-medium hover:bg-gray-800 transition-all"
+                                                >
+                                                    <CreditCard className="w-4 h-4" />
+                                                    Pay Online
+                                                </button>
+                                            )}
+
+                                            {/* Stripe Payment Button */}
+                                            {!item.cancelled && !item.payment && !item.isCompleted && payment === item._id && (
+                                                <button 
+                                                    onClick={() => appointmentStripe(item._id)} 
+                                                    className="flex items-center justify-center gap-2 px-4 py-2.5 bg-white border-2 border-gray-200 rounded-xl hover:border-gray-300 transition-all"
+                                                >
+                                                    <img className='h-5' src={assets.stripe_logo} alt="Stripe" />
+                                                </button>
+                                            )}
+
+                                            {/* Cancel Appointment Button */}
+                                            {!item.cancelled && !item.isCompleted && (
+                                                <button 
+                                                    onClick={() => cancelAppointment(item._id)} 
+                                                    className="flex items-center justify-center gap-2 px-4 py-2.5 bg-white border-2 border-gray-200 text-gray-700 rounded-xl font-medium hover:bg-red-50 hover:border-red-200 hover:text-red-600 transition-all"
+                                                >
+                                                    <XCircle className="w-4 h-4" />
+                                                    Cancel
+                                                </button>
+                                            )}
+                                        </div>
+
+                                    </div>
+                                </div>
+                            </div>
+                        )})}
+                    </div>
+                )}
             </div>
         </div>
     )

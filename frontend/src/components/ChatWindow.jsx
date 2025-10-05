@@ -29,7 +29,7 @@ export default function ChatWindow({ onClose }) {
     if (saved) {
       setMessages(JSON.parse(saved));
     } else {
-      const welcomeMessage = { role: 'bot', content: "Hi! I'm **VaaniAI**, your friendly Ayurvedic assistant. 🌿\n\nI can help you with:\n- Diet recommendations\n- Wellness advice\n- Ayurvedic remedies\n- Health queries\n\nHow can I assist you today?" };
+      const welcomeMessage = { role: 'bot', content: "Hi! I'm **AyurMind**, your friendly Ayurvedic assistant. 🌿\n\nI can help you with:\n- Diet recommendations\n- Wellness advice\n- Ayurvedic remedies\n- Health queries\n\nHow can I assist you today?" };
       setMessages([welcomeMessage]);
     }
   }, [sessionId]);

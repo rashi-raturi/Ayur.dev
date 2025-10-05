@@ -109,33 +109,56 @@ const updateProfile = async (req, res) => {
 
     try {
 
-        const { userId, name, phone, address, dob, gender, height, weight, bowel_movements } = req.body
-        const imageFile = req.file
-
-        if (!name || !phone || !dob || !gender) {
-            return res.json({ success: false, message: "Data Missing" })
-        }
-
-        const updateData = { 
+        const { 
+            userId, 
             name, 
             phone, 
-            address: JSON.parse(address), 
+            address, 
             dob, 
-            gender 
+            gender, 
+            height, 
+            weight, 
+            bowel_movements,
+            constitution,
+            condition,
+            foodAllergies,
+            medications
+        } = req.body
+        const imageFile = req.file
+
+        // Load existing user to preserve unspecified fields
+        const existingUser = await userModel.findById(userId);
+        // Build updateData by merging request values (allow empty strings to clear)
+        const updateData = {
+            name,
+            phone,
+            address: JSON.parse(address),
+            dob: new Date(dob),
+            gender,
+            height: height ? JSON.parse(height) : existingUser.height,
+            weight: weight ? parseFloat(weight) : existingUser.weight,
+            bowel_movements: bowel_movements !== undefined ? bowel_movements : existingUser.bowel_movements,
+            // Medical information fields
+            constitution: constitution !== undefined ? constitution : existingUser.constitution,
+            condition: condition !== undefined ? condition : existingUser.condition,
+            foodAllergies: foodAllergies !== undefined ? foodAllergies : existingUser.foodAllergies,
+            medications: medications ? JSON.parse(medications) : existingUser.medications
         };
 
-        // Add health metrics if provided
-        if (height) {
-            updateData.height = JSON.parse(height);
-        }
-        if (weight) {
-            updateData.weight = parseFloat(weight);
-        }
-        if (bowel_movements) {
-            updateData.bowel_movements = bowel_movements;
-        }
+        console.log('Final updateData being saved:', updateData);
 
-        await userModel.findByIdAndUpdate(userId, updateData)
+        // Apply updates, always include constitution, condition, foodAllergies
+        const updatedUser = await userModel.findByIdAndUpdate(
+            userId,
+            updateData,
+            { new: true, runValidators: true }
+        );
+        
+        console.log('User after update:', {
+            constitution: updatedUser.constitution,
+            condition: updatedUser.condition,
+            foodAllergies: updatedUser.foodAllergies
+        });
 
         if (imageFile) {
 
@@ -209,10 +232,19 @@ const bookAppointment = async (req, res) => {
             $push: { slotsBooked: newAppointment._id }
         })
 
-        // Associate patient with the doctor if not already associated
-        await userModel.findByIdAndUpdate(userId, {
-            $setOnInsert: { doctor: docId } // Only set if patient doesn't already have a doctor
-        }, { upsert: false })
+        // Update doctor's slots_booked object to mark this slot as booked
+        const slotsBookedKey = `slots_booked.${slotDate}`;
+        await doctorModel.findByIdAndUpdate(docId, {
+            $push: { [slotsBookedKey]: slotTime }
+        })
+
+        // Associate patient with the doctor
+        const updatedUser = await userModel.findByIdAndUpdate(
+            userId,
+            { $set: { doctor: docId } },
+            { new: true }
+        );
+        console.log(`Updated user's doctor for user ${userId}:`, updatedUser.doctor);
 
         res.json({ success: true, message: 'Appointment Booked' })
 
@@ -244,9 +276,15 @@ const cancelAppointment = async (req, res) => {
         })
 
         // Remove appointment from doctor's slotsBooked array
-        const { docId } = appointmentData
+        const { docId, slotDate, slotTime } = appointmentData
         await doctorModel.findByIdAndUpdate(docId, { 
             $pull: { slotsBooked: appointmentId }
+        })
+
+        // Remove slot from doctor's slots_booked object
+        const slotsBookedKey = `slots_booked.${slotDate}`;
+        await doctorModel.findByIdAndUpdate(docId, {
+            $pull: { [slotsBookedKey]: slotTime }
         })
 
         res.json({ success: true, message: 'Appointment Cancelled' })

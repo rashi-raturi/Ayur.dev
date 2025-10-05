@@ -6,7 +6,10 @@
   "scripts": {
     "start": "node server.js",
     "server": "nodemon server.js",
-    "migrate": "node run-migration.js"
+    "migrate": "node run-migration.js",
+    "setup-vector-cache": "node setup-fast-vector-cache.js",
+    "rebuild-vector-cache": "node setup-fast-vector-cache.js rebuild",
+    "check-vector-status": "node -e \"import('./services/fastVectorService.js').then(m => m.checkEmbeddingStatus().then(s => console.log(s)))\""
   },
   "author": "",
   "license": "ISC",

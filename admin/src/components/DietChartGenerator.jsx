@@ -372,8 +372,15 @@ export default function DietChartGenerator() {
         healthGoals: formData.healthGoals,
       };
 
-      // Call the AI diet chart generation API
-      const response = await fetch(`${backendUrl}/api/doctor/diet-chart/generate-ai`, {
+      // Check cache for existing chart key
+      const cacheKey = JSON.stringify({ patientDetails, customNutritionGoals: null });
+      const cached = localStorage.getItem(cacheKey);
+      let data;
+      if (cached) {
+        data = JSON.parse(cached);
+      } else {
+        // Call the AI diet chart generation API
+        const response = await fetch(`${backendUrl}/api/doctor/diet-chart/generate-ai`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -385,7 +392,11 @@ export default function DietChartGenerator() {
         }),
       });
 
-      const data = await response.json();
+        data = await response.json();
+        if (data.success) {
+          localStorage.setItem(cacheKey, JSON.stringify(data));
+        }
+      }
 
       if (data.success) {
         setGeneratedDietChart(data.dietChart);

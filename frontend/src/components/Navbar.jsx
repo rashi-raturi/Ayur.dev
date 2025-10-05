@@ -30,6 +30,7 @@ const Navbar = () => {
 
         {/* Navigation Links - Desktop */}
         <ul className='hidden md:flex items-center gap-1'>
+          {/* Section 1: Main Pages */}
           <NavLink to='/' className={({ isActive }) => isActive ? 'bg-gray-100 rounded-xl' : ''}>
             {({ isActive }) => (
               <li className='px-3 py-1.5 rounded-xl hover:bg-gray-100 transition-colors flex items-center gap-2'>
@@ -70,6 +71,32 @@ const Navbar = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                 </svg>
                 <span className='text-sm font-medium text-gray-700'>VaaniAI</span>
+              </li>
+            )}
+          </NavLink>
+
+          {/* Vertical Separator */}
+          <div className="h-6 w-px bg-gray-300 mx-2"></div>
+
+          {/* Section 2: Appointments */}
+          <NavLink to='/doctors' className={({ isActive }) => isActive ? 'bg-gray-100 rounded-xl' : ''}>
+            {({ isActive }) => (
+              <li className='px-3 py-1.5 rounded-xl hover:bg-gray-100 transition-colors flex items-center gap-2'>
+                <svg className='w-4 h-4' fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+                <span className='text-sm font-medium text-gray-700'>Book Appointment</span>
+              </li>
+            )}
+          </NavLink>
+          
+          <NavLink to='/my-appointments' className={({ isActive }) => isActive ? 'bg-gray-100 rounded-xl' : ''}>
+            {({ isActive }) => (
+              <li className='px-3 py-1.5 rounded-xl hover:bg-gray-100 transition-colors flex items-center gap-2'>
+                <svg className='w-4 h-4' fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <span className='text-sm font-medium text-gray-700'>My Appointments</span>
               </li>
             )}
           </NavLink>
@@ -146,6 +173,31 @@ const Navbar = () => {
                 VaaniAI
               </p>
             </NavLink>
+
+            {/* Horizontal Separator */}
+            <div className="w-full h-px bg-gray-200 my-2"></div>
+
+            {/* Section 2: Appointments */}
+            <div className="w-full px-4 py-2">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Appointments</p>
+            </div>
+            <NavLink onClick={() => setShowMenu(false)} to='/doctors' className='w-full'>
+              <p className='px-4 py-3 rounded-lg hover:bg-gray-100 transition-colors flex items-center gap-3'>
+                <svg className='w-5 h-5' fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+                Book Appointment
+              </p>
+            </NavLink>
+            <NavLink onClick={() => setShowMenu(false)} to='/my-appointments' className='w-full'>
+              <p className='px-4 py-3 rounded-lg hover:bg-gray-100 transition-colors flex items-center gap-3'>
+                <svg className='w-5 h-5' fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                My Appointments
+              </p>
+            </NavLink>
+
             {!token && (
               <button onClick={() => { navigate('/login'); setShowMenu(false); }} className='w-full mt-4 bg-gray-900 text-white px-6 py-3 rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors'>
                 Sign In

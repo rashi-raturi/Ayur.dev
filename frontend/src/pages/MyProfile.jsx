@@ -35,15 +35,29 @@ const MyProfile = () => {
 
     useEffect(() => {
         if (userData) {
+            // Format DOB for date input (YYYY-MM-DD)
+            let formattedDob = '';
+            if (userData.dob) {
+                const date = new Date(userData.dob);
+                formattedDob = date.toISOString().split('T')[0];
+            }
+            
             setEditFormData({
                 name: userData.name || '',
                 phone: userData.phone || '',
                 gender: userData.gender || '',
-                dob: userData.dob || '',
-                address: userData.address || { line1: '', line2: '' }
+                dob: formattedDob,
+                address: userData.address || { line1: '', line2: '' },
+                constitution: userData.constitution || '',
+                condition: userData.condition || '',
+                foodAllergies: userData.foodAllergies || '',
+                medications: userData.medications || [],
+                height: userData.height || { feet: 0, inches: 0 },
+                weight: userData.weight || 0,
+                bowel_movements: userData.bowel_movements || ''
             });
         }
-    }, [userData]);
+    }, [userData, isEditModalOpen]); // Re-populate when modal opens
 
     const getInitials = (name) => {
         return name?.split(' ').map(word => word[0]).join('').toUpperCase().slice(0, 2) || 'U';
@@ -74,6 +88,23 @@ const MyProfile = () => {
             formData.append('gender', editFormData.gender);
             formData.append('dob', editFormData.dob);
             formData.append('address', JSON.stringify(editFormData.address));
+            formData.append('constitution', editFormData.constitution || '');
+            formData.append('condition', editFormData.condition || '');
+            formData.append('foodAllergies', editFormData.foodAllergies || '');
+            formData.append('medications', JSON.stringify(editFormData.medications || []));
+            formData.append('height', JSON.stringify(editFormData.height || { feet: 0, inches: 0 }));
+            formData.append('weight', editFormData.weight || 0);
+            formData.append('bowel_movements', editFormData.bowel_movements || '');
+            
+            console.log('Sending form data:', {
+                constitution: editFormData.constitution,
+                condition: editFormData.condition,
+                foodAllergies: editFormData.foodAllergies,
+                medications: editFormData.medications,
+                height: editFormData.height,
+                weight: editFormData.weight,
+                bowel_movements: editFormData.bowel_movements
+            });
             
             const { data } = await axios.post(backendUrl + '/api/user/update-profile', formData, { headers: { token } });
             
@@ -247,7 +278,13 @@ const MyProfile = () => {
                                     </p>
                                 </div>
                                 <div>
-                                    <label className="text-sm font-medium text-gray-500">Allergies</label>
+                                    <label className="text-sm font-medium text-gray-500">Current Condition</label>
+                                    <p className="text-gray-900 font-medium">
+                                        {userData.condition || 'Not specified'}
+                                    </p>
+                                </div>
+                                <div>
+                                    <label className="text-sm font-medium text-gray-500">Food Allergies</label>
                                     <p className="text-gray-900 font-medium">
                                         {userData.foodAllergies || 'None'}
                                     </p>
@@ -258,12 +295,6 @@ const MyProfile = () => {
                                         {userData.medications?.length > 0 
                                             ? userData.medications.join(', ')
                                             : 'None'}
-                                    </p>
-                                </div>
-                                <div>
-                                    <label className="text-sm font-medium text-gray-500">Emergency Contact</label>
-                                    <p className="text-gray-900 font-medium">
-                                        {userData.emergencyContact || 'Not specified'}
                                     </p>
                                 </div>
                                 <div>
@@ -278,6 +309,12 @@ const MyProfile = () => {
                                     <label className="text-sm font-medium text-gray-500">Weight</label>
                                     <p className="text-gray-900 font-medium">
                                         {userData.weight ? `${userData.weight} kg` : 'Not specified'}
+                                    </p>
+                                </div>
+                                <div>
+                                    <label className="text-sm font-medium text-gray-500">Bowel Movements</label>
+                                    <p className="text-gray-900 font-medium">
+                                        {userData.bowel_movements || 'Not specified'}
                                     </p>
                                 </div>
                             </div>
@@ -467,6 +504,122 @@ const MyProfile = () => {
                                         })}
                                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                                     />
+                                </div>
+
+                                {/* Medical Information Section */}
+                                <div className="pt-6 border-t border-gray-200">
+                                    <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                                        <Heart className="w-5 h-5 text-red-600" />
+                                        Medical Information
+                                    </h3>
+                                    
+                                    <div className="space-y-4">
+                                        <div className="grid md:grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                    Ayurvedic Constitution
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={editFormData.constitution || ''}
+                                                    onChange={(e) => setEditFormData({...editFormData, constitution: e.target.value})}
+                                                    placeholder="e.g., Vata, Pitta, Kapha"
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                                />
+                                            </div>
+                                            
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                    Current Condition
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={editFormData.condition || ''}
+                                                    onChange={(e) => setEditFormData({...editFormData, condition: e.target.value})}
+                                                    placeholder="Current health condition"
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Food Allergies
+                                            </label>
+                                            <textarea
+                                                value={editFormData.foodAllergies || ''}
+                                                onChange={(e) => setEditFormData({...editFormData, foodAllergies: e.target.value})}
+                                                placeholder="List any food allergies..."
+                                                rows="2"
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                            />
+                                        </div>
+
+                                        <div className="grid md:grid-cols-3 gap-4">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                    Height (feet)
+                                                </label>
+                                                <input
+                                                    type="number"
+                                                    value={editFormData.height?.feet || 0}
+                                                    onChange={(e) => setEditFormData({
+                                                        ...editFormData, 
+                                                        height: {...editFormData.height, feet: parseInt(e.target.value) || 0}
+                                                    })}
+                                                    min="0"
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                                />
+                                            </div>
+                                            
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                    Height (inches)
+                                                </label>
+                                                <input
+                                                    type="number"
+                                                    value={editFormData.height?.inches || 0}
+                                                    onChange={(e) => setEditFormData({
+                                                        ...editFormData, 
+                                                        height: {...editFormData.height, inches: parseInt(e.target.value) || 0}
+                                                    })}
+                                                    min="0"
+                                                    max="11"
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                                />
+                                            </div>
+                                            
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                    Weight (kg)
+                                                </label>
+                                                <input
+                                                    type="number"
+                                                    value={editFormData.weight || 0}
+                                                    onChange={(e) => setEditFormData({...editFormData, weight: parseInt(e.target.value) || 0})}
+                                                    min="0"
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Bowel Movements
+                                            </label>
+                                            <select
+                                                value={editFormData.bowel_movements || ''}
+                                                onChange={(e) => setEditFormData({...editFormData, bowel_movements: e.target.value})}
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                            >
+                                                <option value="">Select status</option>
+                                                <option value="Regular">Regular</option>
+                                                <option value="Irregular">Irregular</option>
+                                                <option value="Constipation">Constipation</option>
+                                                <option value="Loose">Loose</option>
+                                            </select>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 

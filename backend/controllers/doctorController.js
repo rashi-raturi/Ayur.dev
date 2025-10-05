@@ -858,8 +858,8 @@ const doctorProfile = async (req, res) => {
 // API to update doctor profile data from  Doctor Panel
 const updateDoctorProfile = async (req, res) => {
   try {
-    const { fees, address, available, about, degree, experience, phone } =
-      req.body;
+    const imageFile = req.file;
+    const { fees, address, available, about, degree, experience, phone } = req.body;
     const docId = req.doctorId;
 
     const updateData = {};
@@ -870,8 +870,13 @@ const updateDoctorProfile = async (req, res) => {
     if (degree !== undefined) updateData.degree = degree;
     if (experience !== undefined) updateData.experience = experience;
     if (phone !== undefined) updateData.phone = phone;
+    // If an image file is provided, upload to cloudinary and set image URL
+    if (imageFile) {
+      const imageUpload = await cloudinary.uploader.upload(imageFile.path, { resource_type: 'image' });
+      updateData.image = imageUpload.secure_url;
+    }
 
-    await doctorModel.findByIdAndUpdate(docId, updateData);
+  await doctorModel.findByIdAndUpdate(docId, updateData);
 
     res.json({ success: true, message: "Profile Updated" });
   } catch (error) {
@@ -1921,8 +1926,8 @@ const generateAIDietChart = async (req, res) => {
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
 
-    // Query vector database for top 500 most relevant foods for maximum variety
-    const relevantFoods = await queryRelevantFoods(patientDetails, 500);
+  // Query vector database for top 150 most relevant foods for maximum variety (reduced from 500 for performance)
+  const relevantFoods = await queryRelevantFoods(patientDetails, 150);
 
     // Generate custom nutrition goals if not provided or if all values are 0
     let nutritionGoals = customNutritionGoals;
@@ -2969,19 +2974,21 @@ const addFoodItem = async (req, res) => {
     // Save to database
     const savedFood = await newFood.save();
 
-    // Update vector embeddings asynchronously
+    // Update vector embeddings asynchronously (OPTIMIZED: incremental update)
     let vectorUpdateSuccess = false;
     let vectorMessage = "";
     
     try {
-      const { buildFastIndex } = await import('../services/fastVectorService.js');
-      await buildFastIndex();
-      vectorUpdateSuccess = true;
-      vectorMessage = " and vector embeddings updated";
-      console.log(`✅ Vector embeddings updated for new food: ${name}`);
+      const { addFoodToIndex } = await import('../services/fastVectorService.js');
+      const result = await addFoodToIndex(savedFood);
+      vectorUpdateSuccess = result.success;
+      vectorMessage = result.success 
+        ? " and vector index updated (incremental)" 
+        : " (vector index update failed)";
+      console.log(`✅ Vector index incrementally updated for new food: ${name}`);
     } catch (vectorError) {
-      console.error('Error updating vector embeddings:', vectorError);
-      vectorMessage = " (vector embeddings update failed)";
+      console.error('Error updating vector index:', vectorError);
+      vectorMessage = " (vector index update failed - will be included in next full rebuild)";
       // Don't fail the request if vector update fails
     }
 
@@ -3030,13 +3037,13 @@ const updateFoodItem = async (req, res) => {
       });
     }
 
-    // Update vector embeddings asynchronously
+    // Update vector embeddings asynchronously (OPTIMIZED: incremental update)
     try {
-      const { buildFastIndex } = await import('../services/fastVectorService.js');
-      await buildFastIndex();
-      console.log(`✅ Vector embeddings updated for food: ${updatedFood.name}`);
+      const { addFoodToIndex } = await import('../services/fastVectorService.js');
+      await addFoodToIndex(updatedFood);
+      console.log(`✅ Vector index incrementally updated for food: ${updatedFood.name}`);
     } catch (vectorError) {
-      console.error('Error updating vector embeddings:', vectorError);
+      console.error('Error updating vector index:', vectorError);
     }
 
     // Clear food cache
@@ -3045,7 +3052,7 @@ const updateFoodItem = async (req, res) => {
 
     res.json({
       success: true,
-      message: "Food item updated successfully and vector embeddings updated",
+      message: "Food item updated successfully and vector index updated (incremental)",
       food: updatedFood
     });
 
@@ -3073,13 +3080,13 @@ const deleteFoodItem = async (req, res) => {
       });
     }
 
-    // Update vector embeddings asynchronously
+    // Update vector embeddings asynchronously (OPTIMIZED: incremental removal)
     try {
-      const { buildFastIndex } = await import('../services/fastVectorService.js');
-      await buildFastIndex();
-      console.log(`✅ Vector embeddings updated after deleting: ${deletedFood.name}`);
+      const { removeFoodFromIndex } = await import('../services/fastVectorService.js');
+      await removeFoodFromIndex(foodId);
+      console.log(`✅ Vector index updated after deleting: ${deletedFood.name}`);
     } catch (vectorError) {
-      console.error('Error updating vector embeddings:', vectorError);
+      console.error('Error updating vector index:', vectorError);
     }
 
     // Clear food cache
@@ -3088,7 +3095,7 @@ const deleteFoodItem = async (req, res) => {
 
     res.json({
       success: true,
-      message: "Food item deleted successfully and vector embeddings updated"
+      message: "Food item deleted successfully and vector index updated (incremental)"
     });
 
   } catch (error) {

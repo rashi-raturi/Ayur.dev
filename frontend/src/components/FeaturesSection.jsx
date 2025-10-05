@@ -56,7 +56,7 @@ const features = [
       "Instant Ayurvedic Guidance",
       "Personalized Recommendations",
     ],
-    buttonText: "Chat with VaaniAI",
+    buttonText: "Talk with VaaniAI",
     buttonColor: "bg-blue-500 hover:bg-blue-600 text-white",
     buttonLink: "/contact",
   },

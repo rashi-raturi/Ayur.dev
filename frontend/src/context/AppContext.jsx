@@ -40,6 +40,15 @@ const AppContextProvider = (props) => {
             const { data } = await axios.get(backendUrl + '/api/user/get-profile', { headers: { token } })
 
             if (data.success) {
+                console.log('Loaded userData:', {
+                    constitution: data.userData.constitution,
+                    condition: data.userData.condition,
+                    foodAllergies: data.userData.foodAllergies,
+                    medications: data.userData.medications,
+                    height: data.userData.height,
+                    weight: data.userData.weight,
+                    bowel_movements: data.userData.bowel_movements
+                });
                 setUserData(data.userData)
             } else {
                 toast.error(data.message)

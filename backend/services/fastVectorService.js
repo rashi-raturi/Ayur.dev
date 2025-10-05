@@ -11,6 +11,8 @@ const DIMENSION = 384;
 const HUGGINGFACE_API_URL = 'https://api-inference.huggingface.co/models/BAAI/bge-small-en-v1.5';
 const HUGGINGFACE_API_KEY = process.env.HUGGINGFACE_API_KEY;
 const VECTOR_CACHE_PATH = './fast_vector_cache.json';
+const CACHE_VERSION = '2.0'; // Increment when cache format changes
+const MAX_FOODS = 5000; // Maximum foods to embed for performance
 
 let vectorIndex = null;
 
@@ -20,12 +22,26 @@ async function initializeFastIndex() {
         // Check if pre-built cache exists
         if (fs.existsSync(VECTOR_CACHE_PATH)) {
             console.log('⚡ Loading existing vector cache...');
-            vectorIndex = JSON.parse(fs.readFileSync(VECTOR_CACHE_PATH, 'utf8'));
-            console.log(`✅ Vector cache loaded with ${vectorIndex.vectors.length} foods`);
-            return vectorIndex;
+            const cacheData = JSON.parse(fs.readFileSync(VECTOR_CACHE_PATH, 'utf8'));
+            
+            // Validate cache version and integrity
+            if (cacheData.version === CACHE_VERSION && 
+                cacheData.vectors && 
+                cacheData.metadata && 
+                cacheData.vectors.length > 0 &&
+                cacheData.vectors.length === cacheData.metadata.length) {
+                
+                vectorIndex = cacheData;
+                const cacheAge = Math.round((Date.now() - cacheData.timestamp) / (1000 * 60 * 60 * 24));
+                console.log(`✅ Vector cache loaded with ${vectorIndex.vectors.length} foods`);
+                console.log(`📅 Cache built: ${new Date(cacheData.timestamp).toLocaleString()} (${cacheAge} days ago)`);
+                return vectorIndex;
+            } else {
+                console.log('⚠️  Cache version mismatch or corrupted. Rebuilding...');
+            }
         }
 
-        // Build new index if doesn't exist
+        // Build new index if doesn't exist or is invalid
         console.log('🔨 Building new vector index...');
         await buildFastIndex();
         return vectorIndex;
@@ -52,16 +68,63 @@ async function buildFastIndex() {
         
         const uniqueFoods = Array.from(uniqueFoodsMap.values());
         console.log(`Found ${uniqueFoods.length} unique foods`);
+        
+        // 🎯 OPTIMIZATION: Select top 5000 most relevant foods for performance
+        let selectedFoods = uniqueFoods;
+        
+        if (uniqueFoods.length > MAX_FOODS) {
+            console.log(`⚡ Optimizing: Selecting top ${MAX_FOODS} most relevant foods from ${uniqueFoods.length} total...`);
+            
+            // Score foods based on nutritional completeness and variety
+            const scoredFoods = uniqueFoods.map(food => {
+                let score = 0;
+                
+                // Prioritize foods with complete nutritional data
+                if (food.macronutrients) {
+                    score += (food.macronutrients.calories_kcal > 0 ? 1 : 0);
+                    score += (food.macronutrients.proteins_g > 0 ? 1 : 0);
+                    score += (food.macronutrients.carbohydrates_g > 0 ? 1 : 0);
+                    score += (food.macronutrients.fats_g > 0 ? 1 : 0);
+                    score += (food.macronutrients.fiber_g > 0 ? 1 : 0);
+                }
+                
+                // Prioritize foods with Ayurvedic properties
+                score += (food.rasa && Array.isArray(food.rasa) && food.rasa.length > 0 ? 2 : 0);
+                score += (food.virya ? 1 : 0);
+                score += (food.vipaka ? 1 : 0);
+                score += (food.dosha_effects ? 1 : 0);
+                
+                // Prioritize foods with health benefits
+                score += (food.health_benefits && Array.isArray(food.health_benefits) && food.health_benefits.length > 0 ? 2 : 0);
+                
+                // Prioritize vegetarian foods (Ayurvedic preference)
+                if (food.diet_type === 'vegetarian' || food.diet_type === 'vegan') {
+                    score += 1;
+                }
+                
+                return { food, score };
+            });
+            
+            // Sort by score and select top 5000
+            scoredFoods.sort((a, b) => b.score - a.score);
+            selectedFoods = scoredFoods.slice(0, MAX_FOODS).map(item => item.food);
+            
+            console.log(`✅ Selected ${selectedFoods.length} foods with highest nutritional completeness and Ayurvedic relevance`);
+        }
 
         // Create vector index structure
         vectorIndex = {
+            version: CACHE_VERSION,
+            timestamp: Date.now(),
+            totalFoodsInDB: allFoods.length,
+            uniqueFoodsProcessed: selectedFoods.length,
             vectors: [],
             metadata: []
         };
 
         console.log('🚀 Generating embeddings and building index...');
-        for (let i = 0; i < uniqueFoods.length; i++) {
-            const food = uniqueFoods[i];
+        for (let i = 0; i < selectedFoods.length; i++) {
+            const food = selectedFoods[i];
             
             try {
                 // Generate embedding text (same as original)
@@ -91,7 +154,7 @@ async function buildFastIndex() {
                 });
 
                 if ((i + 1) % 100 === 0) {
-                    console.log(`✓ Processed ${i + 1}/${uniqueFoods.length} foods (${Math.round((i + 1)/uniqueFoods.length*100)}%)`);
+                    console.log(`✓ Processed ${i + 1}/${selectedFoods.length} foods (${Math.round((i + 1)/selectedFoods.length*100)}%)`);
                 }
 
                 // Small delay to avoid rate limiting
@@ -107,11 +170,14 @@ async function buildFastIndex() {
         fs.writeFileSync(VECTOR_CACHE_PATH, JSON.stringify(vectorIndex, null, 2));
         
         console.log(`✅ Vector index built with ${vectorIndex.vectors.length} foods`);
+        console.log(`📊 Cache stats: ${vectorIndex.totalFoodsInDB} total foods in DB, ${vectorIndex.uniqueFoodsProcessed} unique foods embedded`);
+        console.log(`💾 Cache saved to: ${VECTOR_CACHE_PATH}`);
         
         return { 
             success: true, 
             count: vectorIndex.vectors.length,
-            totalCount: allFoods.length
+            totalCount: allFoods.length,
+            uniqueCount: uniqueFoods.length
         };
 
     } catch (error) {
@@ -290,6 +356,97 @@ function createFoodEmbeddingText(food) {
 // ⚡ Build index on demand
 export async function embedAllFoods() {
     return await buildFastIndex();
+}
+
+// ⚡ Add single food to existing index (incremental update)
+export async function addFoodToIndex(food) {
+    try {
+        // Initialize index if not loaded
+        if (!vectorIndex) {
+            await initializeFastIndex();
+        }
+        
+        // Check if food already exists in index
+        const existingIndex = vectorIndex.metadata.findIndex(
+            m => m.foodId === food._id.toString() || m.name.toLowerCase() === food.name.toLowerCase()
+        );
+        
+        // Generate embedding for new food
+        const embeddingText = createFoodEmbeddingText(food);
+        const embedding = await generateEmbedding(embeddingText);
+        
+        const metadata = {
+            foodId: food._id.toString(),
+            name: food.name,
+            category: food.category,
+            diet_type: food.diet_type || 'General',
+            calories: food.macronutrients?.calories_kcal || 0,
+            protein: food.macronutrients?.proteins_g || 0,
+            carbs: food.macronutrients?.carbohydrates_g || 0,
+            fat: food.macronutrients?.fats_g || 0,
+            fiber: food.macronutrients?.fiber_g || 0,
+            rasa: JSON.stringify(food.rasa || []),
+            virya: food.virya || '',
+            vipaka: food.vipaka || '',
+            dosha_effects: JSON.stringify(food.dosha_effects || {}),
+            health_benefits: JSON.stringify(food.health_benefits || []),
+            vitamins: JSON.stringify(food.vitamins || {}),
+            minerals: JSON.stringify(food.minerals || {}),
+            seasonal_availability: JSON.stringify(food.seasonal_availability || [])
+        };
+        
+        if (existingIndex >= 0) {
+            // Update existing food
+            vectorIndex.vectors[existingIndex] = embedding;
+            vectorIndex.metadata[existingIndex] = metadata;
+            console.log(`✅ Updated food in index: ${food.name}`);
+        } else {
+            // Add new food
+            vectorIndex.vectors.push(embedding);
+            vectorIndex.metadata.push(metadata);
+            vectorIndex.uniqueFoodsProcessed++;
+            console.log(`✅ Added new food to index: ${food.name}`);
+        }
+        
+        // Save updated index to disk
+        fs.writeFileSync(VECTOR_CACHE_PATH, JSON.stringify(vectorIndex, null, 2));
+        
+        return { success: true, action: existingIndex >= 0 ? 'updated' : 'added' };
+        
+    } catch (error) {
+        console.error('Error adding food to index:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+// ⚡ Remove food from index
+export async function removeFoodFromIndex(foodId) {
+    try {
+        // Initialize index if not loaded
+        if (!vectorIndex) {
+            await initializeFastIndex();
+        }
+        
+        const index = vectorIndex.metadata.findIndex(m => m.foodId === foodId);
+        
+        if (index >= 0) {
+            vectorIndex.vectors.splice(index, 1);
+            vectorIndex.metadata.splice(index, 1);
+            vectorIndex.uniqueFoodsProcessed--;
+            
+            // Save updated index to disk
+            fs.writeFileSync(VECTOR_CACHE_PATH, JSON.stringify(vectorIndex, null, 2));
+            
+            console.log(`✅ Removed food from index: ${foodId}`);
+            return { success: true };
+        }
+        
+        return { success: false, message: 'Food not found in index' };
+        
+    } catch (error) {
+        console.error('Error removing food from index:', error);
+        return { success: false, error: error.message };
+    }
 }
 
 // ⚡ Check if index is ready

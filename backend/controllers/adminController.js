@@ -117,7 +117,8 @@ const addDoctor = async (req, res) => {
             fees,
             registrationNumber,
             address: JSON.parse(address),
-            date: Date.now()
+            date: Date.now(),
+            slots_booked: {}  // Initialize empty slots_booked object
         }
 
         const newDoctor = new doctorModel(doctorData)

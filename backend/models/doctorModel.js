@@ -27,6 +27,7 @@ const doctorSchema = new mongoose.Schema(
     registrationNumber: { type: String, required: true, unique: true },
     phone: { type: String },
     address: { type: addressSchema },
+    slots_booked: { type: Object, default: {} },  // Object to store booked slots by date
     slotsBooked: [{ type: mongoose.Schema.Types.ObjectId, ref: "appointment" }],
   },
   { timestamps: true }

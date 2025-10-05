@@ -1,9 +1,16 @@
 import React, { useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import ChatWindow from './ChatWindow';
 import { MessageCircle, X } from 'lucide-react';
 
 const ChatbotWidget = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const location = useLocation();
+
+  // Hide widget on Contact page (VaaniAI page)
+  if (location.pathname === '/contact') {
+    return null;
+  }
 
   return (
     <>

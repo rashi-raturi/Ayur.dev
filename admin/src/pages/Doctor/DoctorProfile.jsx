@@ -12,36 +12,43 @@ const DoctorProfile = () => {
     const [isEdit, setIsEdit] = useState(false)
     const [activeTab, setActiveTab] = useState('general')
     const [editedData, setEditedData] = useState({})
+    const [imageFile, setImageFile] = useState(null)
 
     const updateProfile = async () => {
 
         try {
-            // Only send fields that were actually edited
-            const updateData = {};
-            
-            if (editedData.fees !== undefined) updateData.fees = editedData.fees;
-            if (editedData.about !== undefined) updateData.about = editedData.about;
-            if (editedData.available !== undefined) updateData.available = editedData.available;
-            if (editedData.degree !== undefined) updateData.degree = editedData.degree;
-            if (editedData.experience !== undefined) updateData.experience = editedData.experience;
-            if (editedData.phone !== undefined) updateData.phone = editedData.phone;
-            if (editedData.address !== undefined) updateData.address = editedData.address;
+            // Build form data for update, including image if provided
+            const formData = new FormData();
+            if (imageFile) formData.append('image', imageFile)
 
-            // If no fields were edited, just close edit mode
-            if (Object.keys(updateData).length === 0) {
+            if (editedData.fees !== undefined) formData.append('fees', editedData.fees);
+            if (editedData.about !== undefined) formData.append('about', editedData.about);
+            if (editedData.available !== undefined) formData.append('available', editedData.available);
+            if (editedData.degree !== undefined) formData.append('degree', editedData.degree);
+            if (editedData.experience !== undefined) formData.append('experience', editedData.experience);
+            if (editedData.phone !== undefined) formData.append('phone', editedData.phone);
+            if (editedData.address !== undefined) formData.append('address', JSON.stringify(editedData.address));
+
+            // If nothing to update and no image, exit
+            if (!imageFile && Object.keys(formData).length === 0) {
                 setIsEdit(false);
                 toast.info('No changes to save');
                 return;
             }
 
-            console.log('Sending update data:', updateData);
+            console.log('Sending update data via FormData');
 
-            const { data } = await axios.post(backendUrl + '/api/doctor/update-profile', updateData, { headers: { dToken } })
+            const { data } = await axios.post(
+                backendUrl + '/api/doctor/update-profile',
+                formData,
+                { headers: { dToken, 'Content-Type': 'multipart/form-data' } }
+            )
 
             if (data.success) {
                 toast.success(data.message)
                 setIsEdit(false)
                 setEditedData({})
+                setImageFile(null)
                 await getProfileData()
             } else {
                 toast.error(data.message)
@@ -200,6 +207,18 @@ const DoctorProfile = () => {
                                 </div>
                             </div>
                         </div>
+
+                        {isEdit && (
+                            <div className='mt-4'>
+                                <label className='block text-sm font-medium text-gray-700 mb-2'>Profile Picture</label>
+                                <input
+                                    type='file'
+                                    accept='image/*'
+                                    onChange={e => setImageFile(e.target.files[0])}
+                                    className='w-full text-sm text-gray-600'
+                                />
+                            </div>
+                        )}
                     </div>
 
                     {/* Basic Information & Contact */}
