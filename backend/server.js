@@ -39,23 +39,61 @@ app.use(express.json());
 
 // Configure CORS to allow your frontend domains
 const corsOptions = {
-  origin: [
-    'http://localhost:5173',
-    'http://localhost:5174', 
-    'http://localhost:3000',
-    'https://ayurdev.vercel.app',
-    'https://ayurdev-admin.vercel.app',
-    'https://*.vercel.app' // Allow all Vercel preview deployments
-  ],
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+
+    const allowedOrigins = [
+      'http://localhost:5173',
+      'http://localhost:5174',
+      'http://localhost:3000',
+      'https://ayurdev.vercel.app',
+      'https://ayurdev-admin.vercel.app',
+      'https://ayurveda-admin.vercel.app', // Alternative admin URL
+      /\.vercel\.app$/, // Allow all Vercel preview deployments
+    ];
+
+    // Check if origin matches any allowed pattern
+    const isAllowed = allowedOrigins.some(allowedOrigin => {
+      if (typeof allowedOrigin === 'string') {
+        return origin === allowedOrigin;
+      } else if (allowedOrigin instanceof RegExp) {
+        return allowedOrigin.test(origin);
+      }
+      return false;
+    });
+
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      console.log(`CORS blocked origin: ${origin}`);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'dToken', 'aToken']
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'dToken',
+    'aToken',
+    'X-Requested-With',
+    'Accept',
+    'Origin'
+  ],
+  optionsSuccessStatus: 200 // Some legacy browsers choke on 204
 };
 
 app.use(cors(corsOptions));
 
-// Handle preflight requests
-app.options('*', cors(corsOptions));
+// Handle preflight requests explicitly
+app.options('*', (req, res) => {
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, dToken, aToken, X-Requested-With, Accept, Origin');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.sendStatus(200);
+});
 
 // serve prescription uploads from uploads/prescriptions
 app.use(
