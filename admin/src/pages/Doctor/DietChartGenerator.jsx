@@ -574,6 +574,25 @@ const DietChartGenerator = () => {
     setCurrentPage(1);
   }, [foodSearchTerm, selectedCategory, selectedRasa, selectedDoshas, selectedDietType, sortBy, sortDirection]);
 
+  // Check AI service status on component mount
+  useEffect(() => {
+    const checkAIServiceStatus = async () => {
+      try {
+        const { data } = await axios.get(
+          backendUrl + '/api/doctor/ai-status',
+          { headers: { dToken } }
+        );
+        if (data.success && data.isReady) {
+          console.log('✅ AI Diet Chart Service Ready - Vector Cache Loaded');
+        }
+      } catch (error) {
+        console.warn('AI service check failed, but will continue:', error.message);
+      }
+    };
+    
+    checkAIServiceStatus();
+  }, [backendUrl, dToken]);
+
   // Check if we should open the create diet chart from navigation state
   useEffect(() => {
     if (location.state?.openCreateDietChart) {
@@ -2240,8 +2259,9 @@ const DietChartGenerator = () => {
                         className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                           isGeneratingAI || !formData.patientName
                             ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                            : 'bg-black text-white hover:bg-gray-800'
+                            : 'bg-black text-white hover:bg-gray-800 shadow-lg'
                         }`}
+                        title="Instant AI-powered diet chart generation using advanced food database"
                       >
                         {isGeneratingAI ? (
                           <>
@@ -2250,7 +2270,7 @@ const DietChartGenerator = () => {
                           </>
                         ) : (
                           <>
-                            <span>✨</span>
+                            <span>⚡</span>
                             AI Auto-Fill
                           </>
                         )}

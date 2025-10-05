@@ -2844,6 +2844,36 @@ const getPatientAISummary = async (req, res) => {
   }
 };
 
+// API to check AI service status
+const checkAIServiceStatus = async (req, res) => {
+  try {
+    // Import the vector service check
+    const { checkEmbeddingStatus } = await import('../services/fastVectorService.js');
+    const status = await checkEmbeddingStatus();
+    
+    // Check if Gemini API is configured
+    const hasGeminiKey = !!process.env.GEMINI_API_KEY;
+    
+    res.json({
+      success: true,
+      isReady: status.isReady && hasGeminiKey,
+      vectorCount: status.totalVectors || 0,
+      engine: status.engine || 'FastVector',
+      geminiConfigured: hasGeminiKey,
+      cacheVersion: '3.0',
+      message: status.isReady && hasGeminiKey ? 'AI Diet Chart Service Ready' : 'AI Service Initializing...'
+    });
+  } catch (error) {
+    console.error('Error checking AI service status:', error);
+    res.json({
+      success: false,
+      isReady: false,
+      message: 'AI Service Status Check Failed',
+      error: error.message
+    });
+  }
+};
+
 // API to manually regenerate patient AI summary
 const regeneratePatientAISummary = async (req, res) => {
   try {
@@ -3143,6 +3173,7 @@ export {
   getPatientAISummary,
   regeneratePatientAISummary,
   generatePatientAISummary,
+  checkAIServiceStatus,
   changeAvailablity,
   doctorList
 };

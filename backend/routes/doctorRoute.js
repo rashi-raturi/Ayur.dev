@@ -35,6 +35,7 @@ import {
   generateDietChartPDF,
   getPatientAISummary,
   regeneratePatientAISummary,
+  checkAIServiceStatus,
 } from "../controllers/doctorController.js";
 import authDoctor from "../middleware/authDoctor.js";
 import upload from "../middleware/multer.js";
@@ -91,6 +92,7 @@ doctorRouter.post("/diet-chart/generate-ai", authDoctor, generateAIDietChart);
 doctorRouter.get("/diet-charts", authDoctor, getDietChartsByDoctor);
 doctorRouter.get("/diet-chart/:chartId", authDoctor, getDietChartById);
 doctorRouter.post("/diet-chart/:chartId/pdf", authDoctor, generateDietChartPDF);
+doctorRouter.get("/ai-status", authDoctor, checkAIServiceStatus);
 doctorRouter.get(
   "/diet-charts/patient/:patientId",
   authDoctor,

@@ -125,6 +125,25 @@ const Prescriptions = () => {
     }
   }, [contextPrescriptions]);
 
+  // Check AI service status on component mount
+  useEffect(() => {
+    const checkAIServiceStatus = async () => {
+      try {
+        const { data } = await axios.get(
+          backendUrl + '/api/doctor/ai-status',
+          { headers: { dToken } }
+        );
+        if (data.success && data.isReady) {
+          console.log('✅ AI Prescription & Diet Chart Service Ready - Vector Cache Loaded');
+        }
+      } catch (error) {
+        console.warn('AI service check failed, but will continue:', error.message);
+      }
+    };
+    
+    checkAIServiceStatus();
+  }, [backendUrl, dToken]);
+
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -1590,9 +1609,19 @@ const Prescriptions = () => {
             onClick={handleAIPrescriptionGeneration}
             disabled={isAIPrescriptionLoading || isDietChartLoading || !formData.chiefComplaint?.trim()}
             className="inline-flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-medium rounded-xl hover:from-purple-700 hover:to-pink-700 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
+            title="Instant AI-powered prescription and diet chart generation using advanced medical knowledge and food database"
           >
             <Sparkles className="w-5 h-5" />
-            {(isAIPrescriptionLoading || isDietChartLoading) ? 'Generating Prescription & Diet Chart...' : 'Generate with AI'}
+            {(isAIPrescriptionLoading || isDietChartLoading) ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin ml-1" />
+                Generating Prescription & Diet Chart...
+              </>
+            ) : (
+              <>
+                Generate with AI
+              </>
+            )}
           </button>
         </div>
       </div>
@@ -1993,11 +2022,12 @@ const Prescriptions = () => {
               // Show placeholder when no diet chart is linked
               <div className="text-center py-8">
                 <UtensilsCrossed className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                <p className="text-gray-500 mb-2">No diet chart linked. Click "AI Diet Chart" to generate a personalized diet plan.</p>
+                <p className="text-gray-500 mb-2">No diet chart linked. Use "Generate with AI" button above to create both prescription and personalized diet plan instantly.</p>
                 <div className="text-sm text-gray-400 space-y-1">
-                  <div>✓ AI-powered meal planning</div>
+                  <div>✓ ⚡ Instant AI-powered meal planning</div>
                   <div>✓ Constitutional diet recommendations</div>
                   <div>✓ Calorie and nutrient tracking</div>
+                  <div>✓ 3000+ food database with Ayurvedic properties</div>
                 </div>
               </div>
             )}
