@@ -36,7 +36,26 @@ app.use(
 
 // JSON body parsing and CORS
 app.use(express.json());
-app.use(cors());
+
+// Configure CORS to allow your frontend domains
+const corsOptions = {
+  origin: [
+    'http://localhost:5173',
+    'http://localhost:5174', 
+    'http://localhost:3000',
+    'https://ayurdev.vercel.app',
+    'https://ayurdev-admin.vercel.app',
+    'https://*.vercel.app' // Allow all Vercel preview deployments
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'dToken', 'aToken']
+};
+
+app.use(cors(corsOptions));
+
+// Handle preflight requests
+app.options('*', cors(corsOptions));
 
 // serve prescription uploads from uploads/prescriptions
 app.use(
