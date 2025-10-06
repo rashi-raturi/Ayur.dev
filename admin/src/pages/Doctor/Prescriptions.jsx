@@ -129,18 +129,22 @@ const Prescriptions = () => {
   useEffect(() => {
     const checkAIServiceStatus = async () => {
       try {
-        const { data } = await axios.get(
-          backendUrl + '/api/doctor/ai-status',
-          { headers: { dToken } }
-        );
+        const { data } = await axios.get(backendUrl + "/api/doctor/ai-status", {
+          headers: { dToken },
+        });
         if (data.success && data.isReady) {
-          console.log('✅ AI Prescription & Diet Chart Service Ready - Vector Cache Loaded');
+          console.log(
+            "✅ AI Prescription & Diet Chart Service Ready - Vector Cache Loaded"
+          );
         }
       } catch (error) {
-        console.warn('AI service check failed, but will continue:', error.message);
+        console.warn(
+          "AI service check failed, but will continue:",
+          error.message
+        );
       }
     };
-    
+
     checkAIServiceStatus();
   }, [backendUrl, dToken]);
 
@@ -153,7 +157,7 @@ const Prescriptions = () => {
       ) {
         setOpenStatusDropdownId(null);
       }
-      
+
       if (
         showDietDropdown &&
         !event.target.closest(".diet-dropdown-container")
@@ -384,16 +388,16 @@ const Prescriptions = () => {
         `${backendUrl}/api/doctor/diet-chart/${chartId}`,
         { headers: { dToken } }
       );
-      
+
       if (response.data.success) {
         setDietChartData(response.data.dietChart);
         setShowDietChartPreview(true);
       } else {
-        toast.error('Failed to load diet chart');
+        toast.error("Failed to load diet chart");
       }
     } catch (error) {
-      console.error('Error fetching diet chart:', error);
-      toast.error('Failed to load diet chart');
+      console.error("Error fetching diet chart:", error);
+      toast.error("Failed to load diet chart");
     }
   };
 
@@ -530,8 +534,8 @@ const Prescriptions = () => {
       // Convert symptoms to array if it's a string
       let symptomsArray;
       if (formData.chiefComplaint) {
-        symptomsArray = formData.chiefComplaint.includes(',') 
-          ? formData.chiefComplaint.split(',').map(s => s.trim())
+        symptomsArray = formData.chiefComplaint.includes(",")
+          ? formData.chiefComplaint.split(",").map((s) => s.trim())
           : [formData.chiefComplaint];
       } else {
         symptomsArray = ["general wellness"];
@@ -543,7 +547,8 @@ const Prescriptions = () => {
         constitution_dosha: (formData.constitution || "vata").toLowerCase(),
         age: parseInt(formData.age) || 30,
         symptoms: symptomsArray,
-        doctor_diagnosis: formData.diagnosis || "General consultation for wellness",
+        doctor_diagnosis:
+          formData.diagnosis || "General consultation for wellness",
         chief_complaint: formData.chiefComplaint || "general wellness",
         weight: parseFloat(formData.weight) || 70,
         height_feet: parseInt(formData.height?.feet) || 5,
@@ -570,21 +575,27 @@ const Prescriptions = () => {
 
       if (data.success && (data.diet_chart || data.diet_recommendations)) {
         let dietContent = "";
-        
+
         // Create clean formatted content from diet_recommendations
-        if (data.diet_recommendations && typeof data.diet_recommendations === 'object') {
+        if (
+          data.diet_recommendations &&
+          typeof data.diet_recommendations === "object"
+        ) {
           dietContent = "PERSONALIZED DIET RECOMMENDATIONS\n\n";
-          
+
           // Format each meal category with proper structure
           Object.entries(data.diet_recommendations).forEach(([key, value]) => {
-            const categoryTitle = key.charAt(0).toUpperCase() + key.slice(1).replace('_', ' ');
+            const categoryTitle =
+              key.charAt(0).toUpperCase() + key.slice(1).replace("_", " ");
             dietContent += `${categoryTitle}:\n`;
-            
-            if (typeof value === 'string') {
+
+            if (typeof value === "string") {
               // Split by commas or periods and create bullet points
-              const items = value.split(/[,.]/).filter(item => item.trim().length > 0);
+              const items = value
+                .split(/[,.]/)
+                .filter((item) => item.trim().length > 0);
               if (items.length > 1) {
-                items.forEach(item => {
+                items.forEach((item) => {
                   dietContent += `   • ${item.trim()}\n`;
                 });
               } else {
@@ -598,16 +609,18 @@ const Prescriptions = () => {
         } else if (data.diet_chart) {
           dietContent = "DIET RECOMMENDATIONS\n\n" + data.diet_chart;
         }
-        
+
         // Apply directly to form
         setFormData((prev) => ({
           ...prev,
           dietaryRecommendations: dietContent,
         }));
-        
+
         toast.success("AI diet recommendations applied successfully!");
       } else {
-        toast.error(data.error_message || "No diet recommendation received from AI");
+        toast.error(
+          data.error_message || "No diet recommendation received from AI"
+        );
       }
     } catch (error) {
       console.error("Error getting AI diet recommendation:", error);
@@ -625,8 +638,8 @@ const Prescriptions = () => {
       // Convert symptoms to array if it's a string
       let symptomsArray;
       if (formData.chiefComplaint) {
-        symptomsArray = formData.chiefComplaint.includes(',') 
-          ? formData.chiefComplaint.split(',').map(s => s.trim())
+        symptomsArray = formData.chiefComplaint.includes(",")
+          ? formData.chiefComplaint.split(",").map((s) => s.trim())
           : [formData.chiefComplaint];
       } else {
         symptomsArray = ["general wellness"];
@@ -638,7 +651,8 @@ const Prescriptions = () => {
         constitution_dosha: (formData.constitution || "vata").toLowerCase(),
         age: parseInt(formData.age) || 30,
         symptoms: symptomsArray,
-        doctor_diagnosis: formData.diagnosis || "General consultation for wellness",
+        doctor_diagnosis:
+          formData.diagnosis || "General consultation for wellness",
         chief_complaint: formData.chiefComplaint || "general wellness",
         weight: parseFloat(formData.weight) || 70,
         height_feet: parseInt(formData.height?.feet) || 5,
@@ -664,66 +678,92 @@ const Prescriptions = () => {
 
       const medData = await response.json();
 
-      if (medData.success && (medData.lifestyle_recommendations || medData.ayurvedic_medicines)) {
+      if (
+        medData.success &&
+        (medData.lifestyle_recommendations || medData.ayurvedic_medicines)
+      ) {
         let lifestyleContent = "";
         let medicationsToAdd = [];
-        
+
         // Extract lifestyle recommendations with clean formatting
-        if (medData.lifestyle_recommendations && Array.isArray(medData.lifestyle_recommendations)) {
+        if (
+          medData.lifestyle_recommendations &&
+          Array.isArray(medData.lifestyle_recommendations)
+        ) {
           lifestyleContent += "Lifestyle Recommendations:\n";
           medData.lifestyle_recommendations.forEach((item, index) => {
             lifestyleContent += `   ${index + 1}. ${item}\n`;
           });
           lifestyleContent += "\n";
         }
-        
+
         // Add additional wellness tips
         lifestyleContent += "Additional Wellness Tips:\n";
-        lifestyleContent += "   • Follow consistent daily routines (Dinacharya)\n";
-        lifestyleContent += "   • Practice mindful eating and proper food combining\n";
+        lifestyleContent +=
+          "   • Follow consistent daily routines (Dinacharya)\n";
+        lifestyleContent +=
+          "   • Practice mindful eating and proper food combining\n";
         lifestyleContent += "   • Maintain regular sleep schedule\n";
         lifestyleContent += "   • Include gentle exercise and pranayama\n";
-        
+
         // Extract ayurvedic medicines and create medication forms
-        if (medData.ayurvedic_medicines && Array.isArray(medData.ayurvedic_medicines) && medData.ayurvedic_medicines.length > 0) {
-          const medicationForms = medData.ayurvedic_medicines.map((medicineText, index) => {
-            // Parse medicine text: "Ashwagandha: 1 tsp with warm milk at bedtime."
-            const match = medicineText.match(/^([^:]+):\s*(.+)$/);
-            if (match) {
-              const name = match[1].trim();
-              const instruction = match[2].trim();
-              
-              // Extract dosage, frequency, timing from instruction
-              const dosageMatch = instruction.match(/(\d+\/?\d*\s*(?:tsp|tbsp|gm|mg|drops?|capsules?))/i);
-              const timingMatch = instruction.match(/(?:at\s+)?(bedtime|morning|evening|after meals|before meals|twice daily|daily)/i);
-              
-              return {
-                id: `ai-med-${index}`,
-                name: name,
-                dosage: dosageMatch ? dosageMatch[1] : '1 tsp',
-                frequency: timingMatch && timingMatch[0].includes('twice') ? 'Twice daily' : 'Once daily',
-                timing: timingMatch ? timingMatch[1] : 'After food',
-                duration: '1 month',
-                instructions: instruction
-              };
-            }
-            return null;
-          }).filter(Boolean);
-          
+        if (
+          medData.ayurvedic_medicines &&
+          Array.isArray(medData.ayurvedic_medicines) &&
+          medData.ayurvedic_medicines.length > 0
+        ) {
+          const medicationForms = medData.ayurvedic_medicines
+            .map((medicineText, index) => {
+              // Parse medicine text: "Ashwagandha: 1 tsp with warm milk at bedtime."
+              const match = medicineText.match(/^([^:]+):\s*(.+)$/);
+              if (match) {
+                const name = match[1].trim();
+                const instruction = match[2].trim();
+
+                // Extract dosage, frequency, timing from instruction
+                const dosageMatch = instruction.match(
+                  /(\d+\/?\d*\s*(?:tsp|tbsp|gm|mg|drops?|capsules?))/i
+                );
+                const timingMatch = instruction.match(
+                  /(?:at\s+)?(bedtime|morning|evening|after meals|before meals|twice daily|daily)/i
+                );
+
+                return {
+                  id: `ai-med-${index}`,
+                  name: name,
+                  dosage: dosageMatch ? dosageMatch[1] : "1 tsp",
+                  frequency:
+                    timingMatch && timingMatch[0].includes("twice")
+                      ? "Twice daily"
+                      : "Once daily",
+                  timing: timingMatch ? timingMatch[1] : "After food",
+                  duration: "1 month",
+                  instructions: instruction,
+                };
+              }
+              return null;
+            })
+            .filter(Boolean);
+
           // Set AI medication forms to be displayed
           setAiMedicationForms(medicationForms);
           setShowAiMedicationForms(true);
         }
-        
+
         // Apply lifestyle content to form
         setFormData((prev) => ({
           ...prev,
-          lifestyleAdvice: lifestyleContent
+          lifestyleAdvice: lifestyleContent,
         }));
-        
-        toast.success("AI lifestyle recommendations and medications generated successfully!");
+
+        toast.success(
+          "AI lifestyle recommendations and medications generated successfully!"
+        );
       } else {
-        toast.error(medData.error_message || "No lifestyle recommendation received from AI");
+        toast.error(
+          medData.error_message ||
+            "No lifestyle recommendation received from AI"
+        );
       }
     } catch (error) {
       console.error("Error getting AI lifestyle recommendation:", error);
@@ -741,16 +781,18 @@ const Prescriptions = () => {
       setIsAIPrescriptionLoading(true);
 
       // Check if chief complaint is provided
-      if (!formData.chiefComplaint || formData.chiefComplaint.trim() === '') {
-        toast.error("Please enter chief complaint first to generate AI prescription");
+      if (!formData.chiefComplaint || formData.chiefComplaint.trim() === "") {
+        toast.error(
+          "Please enter chief complaint first to generate AI prescription"
+        );
         return;
       }
 
       // Convert symptoms to array if it's a string
       let symptomsArray;
       if (formData.chiefComplaint) {
-        symptomsArray = formData.chiefComplaint.includes(',') 
-          ? formData.chiefComplaint.split(',').map(s => s.trim())
+        symptomsArray = formData.chiefComplaint.includes(",")
+          ? formData.chiefComplaint.split(",").map((s) => s.trim())
           : [formData.chiefComplaint];
       } else {
         symptomsArray = ["general wellness"];
@@ -762,7 +804,8 @@ const Prescriptions = () => {
         constitution_dosha: (formData.constitution || "vata").toLowerCase(),
         age: parseInt(formData.age) || 30,
         symptoms: symptomsArray,
-        doctor_diagnosis: formData.diagnosis || "General consultation for wellness",
+        doctor_diagnosis:
+          formData.diagnosis || "General consultation for wellness",
         chief_complaint: formData.chiefComplaint || "general wellness",
         weight: parseFloat(formData.weight) || 70,
         height_feet: parseInt(formData.height?.feet) || 5,
@@ -770,13 +813,12 @@ const Prescriptions = () => {
         bowel_movements: formData.bowel_movements || "normal",
       };
 
-
       const response = await fetch(
-        'https://ayurgenixai-dr4y.onrender.com/generate-medication',
+        "https://ayurgenixai-dr4y.onrender.com/generate-medication",
         {
-          method: 'POST',
+          method: "POST",
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
           },
           body: JSON.stringify(requestData),
         }
@@ -784,8 +826,10 @@ const Prescriptions = () => {
 
       if (!response.ok) {
         const errorData = await response.text();
-        console.error('API Error Response:', errorData);
-        throw new Error(`HTTP error! status: ${response.status} - ${errorData}`);
+        console.error("API Error Response:", errorData);
+        throw new Error(
+          `HTTP error! status: ${response.status} - ${errorData}`
+        );
       }
 
       const medData = await response.json();
@@ -801,21 +845,29 @@ const Prescriptions = () => {
           // Generate a basic diagnosis based on chief complaint and constitution
           const constitution = formData.constitution || "vata";
           const symptoms = formData.chiefComplaint;
-          diagnosisText = `${constitution.charAt(0).toUpperCase() + constitution.slice(1)} imbalance presenting with ${symptoms}. Requires constitutional treatment and lifestyle modifications.`;
+          diagnosisText = `${
+            constitution.charAt(0).toUpperCase() + constitution.slice(1)
+          } imbalance presenting with ${symptoms}. Requires constitutional treatment and lifestyle modifications.`;
         }
 
         // Extract dietary recommendations
         let dietContent = "";
-        if (medData.diet_recommendations && Array.isArray(medData.diet_recommendations)) {
+        if (
+          medData.diet_recommendations &&
+          Array.isArray(medData.diet_recommendations)
+        ) {
           dietContent += "Dietary Recommendations:\n";
           medData.diet_recommendations.forEach((item, index) => {
             dietContent += `   ${index + 1}. ${item}\n`;
           });
           dietContent += "\n";
         }
-        
+
         // Also check for dietary_recommendations (alternative field name)
-        if (medData.dietary_recommendations && Array.isArray(medData.dietary_recommendations)) {
+        if (
+          medData.dietary_recommendations &&
+          Array.isArray(medData.dietary_recommendations)
+        ) {
           if (!dietContent) dietContent += "Dietary Recommendations:\n";
           medData.dietary_recommendations.forEach((item, index) => {
             dietContent += `   ${index + 1}. ${item}\n`;
@@ -827,34 +879,44 @@ const Prescriptions = () => {
         if (!dietContent) {
           dietContent += "General Dietary Guidelines:\n";
           dietContent += "   • Follow constitution-based diet principles\n";
-          dietContent += "   • Eat fresh, seasonal, and locally sourced foods\n";
+          dietContent +=
+            "   • Eat fresh, seasonal, and locally sourced foods\n";
           dietContent += "   • Maintain regular meal timings\n";
           dietContent += "   • Practice mindful eating\n\n";
         }
 
         // Extract lifestyle recommendations
         let lifestyleContent = "";
-        if (medData.lifestyle_recommendations && Array.isArray(medData.lifestyle_recommendations)) {
+        if (
+          medData.lifestyle_recommendations &&
+          Array.isArray(medData.lifestyle_recommendations)
+        ) {
           lifestyleContent += "Lifestyle Recommendations:\n";
           medData.lifestyle_recommendations.forEach((item, index) => {
             lifestyleContent += `   ${index + 1}. ${item}\n`;
           });
           lifestyleContent += "\n";
         }
-        
+
         // Also check for lifestyle_advice (alternative field name)
-        if (medData.lifestyle_advice && Array.isArray(medData.lifestyle_advice)) {
-          if (!lifestyleContent) lifestyleContent += "Lifestyle Recommendations:\n";
+        if (
+          medData.lifestyle_advice &&
+          Array.isArray(medData.lifestyle_advice)
+        ) {
+          if (!lifestyleContent)
+            lifestyleContent += "Lifestyle Recommendations:\n";
           medData.lifestyle_advice.forEach((item, index) => {
             lifestyleContent += `   ${index + 1}. ${item}\n`;
           });
           lifestyleContent += "\n";
         }
-        
+
         // Add additional wellness tips
         lifestyleContent += "Additional Wellness Tips:\n";
-        lifestyleContent += "   • Follow consistent daily routines (Dinacharya)\n";
-        lifestyleContent += "   • Practice mindful eating and proper food combining\n";
+        lifestyleContent +=
+          "   • Follow consistent daily routines (Dinacharya)\n";
+        lifestyleContent +=
+          "   • Practice mindful eating and proper food combining\n";
         lifestyleContent += "   • Maintain regular sleep schedule\n";
         lifestyleContent += "   • Include gentle exercise and pranayama\n";
         lifestyleContent += "   • Practice stress management techniques\n";
@@ -862,35 +924,48 @@ const Prescriptions = () => {
 
         // Extract ayurvedic medicines and create medication forms
         let medicationsToAdd = [];
-        
+
         // Check for ayurvedic_medicines using the proven working approach
-        if (medData.ayurvedic_medicines && Array.isArray(medData.ayurvedic_medicines) && medData.ayurvedic_medicines.length > 0) {
-          const medicationForms = medData.ayurvedic_medicines.map((medicineText, index) => {
-            // Parse medicine text: "Ashwagandha: 1 tsp with warm milk at bedtime."
-            const match = medicineText.match(/^([^:]+):\s*(.+)$/);
-            if (match) {
-              const name = match[1].trim();
-              const instruction = match[2].trim();
-              
-              // Extract dosage, frequency, timing from instruction
-              const dosageMatch = instruction.match(/(\d+\/?\d*\s*(?:tsp|tbsp|gm|mg|drops?|capsules?))/i);
-              const timingMatch = instruction.match(/(?:at\s+)?(bedtime|morning|evening|after meals|before meals|twice daily|daily)/i);
-              
-              return {
-                id: `ai-med-${Date.now()}-${index}`,
-                name: name,
-                dosage: dosageMatch ? dosageMatch[1] : '1 tsp',
-                frequency: timingMatch && timingMatch[0].includes('twice') ? 'Twice daily' : 'Once daily',
-                timing: timingMatch ? timingMatch[1] : 'After food',
-                duration: '1 month',
-                instructions: instruction
-              };
-            }
-            return null;
-          }).filter(Boolean);
-          
+        if (
+          medData.ayurvedic_medicines &&
+          Array.isArray(medData.ayurvedic_medicines) &&
+          medData.ayurvedic_medicines.length > 0
+        ) {
+          const medicationForms = medData.ayurvedic_medicines
+            .map((medicineText, index) => {
+              // Parse medicine text: "Ashwagandha: 1 tsp with warm milk at bedtime."
+              const match = medicineText.match(/^([^:]+):\s*(.+)$/);
+              if (match) {
+                const name = match[1].trim();
+                const instruction = match[2].trim();
+
+                // Extract dosage, frequency, timing from instruction
+                const dosageMatch = instruction.match(
+                  /(\d+\/?\d*\s*(?:tsp|tbsp|gm|mg|drops?|capsules?))/i
+                );
+                const timingMatch = instruction.match(
+                  /(?:at\s+)?(bedtime|morning|evening|after meals|before meals|twice daily|daily)/i
+                );
+
+                return {
+                  id: `ai-med-${Date.now()}-${index}`,
+                  name: name,
+                  dosage: dosageMatch ? dosageMatch[1] : "1 tsp",
+                  frequency:
+                    timingMatch && timingMatch[0].includes("twice")
+                      ? "Twice daily"
+                      : "Once daily",
+                  timing: timingMatch ? timingMatch[1] : "After food",
+                  duration: "1 month",
+                  instructions: instruction,
+                };
+              }
+              return null;
+            })
+            .filter(Boolean);
+
           medicationsToAdd = medicationForms;
-          
+
           // Set AI medication forms to be displayed in the separate box
           setAiMedicationForms(medicationForms);
           setShowAiMedicationForms(true);
@@ -903,37 +978,46 @@ const Prescriptions = () => {
           dietaryRecommendations: dietContent,
           lifestyleAdvice: lifestyleContent,
         }));
-        
+
         // Create detailed success message
         let successParts = [];
         if (diagnosisText) successParts.push("diagnosis");
-        if (medicationsToAdd.length > 0) successParts.push(`${medicationsToAdd.length} AI medications (check below)`);
+        if (medicationsToAdd.length > 0)
+          successParts.push(
+            `${medicationsToAdd.length} AI medications (check below)`
+          );
         if (dietContent) successParts.push("dietary recommendations");
         if (lifestyleContent) successParts.push("lifestyle advice");
-        
-        const successMessage = successParts.length > 0 
-          ? `AI prescription generated successfully! Added: ${successParts.join(", ")}.`
-          : "AI prescription generated successfully!";
-          
+
+        const successMessage =
+          successParts.length > 0
+            ? `AI prescription generated successfully! Added: ${successParts.join(
+                ", "
+              )}.`
+            : "AI prescription generated successfully!";
+
         toast.success(successMessage);
-        
+
         // Also generate AI diet chart
         if (formData.patientName && formData.age) {
           try {
             await handleAIDietChart();
           } catch (error) {
             console.error("Error generating AI diet chart:", error);
-            toast.warning("Prescription generated successfully, but diet chart generation failed: " + error.message);
+            toast.warning(
+              "Prescription generated successfully, but diet chart generation failed: " +
+                error.message
+            );
           }
         }
       } else {
-        toast.error(medData.error_message || "No prescription data received from AI");
+        toast.error(
+          medData.error_message || "No prescription data received from AI"
+        );
       }
     } catch (error) {
       console.error("Error generating AI prescription:", error);
-      toast.error(
-        "Failed to generate AI prescription: " + error.message
-      );
+      toast.error("Failed to generate AI prescription: " + error.message);
     } finally {
       setIsAIPrescriptionLoading(false);
     }
@@ -942,13 +1026,26 @@ const Prescriptions = () => {
   // AI Diet Chart Generation
   const handleAIDietChart = async () => {
     try {
+      console.log("🔍 Starting AI Diet Chart generation...");
+      console.log("Form data:", {
+        patientName: formData.patientName,
+        age: formData.age,
+        constitution: formData.constitution,
+        diagnosis: formData.diagnosis,
+      });
+      
       setIsDietChartLoading(true);
 
       // Check if patient data is available
       if (!formData.patientName || !formData.age) {
-        toast.error("Please fill patient name and age first to generate AI diet chart");
+        console.error("❌ Missing required patient data");
+        toast.error(
+          "Please fill patient name and age first to generate AI diet chart"
+        );
         return;
       }
+      
+      console.log("✅ Patient data validation passed");
 
       // Prepare patient details for diet chart generation
       const patientDetails = {
@@ -962,18 +1059,31 @@ const Prescriptions = () => {
         primaryHealthCondition: formData.diagnosis,
         currentSymptoms: formData.chiefComplaint,
         foodAllergies: formData.foodAllergies || "",
-        healthGoals: Array.isArray(formData.healthGoals) ? formData.healthGoals : ["Improve overall health and constitution balance"]
+        healthGoals: Array.isArray(formData.healthGoals)
+          ? formData.healthGoals
+          : ["Improve overall health and constitution balance"],
       };
 
+      console.log("📡 Making API call to generate AI diet chart...");
+      console.log("Backend URL:", backendUrl);
+      console.log("dToken available:", !!dToken);
+      console.log("Patient details:", patientDetails);
+      
       // Call diet chart AI generation endpoint using axios like DietChartGenerator
       const response = await axios.post(
         `${backendUrl}/api/doctor/diet-chart/generate-ai`,
         {
           patientDetails,
-          customNutritionGoals: null // Let AI calculate goals
+          customNutritionGoals: null, // Let AI calculate goals
         },
         { headers: { dToken } }
       );
+
+      console.log("📥 API Response received:", {
+        success: response.data.success,
+        hasData: !!response.data.weeklyMealPlan,
+        message: response.data.message,
+      });
 
       if (response.data.success) {
         const dietChartData = {
@@ -989,12 +1099,12 @@ const Prescriptions = () => {
             primaryHealthCondition: patientDetails.primaryHealthCondition,
             currentSymptoms: patientDetails.currentSymptoms,
             foodAllergies: patientDetails.foodAllergies,
-            healthGoals: patientDetails.healthGoals
+            healthGoals: patientDetails.healthGoals,
           },
           customNutritionGoals: response.data.customNutritionGoals,
           weeklyMealPlan: response.data.weeklyMealPlan,
           specialInstructions: response.data.explanation,
-          dietaryRestrictions: patientDetails.foodAllergies || []
+          dietaryRestrictions: patientDetails.foodAllergies || [],
         };
 
         // Save the generated diet chart to get the chart ID
@@ -1003,7 +1113,7 @@ const Prescriptions = () => {
           dietChartData,
           { headers: { dToken } }
         );
-        
+
         if (saveResponse.data.success) {
           // Store the complete diet chart data for preview
           const completeChartData = {
@@ -1018,14 +1128,14 @@ const Prescriptions = () => {
               primaryHealthCondition: patientDetails.primaryHealthCondition,
               currentSymptoms: patientDetails.currentSymptoms,
               foodAllergies: patientDetails.foodAllergies,
-              healthGoals: patientDetails.healthGoals
+              healthGoals: patientDetails.healthGoals,
             },
             custom_nutrition_goals: response.data.customNutritionGoals,
             weekly_meal_plan: response.data.weeklyMealPlan,
             special_instructions: response.data.explanation,
             dietary_restrictions: patientDetails.foodAllergies || [],
-            status: 'active',
-            created_at: new Date().toISOString()
+            status: "active",
+            created_at: new Date().toISOString(),
           };
 
           // Store for immediate preview access
@@ -1034,30 +1144,49 @@ const Prescriptions = () => {
           // Set the linked diet chart with the saved chart data
           setLinkedDietChart({
             chartId: saveResponse.data.dietChartId,
-            created: new Date().toISOString().split('T')[0],
+            created: new Date().toISOString().split("T")[0],
             dailyCalories: response.data.customNutritionGoals?.calories || 2000,
-            description: `AI-generated diet chart for ${formData.constitution || 'constitutional'} constitution with ${formData.chiefComplaint || 'general wellness concerns'}.`,
-            status: 'active'
+            description: `AI-generated diet chart for ${
+              formData.constitution || "constitutional"
+            } constitution with ${
+              formData.chiefComplaint || "general wellness concerns"
+            }.`,
+            status: "active",
           });
 
           // Update dietary recommendations field with reference to diet chart
-          const dietContent = `Personalized diet chart created for ${formData.constitution || 'constitutional'} constitution. Total daily calories: ${response.data.customNutritionGoals?.calories || 2000}. See linked diet chart for detailed meal planning.`;
-          
+          const dietContent = `Personalized diet chart created for ${
+            formData.constitution || "constitutional"
+          } constitution. Total daily calories: ${
+            response.data.customNutritionGoals?.calories || 2000
+          }. See linked diet chart for detailed meal planning.`;
+
           setFormData((prev) => ({
             ...prev,
-            dietaryRecommendations: dietContent
+            dietaryRecommendations: dietContent,
           }));
 
           toast.success("AI diet chart generated and saved successfully!");
         } else {
-          throw new Error(saveResponse.data.message || "Failed to save diet chart");
+          throw new Error(
+            saveResponse.data.message || "Failed to save diet chart"
+          );
         }
       } else {
-        toast.error(response.data.message || "No diet chart data received from AI");
+        toast.error(
+          response.data.message || "No diet chart data received from AI"
+        );
       }
     } catch (error) {
-      console.error("Error generating AI diet chart:", error);
-      toast.error("Failed to generate AI diet chart: " + error.message);
+      console.error("❌ Error generating AI diet chart:", error);
+      console.error("Error details:", {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        url: error.config?.url,
+        method: error.config?.method,
+      });
+      toast.error(`Failed to generate AI diet chart: ${error.response?.data?.message || error.message}`);
     } finally {
       setIsDietChartLoading(false);
     }
@@ -1068,42 +1197,50 @@ const Prescriptions = () => {
     if (medication.name && medication.dosage) {
       setFormData((prev) => ({
         ...prev,
-        medications: [...(prev.medications || []), { ...medication, id: Date.now() }],
+        medications: [
+          ...(prev.medications || []),
+          { ...medication, id: Date.now() },
+        ],
       }));
-      
+
       // Remove from AI forms
-      setAiMedicationForms(prev => prev.filter(med => med.id !== medication.id));
-      
+      setAiMedicationForms((prev) =>
+        prev.filter((med) => med.id !== medication.id)
+      );
+
       toast.success(`${medication.name} added to prescription!`);
     }
   };
 
   // Add all AI medications
   const addAllAiMedications = () => {
-    const newMedications = aiMedicationForms.map(med => ({ ...med, id: Date.now() + Math.random() }));
+    const newMedications = aiMedicationForms.map((med) => ({
+      ...med,
+      id: Date.now() + Math.random(),
+    }));
     setFormData((prev) => ({
       ...prev,
       medications: [...(prev.medications || []), ...newMedications],
     }));
-    
+
     setAiMedicationForms([]);
     setShowAiMedicationForms(false);
-    
-    toast.success(`${newMedications.length} medications added to prescription!`);
+
+    toast.success(
+      `${newMedications.length} medications added to prescription!`
+    );
   };
 
   // Update AI medication form
   const updateAiMedication = (id, field, value) => {
-    setAiMedicationForms(prev => 
-      prev.map(med => 
-        med.id === id ? { ...med, [field]: value } : med
-      )
+    setAiMedicationForms((prev) =>
+      prev.map((med) => (med.id === id ? { ...med, [field]: value } : med))
     );
   };
 
   // Remove AI medication form
   const removeAiMedication = (id) => {
-    setAiMedicationForms(prev => prev.filter(med => med.id !== id));
+    setAiMedicationForms((prev) => prev.filter((med) => med.id !== id));
     if (aiMedicationForms.length === 1) {
       setShowAiMedicationForms(false);
     }
@@ -1111,7 +1248,7 @@ const Prescriptions = () => {
 
   // Toggle edit mode for AI medication
   const toggleEditAiMedication = (id) => {
-    setEditingAiMedicationId(prev => prev === id ? null : id);
+    setEditingAiMedicationId((prev) => (prev === id ? null : id));
   };
 
   // Apply medication recommendation to form
@@ -1607,20 +1744,22 @@ const Prescriptions = () => {
         <div className="mt-6 flex justify-center">
           <button
             onClick={handleAIPrescriptionGeneration}
-            disabled={isAIPrescriptionLoading || isDietChartLoading || !formData.chiefComplaint?.trim()}
+            disabled={
+              isAIPrescriptionLoading ||
+              isDietChartLoading ||
+              !formData.chiefComplaint?.trim()
+            }
             className="inline-flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-medium rounded-xl hover:from-purple-700 hover:to-pink-700 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
             title="Instant AI-powered prescription and diet chart generation using advanced medical knowledge and food database"
           >
             <Sparkles className="w-5 h-5" />
-            {(isAIPrescriptionLoading || isDietChartLoading) ? (
+            {isAIPrescriptionLoading || isDietChartLoading ? (
               <>
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin ml-1" />
                 Generating Prescription & Diet Chart...
               </>
             ) : (
-              <>
-                Generate with AI
-              </>
+              <>Generate with AI</>
             )}
           </button>
         </div>
@@ -1816,7 +1955,7 @@ const Prescriptions = () => {
                 Add All
               </button>
             </div>
-            
+
             {/* Simple medication display like "Added Medications" */}
             <div className="space-y-2 mb-6">
               {aiMedicationForms.map((medication, index) => (
@@ -1828,7 +1967,9 @@ const Prescriptions = () => {
                     <span className="font-medium text-gray-900">
                       {medication.name}
                     </span>
-                    <span className="text-gray-600 ml-2">- {medication.dosage}</span>
+                    <span className="text-gray-600 ml-2">
+                      - {medication.dosage}
+                    </span>
                     {medication.frequency && (
                       <span className="text-gray-600 ml-2">
                         ({medication.frequency})
@@ -1846,7 +1987,9 @@ const Prescriptions = () => {
                       onClick={() => toggleEditAiMedication(medication.id)}
                       className="px-3 py-1 bg-blue-600 text-white text-xs font-medium rounded hover:bg-blue-700 transition-colors"
                     >
-                      {editingAiMedicationId === medication.id ? 'Cancel' : 'Edit'}
+                      {editingAiMedicationId === medication.id
+                        ? "Cancel"
+                        : "Edit"}
                     </button>
                     <button
                       onClick={() => removeAiMedication(medication.id)}
@@ -1863,103 +2006,147 @@ const Prescriptions = () => {
             {editingAiMedicationId && (
               <div className="mt-6">
                 {aiMedicationForms
-                  .filter(medication => medication.id === editingAiMedicationId)
+                  .filter(
+                    (medication) => medication.id === editingAiMedicationId
+                  )
                   .map((medication, index) => (
-                  <div key={`edit-${medication.id}`} className="border-t pt-6">
-                    <h4 className="text-md font-medium text-gray-900 mb-4">
-                      Edit Medication: {medication.name}
-                    </h4>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Medicine Name <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={medication.name}
-                        onChange={(e) => updateAiMedication(medication.id, 'name', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
-                        placeholder="e.g., Triphala Churna"
-                      />
+                    <div
+                      key={`edit-${medication.id}`}
+                      className="border-t pt-6"
+                    >
+                      <h4 className="text-md font-medium text-gray-900 mb-4">
+                        Edit Medication: {medication.name}
+                      </h4>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Medicine Name{" "}
+                            <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={medication.name}
+                            onChange={(e) =>
+                              updateAiMedication(
+                                medication.id,
+                                "name",
+                                e.target.value
+                              )
+                            }
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+                            placeholder="e.g., Triphala Churna"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Dosage <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={medication.dosage}
+                            onChange={(e) =>
+                              updateAiMedication(
+                                medication.id,
+                                "dosage",
+                                e.target.value
+                              )
+                            }
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+                            placeholder="e.g., 3g, 500mg"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Frequency
+                          </label>
+                          <select
+                            value={medication.frequency}
+                            onChange={(e) =>
+                              updateAiMedication(
+                                medication.id,
+                                "frequency",
+                                e.target.value
+                              )
+                            }
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+                          >
+                            <option value="">Select frequency</option>
+                            <option value="Once daily">Once daily</option>
+                            <option value="Twice daily">Twice daily</option>
+                            <option value="Three times daily">
+                              Three times daily
+                            </option>
+                            <option value="As needed">As needed</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Duration
+                          </label>
+                          <input
+                            type="text"
+                            value={medication.duration}
+                            onChange={(e) =>
+                              updateAiMedication(
+                                medication.id,
+                                "duration",
+                                e.target.value
+                              )
+                            }
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+                            placeholder="e.g., 2 weeks, 1 month"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Timing
+                          </label>
+                          <select
+                            value={medication.timing}
+                            onChange={(e) =>
+                              updateAiMedication(
+                                medication.id,
+                                "timing",
+                                e.target.value
+                              )
+                            }
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+                          >
+                            <option value="">Select timing</option>
+                            <option value="Before food">Before food</option>
+                            <option value="After food">After food</option>
+                            <option value="With food">With food</option>
+                            <option value="Empty stomach">Empty stomach</option>
+                            <option value="Bedtime">Bedtime</option>
+                            <option value="Morning">Morning</option>
+                            <option value="Evening">Evening</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Instructions
+                          </label>
+                          <input
+                            type="text"
+                            value={medication.instructions}
+                            onChange={(e) =>
+                              updateAiMedication(
+                                medication.id,
+                                "instructions",
+                                e.target.value
+                              )
+                            }
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+                            placeholder="e.g., Mix with warm water"
+                          />
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Dosage <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={medication.dosage}
-                        onChange={(e) => updateAiMedication(medication.id, 'dosage', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
-                        placeholder="e.g., 3g, 500mg"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Frequency
-                      </label>
-                      <select
-                        value={medication.frequency}
-                        onChange={(e) => updateAiMedication(medication.id, 'frequency', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
-                      >
-                        <option value="">Select frequency</option>
-                        <option value="Once daily">Once daily</option>
-                        <option value="Twice daily">Twice daily</option>
-                        <option value="Three times daily">Three times daily</option>
-                        <option value="As needed">As needed</option>
-                      </select>
-                    </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Duration
-                      </label>
-                      <input
-                        type="text"
-                        value={medication.duration}
-                        onChange={(e) => updateAiMedication(medication.id, 'duration', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
-                        placeholder="e.g., 2 weeks, 1 month"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Timing
-                      </label>
-                      <select
-                        value={medication.timing}
-                        onChange={(e) => updateAiMedication(medication.id, 'timing', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
-                      >
-                        <option value="">Select timing</option>
-                        <option value="Before food">Before food</option>
-                        <option value="After food">After food</option>
-                        <option value="With food">With food</option>
-                        <option value="Empty stomach">Empty stomach</option>
-                        <option value="Bedtime">Bedtime</option>
-                        <option value="Morning">Morning</option>
-                        <option value="Evening">Evening</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Instructions
-                      </label>
-                      <input
-                        type="text"
-                        value={medication.instructions}
-                        onChange={(e) => updateAiMedication(medication.id, 'instructions', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
-                        placeholder="e.g., Mix with warm water"
-                      />
-                    </div>
-                  </div>
-                </div>
-                ))}
+                  ))}
               </div>
             )}
           </div>
@@ -1980,7 +2167,7 @@ const Prescriptions = () => {
               Diet Chart
             </label>
           </div>
-          
+
           <div className="border-2 border-dashed border-gray-200 rounded-xl p-6 bg-gray-50">
             {linkedDietChart ? (
               // Show linked diet chart details
@@ -1996,7 +2183,9 @@ const Prescriptions = () => {
                   </div>
                   <div className="flex gap-2">
                     <button
-                      onClick={() => handlePreviewDietChart(linkedDietChart.chartId)}
+                      onClick={() =>
+                        handlePreviewDietChart(linkedDietChart.chartId)
+                      }
                       className="px-3 py-1 bg-blue-600 text-white text-xs font-medium rounded hover:bg-blue-700 transition-colors flex items-center gap-1"
                     >
                       <Eye className="w-3 h-3" />
@@ -2010,19 +2199,31 @@ const Prescriptions = () => {
                     </button>
                   </div>
                 </div>
-                
+
                 <div className="space-y-1 text-sm">
-                  <div><strong>Chart ID:</strong> {linkedDietChart.chartId}</div>
-                  <div><strong>Created:</strong> {linkedDietChart.created}</div>
-                  <div><strong>Daily Calories:</strong> {linkedDietChart.dailyCalories} kcal</div>
-                  <div className="text-gray-600 mt-2">{linkedDietChart.description}</div>
+                  <div>
+                    <strong>Chart ID:</strong> {linkedDietChart.chartId}
+                  </div>
+                  <div>
+                    <strong>Created:</strong> {linkedDietChart.created}
+                  </div>
+                  <div>
+                    <strong>Daily Calories:</strong>{" "}
+                    {linkedDietChart.dailyCalories} kcal
+                  </div>
+                  <div className="text-gray-600 mt-2">
+                    {linkedDietChart.description}
+                  </div>
                 </div>
               </div>
             ) : (
               // Show placeholder when no diet chart is linked
               <div className="text-center py-8">
                 <UtensilsCrossed className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                <p className="text-gray-500 mb-2">No diet chart linked. Use "Generate with AI" button above to create both prescription and personalized diet plan instantly.</p>
+                <p className="text-gray-500 mb-2">
+                  No diet chart linked. Use "Generate with AI" button above to
+                  create both prescription and personalized diet plan instantly.
+                </p>
                 <div className="text-sm text-gray-400 space-y-1">
                   <div>✓ ⚡ Instant AI-powered meal planning</div>
                   <div>✓ Constitutional diet recommendations</div>
@@ -2040,7 +2241,7 @@ const Prescriptions = () => {
               Lifestyle & Wellness Advice
             </label>
           </div>
-          
+
           {/* Display area for lifestyle recommendations */}
           <div className="border border-gray-200 rounded-xl bg-gradient-to-br from-purple-50 to-pink-50 min-h-[200px]">
             <textarea
@@ -2391,7 +2592,9 @@ const Prescriptions = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden">
             <div className="flex items-center justify-between p-6 border-b">
-              <h2 className="text-xl font-semibold text-gray-900">Diet Chart Preview</h2>
+              <h2 className="text-xl font-semibold text-gray-900">
+                Diet Chart Preview
+              </h2>
               <button
                 onClick={handleCloseDietChartPreview}
                 className="p-2 hover:bg-gray-100 rounded-full transition-colors"
@@ -2399,32 +2602,49 @@ const Prescriptions = () => {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            
+
             <div className="p-6 overflow-y-auto max-h-[calc(90vh-100px)]">
               {/* Patient Info */}
               <div className="mb-6 p-4 bg-blue-50 rounded-lg">
-                <h3 className="font-semibold text-blue-900 mb-2">Patient Information</h3>
+                <h3 className="font-semibold text-blue-900 mb-2">
+                  Patient Information
+                </h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                  <div><strong>Name:</strong> {dietChartData.patient_details?.patientName || 'N/A'}</div>
-                  <div><strong>Age:</strong> {dietChartData.patient_details?.age || 'N/A'}</div>
-                  <div><strong>Gender:</strong> {dietChartData.patient_details?.gender || 'N/A'}</div>
-                  <div><strong>Constitution:</strong> {dietChartData.patient_details?.constitution || 'N/A'}</div>
+                  <div>
+                    <strong>Name:</strong>{" "}
+                    {dietChartData.patient_details?.patientName || "N/A"}
+                  </div>
+                  <div>
+                    <strong>Age:</strong>{" "}
+                    {dietChartData.patient_details?.age || "N/A"}
+                  </div>
+                  <div>
+                    <strong>Gender:</strong>{" "}
+                    {dietChartData.patient_details?.gender || "N/A"}
+                  </div>
+                  <div>
+                    <strong>Constitution:</strong>{" "}
+                    {dietChartData.patient_details?.constitution || "N/A"}
+                  </div>
                 </div>
                 {dietChartData.patient_details?.height && (
                   <div className="mt-2 text-sm">
-                    <strong>Height:</strong> {
-                      typeof dietChartData.patient_details.height === 'object' 
-                        ? `${dietChartData.patient_details.height.feet}'${dietChartData.patient_details.height.inches}"` 
-                        : dietChartData.patient_details.height
-                    }
+                    <strong>Height:</strong>{" "}
+                    {typeof dietChartData.patient_details.height === "object"
+                      ? `${dietChartData.patient_details.height.feet}'${dietChartData.patient_details.height.inches}"`
+                      : dietChartData.patient_details.height}
                     {dietChartData.patient_details?.weight && (
-                      <span className="ml-4"><strong>Weight:</strong> {dietChartData.patient_details.weight} kg</span>
+                      <span className="ml-4">
+                        <strong>Weight:</strong>{" "}
+                        {dietChartData.patient_details.weight} kg
+                      </span>
                     )}
                   </div>
                 )}
                 {dietChartData.patient_details?.primaryHealthCondition && (
                   <div className="mt-2 text-sm">
-                    <strong>Primary Health Condition:</strong> {dietChartData.patient_details.primaryHealthCondition}
+                    <strong>Primary Health Condition:</strong>{" "}
+                    {dietChartData.patient_details.primaryHealthCondition}
                   </div>
                 )}
               </div>
@@ -2432,12 +2652,41 @@ const Prescriptions = () => {
               {/* Nutrition Goals */}
               {dietChartData.custom_nutrition_goals && (
                 <div className="mb-6 p-4 bg-green-50 rounded-lg">
-                  <h3 className="font-semibold text-green-900 mb-2">Nutrition Goals</h3>
+                  <h3 className="font-semibold text-green-900 mb-2">
+                    Nutrition Goals
+                  </h3>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                    <div><strong>Calories:</strong> {dietChartData.custom_nutrition_goals.macronutrients?.calories || dietChartData.custom_nutrition_goals.calories || 'N/A'}</div>
-                    <div><strong>Protein:</strong> {dietChartData.custom_nutrition_goals.macronutrients?.protein || dietChartData.custom_nutrition_goals.protein || 'N/A'}g</div>
-                    <div><strong>Carbs:</strong> {dietChartData.custom_nutrition_goals.macronutrients?.carbs || dietChartData.custom_nutrition_goals.carbohydrates || 'N/A'}g</div>
-                    <div><strong>Fat:</strong> {dietChartData.custom_nutrition_goals.macronutrients?.fat || dietChartData.custom_nutrition_goals.fat || 'N/A'}g</div>
+                    <div>
+                      <strong>Calories:</strong>{" "}
+                      {dietChartData.custom_nutrition_goals.macronutrients
+                        ?.calories ||
+                        dietChartData.custom_nutrition_goals.calories ||
+                        "N/A"}
+                    </div>
+                    <div>
+                      <strong>Protein:</strong>{" "}
+                      {dietChartData.custom_nutrition_goals.macronutrients
+                        ?.protein ||
+                        dietChartData.custom_nutrition_goals.protein ||
+                        "N/A"}
+                      g
+                    </div>
+                    <div>
+                      <strong>Carbs:</strong>{" "}
+                      {dietChartData.custom_nutrition_goals.macronutrients
+                        ?.carbs ||
+                        dietChartData.custom_nutrition_goals.carbohydrates ||
+                        "N/A"}
+                      g
+                    </div>
+                    <div>
+                      <strong>Fat:</strong>{" "}
+                      {dietChartData.custom_nutrition_goals.macronutrients
+                        ?.fat ||
+                        dietChartData.custom_nutrition_goals.fat ||
+                        "N/A"}
+                      g
+                    </div>
                   </div>
                 </div>
               )}
@@ -2445,35 +2694,58 @@ const Prescriptions = () => {
               {/* Weekly Meal Plan */}
               {dietChartData.weekly_meal_plan && (
                 <div className="mb-6">
-                  <h3 className="font-semibold text-gray-900 mb-4">Weekly Meal Plan</h3>
+                  <h3 className="font-semibold text-gray-900 mb-4">
+                    Weekly Meal Plan
+                  </h3>
                   <div className="space-y-4">
-                    {Object.entries(dietChartData.weekly_meal_plan).map(([day, meals]) => (
-                      <div key={day} className="border rounded-lg p-4">
-                        <h4 className="font-medium text-gray-800 mb-3 capitalize">{day}</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                          {['Breakfast', 'Lunch', 'Snacks', 'Dinner'].map((mealType) => (
-                            <div key={mealType} className="bg-gray-50 p-3 rounded">
-                              <h5 className="font-medium text-gray-700 mb-2">{mealType}</h5>
-                              <div className="space-y-1 text-sm">
-                                {meals[mealType] && meals[mealType].length > 0 ? (
-                                  meals[mealType].map((food, index) => (
-                                    <div key={index} className="flex justify-between">
-                                      <span className="text-gray-800">{food.name || food.food_name}</span>
-                                      <span className="text-gray-600">
-                                        {food.amount || food.quantity || ''}
-                                        {food.serving_unit || food.unit || 'g'}
+                    {Object.entries(dietChartData.weekly_meal_plan).map(
+                      ([day, meals]) => (
+                        <div key={day} className="border rounded-lg p-4">
+                          <h4 className="font-medium text-gray-800 mb-3 capitalize">
+                            {day}
+                          </h4>
+                          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            {["Breakfast", "Lunch", "Snacks", "Dinner"].map(
+                              (mealType) => (
+                                <div
+                                  key={mealType}
+                                  className="bg-gray-50 p-3 rounded"
+                                >
+                                  <h5 className="font-medium text-gray-700 mb-2">
+                                    {mealType}
+                                  </h5>
+                                  <div className="space-y-1 text-sm">
+                                    {meals[mealType] &&
+                                    meals[mealType].length > 0 ? (
+                                      meals[mealType].map((food, index) => (
+                                        <div
+                                          key={index}
+                                          className="flex justify-between"
+                                        >
+                                          <span className="text-gray-800">
+                                            {food.name || food.food_name}
+                                          </span>
+                                          <span className="text-gray-600">
+                                            {food.amount || food.quantity || ""}
+                                            {food.serving_unit ||
+                                              food.unit ||
+                                              "g"}
+                                          </span>
+                                        </div>
+                                      ))
+                                    ) : (
+                                      <span className="text-gray-500">
+                                        No items specified
                                       </span>
-                                    </div>
-                                  ))
-                                ) : (
-                                  <span className="text-gray-500">No items specified</span>
-                                )}
-                              </div>
-                            </div>
-                          ))}
+                                    )}
+                                  </div>
+                                </div>
+                              )
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      )
+                    )}
                   </div>
                 </div>
               )}
@@ -2481,24 +2753,36 @@ const Prescriptions = () => {
               {/* Special Instructions */}
               {dietChartData.special_instructions && (
                 <div className="mb-6 p-4 bg-yellow-50 rounded-lg">
-                  <h3 className="font-semibold text-yellow-900 mb-2">Special Instructions</h3>
-                  <p className="text-sm text-yellow-800">{dietChartData.special_instructions}</p>
+                  <h3 className="font-semibold text-yellow-900 mb-2">
+                    Special Instructions
+                  </h3>
+                  <p className="text-sm text-yellow-800">
+                    {dietChartData.special_instructions}
+                  </p>
                 </div>
               )}
 
               {/* Dietary Restrictions */}
-              {dietChartData.dietary_restrictions && dietChartData.dietary_restrictions.length > 0 && (
-                <div className="mb-6 p-4 bg-red-50 rounded-lg">
-                  <h3 className="font-semibold text-red-900 mb-2">Dietary Restrictions</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {dietChartData.dietary_restrictions.map((restriction, index) => (
-                      <span key={index} className="px-2 py-1 bg-red-200 text-red-800 text-xs rounded">
-                        {restriction}
-                      </span>
-                    ))}
+              {dietChartData.dietary_restrictions &&
+                dietChartData.dietary_restrictions.length > 0 && (
+                  <div className="mb-6 p-4 bg-red-50 rounded-lg">
+                    <h3 className="font-semibold text-red-900 mb-2">
+                      Dietary Restrictions
+                    </h3>
+                    <div className="flex flex-wrap gap-2">
+                      {dietChartData.dietary_restrictions.map(
+                        (restriction, index) => (
+                          <span
+                            key={index}
+                            className="px-2 py-1 bg-red-200 text-red-800 text-xs rounded"
+                          >
+                            {restriction}
+                          </span>
+                        )
+                      )}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
             </div>
           </div>
         </div>
@@ -2567,15 +2851,16 @@ const Prescriptions = () => {
                 </div>
                 <div className="absolute inset-0 w-20 h-20 mx-auto rounded-full border-4 border-purple-300 border-t-transparent animate-spin"></div>
               </div>
-              
+
               <h3 className="text-xl font-semibold text-gray-900 mb-2">
                 Generating AI Prescription
               </h3>
-              
+
               <p className="text-gray-600 mb-6">
-                Our AI is analyzing the patient data and creating comprehensive treatment recommendations...
+                Our AI is analyzing the patient data and creating comprehensive
+                treatment recommendations...
               </p>
-              
+
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-600">Analyzing symptoms</span>
@@ -2586,11 +2871,15 @@ const Prescriptions = () => {
                   <div className="w-4 h-4 border-2 border-purple-300 border-t-transparent rounded-full animate-spin"></div>
                 </div>
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-500">Creating medicine recommendations</span>
+                  <span className="text-gray-500">
+                    Creating medicine recommendations
+                  </span>
                   <span className="text-gray-400">⏳</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-500">Preparing lifestyle advice</span>
+                  <span className="text-gray-500">
+                    Preparing lifestyle advice
+                  </span>
                   <span className="text-gray-400">⏳</span>
                 </div>
               </div>

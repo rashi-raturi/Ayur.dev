@@ -33,16 +33,16 @@ let dashboardCache = {
 const getCachedDashboard = (doctorId) => {
   const cached = dashboardCache.data.get(doctorId);
   if (!cached) return null;
-  
+
   const now = Date.now();
   const age = now - cached.timestamp;
-  
+
   if (age > dashboardCache.ttl) {
     // Cache expired
     dashboardCache.data.delete(doctorId);
     return null;
   }
-  
+
   return cached.data;
 };
 
@@ -50,7 +50,7 @@ const getCachedDashboard = (doctorId) => {
 const setCachedDashboard = (doctorId, data) => {
   dashboardCache.data.set(doctorId, {
     data,
-    timestamp: Date.now()
+    timestamp: Date.now(),
   });
 };
 
@@ -72,16 +72,16 @@ let aiSummaryCache = {
 const getCachedAISummary = (patientId, currentVersion) => {
   const cached = aiSummaryCache.data.get(patientId);
   if (!cached) return null;
-  
+
   const now = Date.now();
   const age = now - cached.timestamp;
-  
+
   // Check if cache expired or version changed
   if (age > aiSummaryCache.ttl || cached.version !== currentVersion) {
     aiSummaryCache.data.delete(patientId);
     return null;
   }
-  
+
   return cached.content;
 };
 
@@ -90,7 +90,7 @@ const setCachedAISummary = (patientId, content, version) => {
   aiSummaryCache.data.set(patientId, {
     content,
     timestamp: Date.now(),
-    version
+    version,
   });
 };
 
@@ -106,59 +106,89 @@ const generatePatientAISummary = async (patientId) => {
   try {
     // Fetch patient data
     const patient = await userModel.findById(patientId);
-    
+
     if (!patient) {
-      throw new Error('Patient not found');
+      throw new Error("Patient not found");
     }
-    
+
     // Fetch prescriptions separately from Prescription collection
     const prescriptions = await prescriptionModel
       .find({ patientId: patientId })
       .sort({ createdAt: -1 })
       .limit(10)
       .lean();
-    
+
     // Calculate age
-    let age = 'N/A';
+    let age = "N/A";
     if (patient.dob) {
       const birthDate = new Date(patient.dob);
       const today = new Date();
       age = today.getFullYear() - birthDate.getFullYear();
       const monthDiff = today.getMonth() - birthDate.getMonth();
-      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      if (
+        monthDiff < 0 ||
+        (monthDiff === 0 && today.getDate() < birthDate.getDate())
+      ) {
         age--;
       }
     }
-    
+
     // Calculate BMI if height and weight available
-    let bmi = 'N/A';
+    let bmi = "N/A";
     if (patient.height && patient.weight && patient.height.feet > 0) {
-      const heightInMeters = ((patient.height.feet * 12) + (patient.height.inches || 0)) * 0.0254;
+      const heightInMeters =
+        (patient.height.feet * 12 + (patient.height.inches || 0)) * 0.0254;
       bmi = (patient.weight / (heightInMeters * heightInMeters)).toFixed(1);
     }
-    
+
     // Build prescription summary
-    const prescriptionSummaries = prescriptions.slice(0, 5).map((rx, index) => {
-      if (!rx) return null;
-      
-      const date = rx.createdAt ? new Date(rx.createdAt).toLocaleDateString('en-US', { 
-        year: 'numeric', 
-        month: 'short', 
-        day: 'numeric' 
-      }) : 'Unknown date';
-      
-      const medications = rx.medications && rx.medications.length > 0
-        ? rx.medications.map(med => `${med.name} (${med.dosage}${med.duration ? ', ' + med.duration : ''})`).join(', ')
-        : 'No medications';
-      
-      return `${index + 1}. Date: ${date}
-   - Chief Complaint: ${rx.chiefComplaint || 'Not specified'}
-   - Diagnosis: ${rx.diagnosis || 'Not specified'}
+    const prescriptionSummaries = prescriptions
+      .slice(0, 5)
+      .map((rx, index) => {
+        if (!rx) return null;
+
+        const date = rx.createdAt
+          ? new Date(rx.createdAt).toLocaleDateString("en-US", {
+              year: "numeric",
+              month: "short",
+              day: "numeric",
+            })
+          : "Unknown date";
+
+        const medications =
+          rx.medications && rx.medications.length > 0
+            ? rx.medications
+                .map(
+                  (med) =>
+                    `${med.name} (${med.dosage}${
+                      med.duration ? ", " + med.duration : ""
+                    })`
+                )
+                .join(", ")
+            : "No medications";
+
+        return `${index + 1}. Date: ${date}
+   - Chief Complaint: ${rx.chiefComplaint || "Not specified"}
+   - Diagnosis: ${rx.diagnosis || "Not specified"}
    - Medications: ${medications}
-   - Dietary Recommendations: ${rx.dietaryRecommendations ? (rx.dietaryRecommendations.length > 100 ? rx.dietaryRecommendations.substring(0, 100) + '...' : rx.dietaryRecommendations) : 'None'}
-   - Lifestyle Advice: ${rx.lifestyleAdvice ? (rx.lifestyleAdvice.length > 100 ? rx.lifestyleAdvice.substring(0, 100) + '...' : rx.lifestyleAdvice) : 'None'}`;
-    }).filter(Boolean).join('\n\n');
-    
+   - Dietary Recommendations: ${
+     rx.dietaryRecommendations
+       ? rx.dietaryRecommendations.length > 100
+         ? rx.dietaryRecommendations.substring(0, 100) + "..."
+         : rx.dietaryRecommendations
+       : "None"
+   }
+   - Lifestyle Advice: ${
+     rx.lifestyleAdvice
+       ? rx.lifestyleAdvice.length > 100
+         ? rx.lifestyleAdvice.substring(0, 100) + "..."
+         : rx.lifestyleAdvice
+       : "None"
+   }`;
+      })
+      .filter(Boolean)
+      .join("\n\n");
+
     // Build AI prompt
     const prompt = `You are an Ayurvedic healthcare AI assistant. Generate a comprehensive, professional patient summary based on the following information.
 
@@ -166,18 +196,22 @@ PATIENT INFORMATION:
 - Name: ${patient.name}
 - Age: ${age} years
 - Gender: ${patient.gender}
-- Constitution (Prakriti): ${patient.constitution || 'Not assessed'}
+- Constitution (Prakriti): ${patient.constitution || "Not assessed"}
 - BMI: ${bmi}
-- Bowel Movements: ${patient.bowel_movements || 'Not recorded'}
+- Bowel Movements: ${patient.bowel_movements || "Not recorded"}
 
 MEDICAL PROFILE:
-- Primary Condition: ${patient.condition || 'General wellness'}
-- Food Allergies: ${patient.foodAllergies || 'None reported'}
-- Current Medications: ${patient.medications && patient.medications.length > 0 ? patient.medications.join(', ') : 'None'}
-- Doctor's Notes: ${patient.notes || 'No additional notes'}
+- Primary Condition: ${patient.condition || "General wellness"}
+- Food Allergies: ${patient.foodAllergies || "None reported"}
+- Current Medications: ${
+      patient.medications && patient.medications.length > 0
+        ? patient.medications.join(", ")
+        : "None"
+    }
+- Doctor's Notes: ${patient.notes || "No additional notes"}
 
 PRESCRIPTION HISTORY (${prescriptions.length} total prescriptions):
-${prescriptionSummaries || 'No prescriptions recorded yet'}
+${prescriptionSummaries || "No prescriptions recorded yet"}
 
 INSTRUCTIONS:
 Generate a comprehensive patient summary in **Markdown format** with the following structure. Do NOT use emojis - the UI will add icons automatically.
@@ -221,7 +255,15 @@ Generate a comprehensive patient summary in **Markdown format** with the followi
 3. Recommendation 3
 
 ## Quick Reference
-- **Last Consultation:** ${prescriptions.length > 0 && prescriptions[0].createdAt ? new Date(prescriptions[0].createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : 'No consultations yet'}
+- **Last Consultation:** ${
+      prescriptions.length > 0 && prescriptions[0].createdAt
+        ? new Date(prescriptions[0].createdAt).toLocaleDateString("en-US", {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          })
+        : "No consultations yet"
+    }
 - **Total Prescriptions:** ${prescriptions.length}
 - **Active Concerns:** [List 2-3 key concerns based on data]
 
@@ -242,15 +284,15 @@ Generate the summary now:`;
     // Initialize Gemini AI
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
     const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
-    
+
     const result = await model.generateContent(prompt);
     const aiResponse = result.response.text();
-    
+
     // Extract metadata from the summary
     const healthTrends = [];
     const riskFactors = [];
     const recommendations = [];
-    
+
     // Simple extraction logic (can be improved)
     const trendMatch = aiResponse.match(/## Key Health Trends\n([\s\S]*?)##/);
     if (trendMatch) {
@@ -258,43 +300,60 @@ Generate the summary now:`;
       if (trends) {
         // Filter out placeholder text
         const validTrends = trends
-          .map(t => t.replace('- ', '').trim())
-          .filter(t => !t.toLowerCase().includes('pattern') && 
-                       !t.toLowerCase().includes('insufficient data') &&
-                       !t.toLowerCase().includes('no significant trends') &&
-                       t.length > 10);
+          .map((t) => t.replace("- ", "").trim())
+          .filter(
+            (t) =>
+              !t.toLowerCase().includes("pattern") &&
+              !t.toLowerCase().includes("insufficient data") &&
+              !t.toLowerCase().includes("no significant trends") &&
+              t.length > 10
+          );
         healthTrends.push(...validTrends);
       }
     }
-    
-    const riskMatch = aiResponse.match(/## Risk Factors & Concerns\n([\s\S]*?)##/);
+
+    const riskMatch = aiResponse.match(
+      /## Risk Factors & Concerns\n([\s\S]*?)##/
+    );
     if (riskMatch) {
       const risks = riskMatch[1].match(/- \*\*(.*?)\*\*:(.*)/g);
       if (risks) {
-        riskFactors.push(...risks.map(r => {
-          const match = r.match(/\*\*(.*?)\*\*:(.*)/);
-          return match ? `${match[1].trim()}: ${match[2].trim()}` : r.replace('- ', '').trim();
-        }));
+        riskFactors.push(
+          ...risks.map((r) => {
+            const match = r.match(/\*\*(.*?)\*\*:(.*)/);
+            return match
+              ? `${match[1].trim()}: ${match[2].trim()}`
+              : r.replace("- ", "").trim();
+          })
+        );
       } else {
         // Fallback to simple bullet parsing
         const simpleRisks = riskMatch[1].match(/- (.*)/g);
         if (simpleRisks) {
           const validRisks = simpleRisks
-            .map(r => r.replace('- ', '').trim())
-            .filter(r => !r.toLowerCase().includes('no significant risk') &&
-                         !r.toLowerCase().includes('no risk factors') &&
-                         r.length > 10);
+            .map((r) => r.replace("- ", "").trim())
+            .filter(
+              (r) =>
+                !r.toLowerCase().includes("no significant risk") &&
+                !r.toLowerCase().includes("no risk factors") &&
+                r.length > 10
+            );
           riskFactors.push(...validRisks);
         }
       }
     }
-    
-    const recMatch = aiResponse.match(/## Recommendations for Continued Care\n([\s\S]*?)##/);
+
+    const recMatch = aiResponse.match(
+      /## Recommendations for Continued Care\n([\s\S]*?)##/
+    );
     if (recMatch) {
       const recs = recMatch[1].match(/\d+\. (.*)/g);
-      if (recs) recommendations.push(...recs.map(r => r.replace(/\d+\. /, '').trim()));
+      if (recs)
+        recommendations.push(
+          ...recs.map((r) => r.replace(/\d+\. /, "").trim())
+        );
     }
-    
+
     // Update patient record with new summary
     patient.aiSummary = {
       content: aiResponse,
@@ -305,24 +364,24 @@ Generate the summary now:`;
         healthTrends: healthTrends.slice(0, 5),
         riskFactors: riskFactors.slice(0, 5),
         recommendations: recommendations.slice(0, 5),
-        treatmentProgress: 'Analysis based on ' + prescriptions.length + ' prescriptions'
-      }
+        treatmentProgress:
+          "Analysis based on " + prescriptions.length + " prescriptions",
+      },
     };
-    
+
     await patient.save();
-    
+
     // Cache the summary
     setCachedAISummary(patientId, aiResponse, patient.aiSummary.version);
-    
+
     return {
       content: aiResponse,
       metadata: patient.aiSummary.metadata,
       lastGenerated: patient.aiSummary.lastGenerated,
-      version: patient.aiSummary.version
+      version: patient.aiSummary.version,
     };
-    
   } catch (error) {
-    console.error('Error generating AI summary:', error);
+    console.error("Error generating AI summary:", error);
     throw error;
   }
 };
@@ -720,10 +779,10 @@ const markReminderSent = async (req, res) => {
     // Clear dashboard cache
     clearDoctorDashboardCache(docId);
 
-    return res.json({ 
-      success: true, 
+    return res.json({
+      success: true,
       message: "Reminder marked as sent",
-      reminderSentAt: new Date()
+      reminderSentAt: new Date(),
     });
   } catch (error) {
     console.log(error);
@@ -859,7 +918,8 @@ const doctorProfile = async (req, res) => {
 const updateDoctorProfile = async (req, res) => {
   try {
     const imageFile = req.file;
-    const { fees, address, available, about, degree, experience, phone } = req.body;
+    const { fees, address, available, about, degree, experience, phone } =
+      req.body;
     const docId = req.doctorId;
 
     const updateData = {};
@@ -872,11 +932,13 @@ const updateDoctorProfile = async (req, res) => {
     if (phone !== undefined) updateData.phone = phone;
     // If an image file is provided, upload to cloudinary and set image URL
     if (imageFile) {
-      const imageUpload = await cloudinary.uploader.upload(imageFile.path, { resource_type: 'image' });
+      const imageUpload = await cloudinary.uploader.upload(imageFile.path, {
+        resource_type: "image",
+      });
       updateData.image = imageUpload.secure_url;
     }
 
-  await doctorModel.findByIdAndUpdate(docId, updateData);
+    await doctorModel.findByIdAndUpdate(docId, updateData);
 
     res.json({ success: true, message: "Profile Updated" });
   } catch (error) {
@@ -893,10 +955,10 @@ const doctorDashboard = async (req, res) => {
     // Check cache first
     const cachedData = getCachedDashboard(docId);
     if (cachedData) {
-      return res.json({ 
-        success: true, 
+      return res.json({
+        success: true,
         dashData: cachedData,
-        cached: true 
+        cached: true,
       });
     }
 
@@ -1926,8 +1988,8 @@ const generateAIDietChart = async (req, res) => {
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
 
-  // Query vector database for top 150 most relevant foods for maximum variety (reduced from 500 for performance)
-  const relevantFoods = await queryRelevantFoods(patientDetails, 150);
+    // Query vector database for top 150 most relevant foods for maximum variety (reduced from 500 for performance)
+    const relevantFoods = await queryRelevantFoods(patientDetails, 150);
 
     // Generate custom nutrition goals if not provided or if all values are 0
     let nutritionGoals = customNutritionGoals;
@@ -2677,18 +2739,23 @@ const generateDietChartPDF = async (req, res) => {
     const { chartId } = req.params;
     const doctorId = req.body.docId;
 
-    console.log('PDF Generation Debug:');
-    console.log('Chart ID:', chartId);
-    console.log('Doctor ID:', doctorId);
+    console.log("PDF Generation Debug:");
+    console.log("Chart ID:", chartId);
+    console.log("Doctor ID:", doctorId);
 
     // Fetch the diet chart (no need to populate food_ref since foods are embedded)
     const dietChart = await dietChartModel
       .findById(chartId)
       .populate("patient_id");
 
-    console.log('Fetched diet chart:', !!dietChart);
-    console.log('Weekly meal plan exists:', !!dietChart?.weekly_meal_plan);
-    console.log('Weekly meal plan keys:', dietChart?.weekly_meal_plan ? Object.keys(dietChart.weekly_meal_plan) : 'None');
+    console.log("Fetched diet chart:", !!dietChart);
+    console.log("Weekly meal plan exists:", !!dietChart?.weekly_meal_plan);
+    console.log(
+      "Weekly meal plan keys:",
+      dietChart?.weekly_meal_plan
+        ? Object.keys(dietChart.weekly_meal_plan)
+        : "None"
+    );
 
     if (!dietChart) {
       return res.json({ success: false, message: "Diet chart not found" });
@@ -2696,23 +2763,35 @@ const generateDietChartPDF = async (req, res) => {
 
     // Verify doctor has access
     if (dietChart.doctor_id.toString() !== doctorId) {
-      console.log('Doctor access denied:', dietChart.doctor_id.toString(), 'vs', doctorId);
+      console.log(
+        "Doctor access denied:",
+        dietChart.doctor_id.toString(),
+        "vs",
+        doctorId
+      );
       return res.json({ success: false, message: "Unauthorized access" });
     }
 
     // Fetch doctor data
     const doctorData = await doctorModel.findById(doctorId);
-    console.log('Doctor data fetched:', !!doctorData);
+    console.log("Doctor data fetched:", !!doctorData);
 
     // Prepare data for PDF generation
     const dietChartData = {
-      weeklyMealPlan: dietChart.weekly_meal_plan.toObject ? dietChart.weekly_meal_plan.toObject() : dietChart.weekly_meal_plan,
+      weeklyMealPlan: dietChart.weekly_meal_plan.toObject
+        ? dietChart.weekly_meal_plan.toObject()
+        : dietChart.weekly_meal_plan,
       nutritionGoals: dietChart.custom_nutrition_goals,
     };
 
-    console.log('Diet chart data prepared:');
-    console.log('Weekly meal plan keys:', dietChartData.weeklyMealPlan ? Object.keys(dietChartData.weeklyMealPlan) : 'None');
-    console.log('Nutrition goals:', !!dietChartData.nutritionGoals);
+    console.log("Diet chart data prepared:");
+    console.log(
+      "Weekly meal plan keys:",
+      dietChartData.weeklyMealPlan
+        ? Object.keys(dietChartData.weeklyMealPlan)
+        : "None"
+    );
+    console.log("Nutrition goals:", !!dietChartData.nutritionGoals);
 
     // Get patient data from both patient_id reference and patient_snapshot
     const patientSnapshot = dietChart.patient_snapshot || {};
@@ -2741,9 +2820,9 @@ const generateDietChartPDF = async (req, res) => {
     );
 
     // Send PDF buffer directly to response (Vercel compatible)
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    res.setHeader('Content-Length', buffer.length);
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.setHeader("Content-Length", buffer.length);
     res.send(buffer);
   } catch (error) {
     console.error("Error generating diet chart PDF:", error);
@@ -2757,89 +2836,108 @@ const getPatientAISummary = async (req, res) => {
     const { patientId } = req.params;
     const doctorId = req.doctorId;
     const { forceRefresh } = req.query; // Optional query param to force regeneration
-    
+
     console.log(`AI summary request for patient: ${patientId}`);
-    
+
     // Verify doctor has access to this patient
     const patient = await userModel.findById(patientId);
     if (!patient) {
-      return res.json({ success: false, message: 'Patient not found' });
+      return res.json({ success: false, message: "Patient not found" });
     }
-    
+
     // Check if doctor has access (either assigned doctor or has appointments)
     const hasAccess = patient.doctor.toString() === doctorId.toString();
-    const hasAppointment = await appointmentModel.exists({ docId: doctorId, userId: patientId });
-    
+    const hasAppointment = await appointmentModel.exists({
+      docId: doctorId,
+      userId: patientId,
+    });
+
     if (!hasAccess && !hasAppointment) {
-      return res.json({ success: false, message: 'Unauthorized access to patient' });
-    }
-    
-    // Check if force refresh requested
-    if (forceRefresh === 'true') {
-      console.log('Force refresh requested - generating new summary');
-      clearAISummaryCache(patientId);
-      const summary = await generatePatientAISummary(patientId);
-      return res.json({ 
-        success: true, 
-        summary,
-        cached: false,
-        regenerated: true
+      return res.json({
+        success: false,
+        message: "Unauthorized access to patient",
       });
     }
-    
+
+    // Check if force refresh requested
+    if (forceRefresh === "true") {
+      console.log("Force refresh requested - generating new summary");
+      clearAISummaryCache(patientId);
+      const summary = await generatePatientAISummary(patientId);
+      return res.json({
+        success: true,
+        summary,
+        cached: false,
+        regenerated: true,
+      });
+    }
+
     // Check cache first
-    const cachedSummary = getCachedAISummary(patientId, patient.aiSummary?.version);
+    const cachedSummary = getCachedAISummary(
+      patientId,
+      patient.aiSummary?.version
+    );
     if (cachedSummary) {
-      console.log('Serving AI summary from cache');
+      console.log("Serving AI summary from cache");
       return res.json({
         success: true,
         summary: {
           content: cachedSummary,
           metadata: patient.aiSummary.metadata,
           lastGenerated: patient.aiSummary.lastGenerated,
-          version: patient.aiSummary.version
+          version: patient.aiSummary.version,
         },
-        cached: true
+        cached: true,
       });
     }
-    
+
     // Check if we have a stored summary in DB
     // Fetch current prescription count for comparison
-    const currentPrescriptionCount = await prescriptionModel.countDocuments({ patientId: patientId });
-    
-    if (patient.aiSummary && patient.aiSummary.content && 
-        patient.aiSummary.prescriptionCount === currentPrescriptionCount) {
-      console.log('Serving AI summary from database (up to date)');
-      
+    const currentPrescriptionCount = await prescriptionModel.countDocuments({
+      patientId: patientId,
+    });
+
+    if (
+      patient.aiSummary &&
+      patient.aiSummary.content &&
+      patient.aiSummary.prescriptionCount === currentPrescriptionCount
+    ) {
+      console.log("Serving AI summary from database (up to date)");
+
       // Cache it for future requests
-      setCachedAISummary(patientId, patient.aiSummary.content, patient.aiSummary.version);
-      
+      setCachedAISummary(
+        patientId,
+        patient.aiSummary.content,
+        patient.aiSummary.version
+      );
+
       return res.json({
         success: true,
         summary: {
           content: patient.aiSummary.content,
           metadata: patient.aiSummary.metadata,
           lastGenerated: patient.aiSummary.lastGenerated,
-          version: patient.aiSummary.version
+          version: patient.aiSummary.version,
         },
         cached: false,
-        fromDatabase: true
+        fromDatabase: true,
       });
     }
-    
+
     // Generate new summary
-    console.log('Generating new AI summary (prescription count changed or no summary exists)');
+    console.log(
+      "Generating new AI summary (prescription count changed or no summary exists)"
+    );
     const summary = await generatePatientAISummary(patientId);
-    
+
     res.json({
       success: true,
       summary,
       cached: false,
-      generated: true
+      generated: true,
     });
-    
   } catch (error) {
-    console.error('Error getting patient AI summary:', error);
+    console.error("Error getting patient AI summary:", error);
     res.json({ success: false, message: error.message });
   }
 };
@@ -2848,28 +2946,33 @@ const getPatientAISummary = async (req, res) => {
 const checkAIServiceStatus = async (req, res) => {
   try {
     // Import the vector service check
-    const { checkEmbeddingStatus } = await import('../services/fastVectorService.js');
+    const { checkEmbeddingStatus } = await import(
+      "../services/fastVectorService.js"
+    );
     const status = await checkEmbeddingStatus();
-    
+
     // Check if Gemini API is configured
     const hasGeminiKey = !!process.env.GEMINI_API_KEY;
-    
+
     res.json({
       success: true,
       isReady: status.isReady && hasGeminiKey,
       vectorCount: status.totalVectors || 0,
-      engine: status.engine || 'FastVector',
+      engine: status.engine || "FastVector",
       geminiConfigured: hasGeminiKey,
-      cacheVersion: '3.0',
-      message: status.isReady && hasGeminiKey ? 'AI Diet Chart Service Ready' : 'AI Service Initializing...'
+      cacheVersion: "3.0",
+      message:
+        status.isReady && hasGeminiKey
+          ? "AI Diet Chart Service Ready"
+          : "AI Service Initializing...",
     });
   } catch (error) {
-    console.error('Error checking AI service status:', error);
+    console.error("Error checking AI service status:", error);
     res.json({
       success: false,
       isReady: false,
-      message: 'AI Service Status Check Failed',
-      error: error.message
+      message: "AI Service Status Check Failed",
+      error: error.message,
     });
   }
 };
@@ -2879,34 +2982,39 @@ const regeneratePatientAISummary = async (req, res) => {
   try {
     const { patientId } = req.params;
     const doctorId = req.doctorId;
-    
+
     console.log(`Manual regeneration request for patient: ${patientId}`);
-    
+
     // Verify doctor has access
     const patient = await userModel.findById(patientId);
     if (!patient) {
-      return res.json({ success: false, message: 'Patient not found' });
+      return res.json({ success: false, message: "Patient not found" });
     }
-    
+
     const hasAccess = patient.doctor.toString() === doctorId.toString();
-    const hasAppointment = await appointmentModel.exists({ docId: doctorId, userId: patientId });
-    
+    const hasAppointment = await appointmentModel.exists({
+      docId: doctorId,
+      userId: patientId,
+    });
+
     if (!hasAccess && !hasAppointment) {
-      return res.json({ success: false, message: 'Unauthorized access to patient' });
+      return res.json({
+        success: false,
+        message: "Unauthorized access to patient",
+      });
     }
-    
+
     // Clear cache and regenerate
     clearAISummaryCache(patientId);
     const summary = await generatePatientAISummary(patientId);
-    
+
     res.json({
       success: true,
-      message: 'AI summary regenerated successfully',
-      summary
+      message: "AI summary regenerated successfully",
+      summary,
     });
-    
   } catch (error) {
-    console.error('Error regenerating patient AI summary:', error);
+    console.error("Error regenerating patient AI summary:", error);
     res.json({ success: false, message: error.message });
   }
 };
@@ -2928,26 +3036,26 @@ const addFoodItem = async (req, res) => {
       health_benefits,
       preparation_methods,
       storage_instructions,
-      common_combinations
+      common_combinations,
     } = req.body;
 
     // Validate required fields
     if (!name || !category || !macronutrients) {
       return res.json({
         success: false,
-        message: "Name, category, and macronutrients are required"
+        message: "Name, category, and macronutrients are required",
       });
     }
 
     // Check if food already exists
-    const existingFood = await foodModel.findOne({ 
-      name: { $regex: new RegExp(`^${name.trim()}$`, 'i') }
+    const existingFood = await foodModel.findOne({
+      name: { $regex: new RegExp(`^${name.trim()}$`, "i") },
     });
-    
+
     if (existingFood) {
       return res.json({
         success: false,
-        message: "A food item with this name already exists"
+        message: "A food item with this name already exists",
       });
     }
 
@@ -2959,9 +3067,9 @@ const addFoodItem = async (req, res) => {
     const newFood = new foodModel({
       food_id: nextFoodId,
       name: name.trim(),
-      name_hindi: name_hindi || '',
+      name_hindi: name_hindi || "",
       category: category.toLowerCase(),
-      diet_type: diet_type || 'vegetarian',
+      diet_type: diet_type || "vegetarian",
       macronutrients: {
         calories_kcal: macronutrients.calories_kcal || 0,
         proteins_g: macronutrients.proteins_g || 0,
@@ -2969,36 +3077,36 @@ const addFoodItem = async (req, res) => {
         fats_g: macronutrients.fats_g || 0,
         fiber_g: macronutrients.fiber_g || 0,
         sugar_g: macronutrients.sugar_g || 0,
-        sodium_mg: macronutrients.sodium_mg || 0
+        sodium_mg: macronutrients.sodium_mg || 0,
       },
       ayurvedic_properties: {
-        rasa: ayurvedic_properties?.rasa || ['sweet'],
-        virya: ayurvedic_properties?.virya || 'neutral',
-        vipaka: ayurvedic_properties?.vipaka || 'sweet',
+        rasa: ayurvedic_properties?.rasa || ["sweet"],
+        virya: ayurvedic_properties?.virya || "neutral",
+        vipaka: ayurvedic_properties?.vipaka || "sweet",
         dosha_effects: {
-          vata: ayurvedic_properties?.dosha_effects?.vata || 'neutral',
-          pitta: ayurvedic_properties?.dosha_effects?.pitta || 'neutral',
-          kapha: ayurvedic_properties?.dosha_effects?.kapha || 'neutral'
+          vata: ayurvedic_properties?.dosha_effects?.vata || "neutral",
+          pitta: ayurvedic_properties?.dosha_effects?.pitta || "neutral",
+          kapha: ayurvedic_properties?.dosha_effects?.kapha || "neutral",
         },
         karma: {
           physical_actions: ayurvedic_properties?.karma?.physical_actions || [],
-          mental_actions: ayurvedic_properties?.karma?.mental_actions || []
-        }
+          mental_actions: ayurvedic_properties?.karma?.mental_actions || [],
+        },
       },
       vitamins: vitamins || {},
       minerals: minerals || {},
       serving_size: {
         amount: serving_size?.amount || 100,
-        unit: serving_size?.unit || 'g'
+        unit: serving_size?.unit || "g",
       },
       seasonal_availability: seasonal_availability || [],
       health_benefits: health_benefits || [],
       preparation_methods: preparation_methods || [],
-      storage_instructions: storage_instructions || '',
+      storage_instructions: storage_instructions || "",
       common_combinations: common_combinations || [],
       created_by_doctor: req.doctorId,
       created_at: new Date(),
-      is_custom: true
+      is_custom: true,
     });
 
     // Save to database
@@ -3007,18 +3115,23 @@ const addFoodItem = async (req, res) => {
     // Update vector embeddings asynchronously (OPTIMIZED: incremental update)
     let vectorUpdateSuccess = false;
     let vectorMessage = "";
-    
+
     try {
-      const { addFoodToIndex } = await import('../services/fastVectorService.js');
+      const { addFoodToIndex } = await import(
+        "../services/fastVectorService.js"
+      );
       const result = await addFoodToIndex(savedFood);
       vectorUpdateSuccess = result.success;
-      vectorMessage = result.success 
-        ? " and vector index updated (incremental)" 
+      vectorMessage = result.success
+        ? " and vector index updated (incremental)"
         : " (vector index update failed)";
-      console.log(`✅ Vector index incrementally updated for new food: ${name}`);
+      console.log(
+        `✅ Vector index incrementally updated for new food: ${name}`
+      );
     } catch (vectorError) {
-      console.error('Error updating vector index:', vectorError);
-      vectorMessage = " (vector index update failed - will be included in next full rebuild)";
+      console.error("Error updating vector index:", vectorError);
+      vectorMessage =
+        " (vector index update failed - will be included in next full rebuild)";
       // Don't fail the request if vector update fails
     }
 
@@ -3031,14 +3144,13 @@ const addFoodItem = async (req, res) => {
       message: `Food item added successfully${vectorMessage}`,
       food: savedFood,
       foodId: savedFood._id,
-      vectorUpdateSuccess
+      vectorUpdateSuccess,
     });
-
   } catch (error) {
     console.error("Error adding food item:", error);
     res.json({
       success: false,
-      message: error.message || "Failed to add food item"
+      message: error.message || "Failed to add food item",
     });
   }
 };
@@ -3055,7 +3167,7 @@ const updateFoodItem = async (req, res) => {
       {
         ...updateData,
         updated_at: new Date(),
-        updated_by_doctor: req.doctorId
+        updated_by_doctor: req.doctorId,
       },
       { new: true }
     );
@@ -3063,17 +3175,21 @@ const updateFoodItem = async (req, res) => {
     if (!updatedFood) {
       return res.json({
         success: false,
-        message: "Food item not found"
+        message: "Food item not found",
       });
     }
 
     // Update vector embeddings asynchronously (OPTIMIZED: incremental update)
     try {
-      const { addFoodToIndex } = await import('../services/fastVectorService.js');
+      const { addFoodToIndex } = await import(
+        "../services/fastVectorService.js"
+      );
       await addFoodToIndex(updatedFood);
-      console.log(`✅ Vector index incrementally updated for food: ${updatedFood.name}`);
+      console.log(
+        `✅ Vector index incrementally updated for food: ${updatedFood.name}`
+      );
     } catch (vectorError) {
-      console.error('Error updating vector index:', vectorError);
+      console.error("Error updating vector index:", vectorError);
     }
 
     // Clear food cache
@@ -3082,15 +3198,15 @@ const updateFoodItem = async (req, res) => {
 
     res.json({
       success: true,
-      message: "Food item updated successfully and vector index updated (incremental)",
-      food: updatedFood
+      message:
+        "Food item updated successfully and vector index updated (incremental)",
+      food: updatedFood,
     });
-
   } catch (error) {
     console.error("Error updating food item:", error);
     res.json({
       success: false,
-      message: error.message || "Failed to update food item"
+      message: error.message || "Failed to update food item",
     });
   }
 };
@@ -3106,17 +3222,21 @@ const deleteFoodItem = async (req, res) => {
     if (!deletedFood) {
       return res.json({
         success: false,
-        message: "Food item not found"
+        message: "Food item not found",
       });
     }
 
     // Update vector embeddings asynchronously (OPTIMIZED: incremental removal)
     try {
-      const { removeFoodFromIndex } = await import('../services/fastVectorService.js');
+      const { removeFoodFromIndex } = await import(
+        "../services/fastVectorService.js"
+      );
       await removeFoodFromIndex(foodId);
-      console.log(`✅ Vector index updated after deleting: ${deletedFood.name}`);
+      console.log(
+        `✅ Vector index updated after deleting: ${deletedFood.name}`
+      );
     } catch (vectorError) {
-      console.error('Error updating vector index:', vectorError);
+      console.error("Error updating vector index:", vectorError);
     }
 
     // Clear food cache
@@ -3125,14 +3245,14 @@ const deleteFoodItem = async (req, res) => {
 
     res.json({
       success: true,
-      message: "Food item deleted successfully and vector index updated (incremental)"
+      message:
+        "Food item deleted successfully and vector index updated (incremental)",
     });
-
   } catch (error) {
     console.error("Error deleting food item:", error);
     res.json({
       success: false,
-      message: error.message || "Failed to delete food item"
+      message: error.message || "Failed to delete food item",
     });
   }
 };
@@ -3175,5 +3295,5 @@ export {
   generatePatientAISummary,
   checkAIServiceStatus,
   changeAvailablity,
-  doctorList
+  doctorList,
 };

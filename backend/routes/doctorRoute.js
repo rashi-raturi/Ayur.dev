@@ -76,11 +76,21 @@ doctorRouter.post("/change-availability", authDoctor, changeAvailablity);
 doctorRouter.post("/complete-appointment", authDoctor, appointmentComplete);
 doctorRouter.get("/dashboard", authDoctor, doctorDashboard);
 doctorRouter.get("/profile", authDoctor, doctorProfile);
- doctorRouter.post("/update-profile", authDoctor, upload.single('image'), updateDoctorProfile);
+doctorRouter.post(
+  "/update-profile",
+  authDoctor,
+  upload.single("image"),
+  updateDoctorProfile
+);
 
 // Food database
 // Allow profile image upload
-doctorRouter.post("/update-profile", authDoctor, upload.single('image'), updateDoctorProfile);
+doctorRouter.post(
+  "/update-profile",
+  authDoctor,
+  upload.single("image"),
+  updateDoctorProfile
+);
 doctorRouter.get("/foods", authDoctor, getFoodDatabase);
 doctorRouter.post("/foods/add", authDoctor, addFoodItem);
 doctorRouter.put("/foods/:foodId", authDoctor, updateFoodItem);
