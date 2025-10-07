@@ -46,7 +46,7 @@ const ChatbotWidget = () => {
         {!isOpen && (
           <div className="absolute bottom-full right-0 mb-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
             <div className="bg-gray-900 text-white text-sm px-4 py-2 rounded-lg shadow-lg whitespace-nowrap">
-              Chat with VaaniAI
+              Chat with AyuMind 🌿
               <div className="absolute top-full right-6 -mt-1">
                 <div className="border-8 border-transparent border-t-gray-900"></div>
               </div>
